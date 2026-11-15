@@ -147,7 +147,7 @@ async function fetchFileLocal() {
 }
 
 function validRating(r) {
-  return Number.isInteger(r) && r >= 1 && r <= 5 ? r : null;
+  return Number.isInteger(r) && r >= 1 && r <= 10 ? r : null;
 }
 
 function normalizeRatings(it) {
@@ -358,7 +358,7 @@ function rateItem(id, person, star) {
   };
   const message = newRating == null
     ? `Clear ${person} rating of "${item.title}"`
-    : `Rate "${item.title}" ${person} ${newRating}/5`;
+    : `Rate "${item.title}" ${person} ${newRating}/10`;
   applyAndSave(op, message);
 }
 
@@ -519,10 +519,10 @@ function buildItemRow(item) {
       const line = el("div", { class: `rating-line person-${p.toLowerCase()}${mine ? " mine" : ""}` },
         el("span", { class: "person-tag", text: p }));
       const stars = el("span", { class: "stars" });
-      for (let i = 1; i <= 5; i++) {
+      for (let i = 1; i <= 10; i++) {
         const on = value != null && i <= value;
         if (mine) {
-          const s = el("button", { type: "button", class: `star${on ? " on" : ""}`, text: on ? "★" : "☆", "aria-label": `${p}: ${i} из 5` });
+          const s = el("button", { type: "button", class: `star${on ? " on" : ""}`, text: on ? "★" : "☆", "aria-label": `${p}: ${i} из 10` });
           s.addEventListener("click", () => rateItem(item.id, p, i));
           stars.append(s);
         } else {
@@ -765,7 +765,7 @@ function renderStats() {
     statCard("Совпали", both.filter((i) => i.ratings.S === i.ratings.L).length)
   ));
 
-  // Rating distribution, 5 stars down to 1, S and L side by side.
+  // Rating distribution, 10 stars down to 1, S and L side by side.
   box.append(sectionTitle("Распределение оценок"));
   if (allVals.length === 0) {
     box.append(el("div", { class: "state-msg", text: "Пока нет оценок" }));
@@ -775,12 +775,12 @@ function renderStats() {
     let maxCount = 0;
     for (const p of PEOPLE) {
       counts[p] = {};
-      for (let s = 1; s <= 5; s++) {
+      for (let s = 1; s <= 10; s++) {
         counts[p][s] = countBy((i) => i.ratings[p] === s);
         maxCount = Math.max(maxCount, counts[p][s]);
       }
     }
-    for (let s = 5; s >= 1; s--) {
+    for (let s = 10; s >= 1; s--) {
       for (const p of PEOPLE) {
         dist.append(barRow(`${s}★ ${p}`, counts[p][s], maxCount, null, `person-${p.toLowerCase()}`));
       }
