@@ -2,6 +2,24 @@
   "version": 1,
   "items": [
     {
+      "id": "5285791d-4492-442e-81ac-6d07115da69d",
+      "title": "Дюна",
+      "type": "movie",
+      "status": "planned",
+      "ratings": {
+        "S": null,
+        "L": null
+      },
+      "comments": {
+        "S": "",
+        "L": ""
+      },
+      "note": "",
+      "addedAt": "2026-11-15",
+      "watchedAt": null,
+      "updatedBy": "serchg0george"
+    },
+    {
       "id": "chego-hotyat-zhenshchiny",
       "title": "Чего хотят женщины",
       "type": "movie",
