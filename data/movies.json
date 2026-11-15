@@ -2,6 +2,24 @@
   "version": 1,
   "items": [
     {
+      "id": "5285791d-4492-442e-81ac-6d07115da69d",
+      "title": "Дюна",
+      "type": "movie",
+      "status": "watched",
+      "ratings": {
+        "S": 10,
+        "L": null
+      },
+      "comments": {
+        "S": "",
+        "L": ""
+      },
+      "note": "",
+      "addedAt": "2026-11-15",
+      "watchedAt": "2026-11-15",
+      "updatedBy": "serchg0george"
+    },
+    {
       "id": "chego-hotyat-zhenshchiny",
       "title": "Чего хотят женщины",
       "type": "movie",
@@ -313,17 +331,17 @@
       "type": "series",
       "status": "dropped",
       "ratings": {
-        "S": null,
+        "S": 3,
         "L": null
       },
       "comments": {
-        "S": "",
+        "S": "Рик и Морти на минималках",
         "L": ""
       },
       "note": "скип",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     },
     {
       "id": "vechnost",
@@ -331,7 +349,7 @@
       "type": "movie",
       "status": "watched",
       "ratings": {
-        "S": null,
+        "S": 8,
         "L": null
       },
       "comments": {
@@ -341,7 +359,7 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     },
     {
       "id": "otpusk-na-dvoih",
@@ -349,17 +367,17 @@
       "type": "movie",
       "status": "dropped",
       "ratings": {
-        "S": null,
+        "S": 1,
         "L": null
       },
       "comments": {
-        "S": "",
+        "S": "Невероятно скучно и уныло, не понимаешь зачем смотришь",
         "L": ""
       },
       "note": "скип",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     },
     {
       "id": "dusha",
@@ -367,7 +385,7 @@
       "type": "movie",
       "status": "watched",
       "ratings": {
-        "S": null,
+        "S": 7,
         "L": null
       },
       "comments": {
@@ -377,7 +395,7 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     },
     {
       "id": "tayna-koko",
@@ -385,7 +403,7 @@
       "type": "movie",
       "status": "watched",
       "ratings": {
-        "S": null,
+        "S": 10,
         "L": null
       },
       "comments": {
@@ -395,7 +413,7 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     },
     {
       "id": "50-pervyh-poceluev",
@@ -403,7 +421,7 @@
       "type": "movie",
       "status": "watched",
       "ratings": {
-        "S": null,
+        "S": 10,
         "L": null
       },
       "comments": {
@@ -413,7 +431,7 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     },
     {
       "id": "den-vyborov",
@@ -421,7 +439,7 @@
       "type": "movie",
       "status": "watched",
       "ratings": {
-        "S": null,
+        "S": 4,
         "L": null
       },
       "comments": {
@@ -431,15 +449,15 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     },
     {
       "id": "semeyka-addams",
       "title": "Семейка Аддамс",
-      "type": "show",
+      "type": "movie",
       "status": "watched",
       "ratings": {
-        "S": null,
+        "S": 7,
         "L": null
       },
       "comments": {
@@ -449,7 +467,7 @@
       "note": "офлайн",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     },
     {
       "id": "mulan",
@@ -457,7 +475,7 @@
       "type": "movie",
       "status": "watched",
       "ratings": {
-        "S": null,
+        "S": 10,
         "L": null
       },
       "comments": {
@@ -467,25 +485,25 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     },
     {
       "id": "terapiya",
       "title": "Терапия",
       "type": "series",
-      "status": "watching",
+      "status": "dropped",
       "ratings": {
         "S": null,
         "L": null
       },
       "comments": {
-        "S": "",
+        "S": "Очень скучный, посмотрел 3 серии — посмотрел сериал",
         "L": ""
       },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     },
     {
       "id": "ty",
@@ -493,17 +511,17 @@
       "type": "series",
       "status": "watched",
       "ratings": {
-        "S": null,
+        "S": 10,
         "L": null
       },
       "comments": {
-        "S": "",
+        "S": "Отличный, но только первые три сезона",
         "L": ""
       },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     },
     {
       "id": "sumerki",
@@ -511,17 +529,17 @@
       "type": "movie",
       "status": "watched",
       "ratings": {
-        "S": null,
+        "S": 1,
         "L": null
       },
       "comments": {
-        "S": "",
+        "S": "0/10",
         "L": ""
       },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     },
     {
       "id": "dyuna-2",
@@ -529,7 +547,7 @@
       "type": "movie",
       "status": "watched",
       "ratings": {
-        "S": null,
+        "S": 10,
         "L": null
       },
       "comments": {
@@ -539,7 +557,7 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     },
     {
       "id": "graf-monte-kristo",
@@ -547,7 +565,7 @@
       "type": "series",
       "status": "watched",
       "ratings": {
-        "S": null,
+        "S": 10,
         "L": null
       },
       "comments": {
@@ -557,7 +575,7 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     },
     {
       "id": "karatel",
@@ -565,7 +583,7 @@
       "type": "series",
       "status": "dropped",
       "ratings": {
-        "S": null,
+        "S": 5,
         "L": null
       },
       "comments": {
@@ -575,7 +593,7 @@
       "note": "брошен",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     }
   ]
 }
