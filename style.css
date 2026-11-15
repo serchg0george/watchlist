@@ -292,7 +292,65 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 .star.static { cursor: default; }
 .star.static:hover { transform: none; }
 
-.item-row .icon-btn.edit-btn { margin-left: 4px; flex-shrink: 0; font-size: 17px; }
+/* ===== S / L ratings ===== */
+
+:root { --s: #2b6cb0; --s-bg: #dbe8f7; --l: #b83280; --l-bg: #f7dcea; }
+@media (prefers-color-scheme: dark) {
+  :root { --s: #7fb3ec; --s-bg: #1d3550; --l: #f08cc4; --l-bg: #4a2240; }
+}
+
+.ratings {
+  order: 10;
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  padding-left: 50px;
+}
+
+.rating-line { display: flex; align-items: center; gap: 6px; }
+.rating-line .stars { margin-left: 0; }
+.rating-line .star.static { min-width: 22px; min-height: 26px; font-size: 16px; }
+
+.person-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.person-s .star.on { color: var(--s); }
+.person-l .star.on { color: var(--l); }
+.person-s .person-tag { background: var(--s); color: #fff; }
+.person-l .person-tag { background: var(--l); color: #fff; }
+
+.rating-value { width: 16px; text-align: right; font-size: 13px; font-weight: 600; color: var(--muted); }
+.person-s .rating-value { color: var(--s); }
+.person-l .rating-value { color: var(--l); }
+
+.rating-line.mine { border-radius: 8px; padding-right: 4px; }
+.rating-line.person-s.mine { background: var(--s-bg); }
+.rating-line.person-l.mine { background: var(--l-bg); }
+
+.rating-pair { display: inline-flex; gap: 4px; flex-shrink: 0; }
+.pair-chip { padding: 1px 7px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff; }
+.pair-chip.person-s { background: var(--s); }
+.pair-chip.person-l { background: var(--l); }
+
+.card.person-s .card-value { color: var(--s); }
+.card.person-l .card-value { color: var(--l); }
+.bar-row.person-s .bar-fill { background: var(--s); }
+.bar-row.person-l .bar-fill { background: var(--l); }
+
+.person-label { margin-top: 12px; }
+#person-select { width: 100%; }
+
+.item-row .icon-btn.edit-btn { margin-left: auto; flex-shrink: 0; font-size: 17px; }
 
 /* ===== Section (collapsible "N просмотрено") ===== */
 

@@ -6,7 +6,10 @@
       "title": "Чего хотят женщины",
       "type": "movie",
       "status": "planned",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -17,7 +20,10 @@
       "title": "Дрянь",
       "type": "series",
       "status": "planned",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -28,7 +34,10 @@
       "title": "Типа крутые легавые",
       "type": "movie",
       "status": "planned",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -39,7 +48,10 @@
       "title": "Коралина в стране кошмаров",
       "type": "movie",
       "status": "planned",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -50,7 +62,10 @@
       "title": "Хористы",
       "type": "movie",
       "status": "planned",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -61,7 +76,10 @@
       "title": "Чёрное зеркало",
       "type": "series",
       "status": "watching",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -72,7 +90,10 @@
       "title": "Одна битва за другой",
       "type": "movie",
       "status": "planned",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -83,7 +104,10 @@
       "title": "Лёгкое поведение",
       "type": "movie",
       "status": "planned",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -94,7 +118,10 @@
       "title": "Реальная любовь",
       "type": "movie",
       "status": "planned",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -105,7 +132,10 @@
       "title": "Сама Меньшова про древнюю Грецию",
       "type": "show",
       "status": "planned",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "офлайн",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -116,7 +146,10 @@
       "title": "Форма голоса",
       "type": "anime",
       "status": "planned",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -127,7 +160,10 @@
       "title": "Патэма наоборот",
       "type": "anime",
       "status": "planned",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -138,7 +174,10 @@
       "title": "Когда Гарри встретил Салли",
       "type": "movie",
       "status": "planned",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -149,7 +188,10 @@
       "title": "Ход королевы",
       "type": "series",
       "status": "planned",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "про шахматы",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -160,7 +202,10 @@
       "title": "Хрустальный",
       "type": "movie",
       "status": "planned",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "посмотри сам",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -171,7 +216,10 @@
       "title": "Триггер",
       "type": "series",
       "status": "planned",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -182,7 +230,10 @@
       "title": "Лучшее место",
       "type": "series",
       "status": "planned",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -193,7 +244,10 @@
       "title": "Тёмная материя",
       "type": "series",
       "status": "dropped",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "скип",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
@@ -204,7 +258,10 @@
       "title": "Вечность",
       "type": "movie",
       "status": "watched",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
@@ -215,7 +272,10 @@
       "title": "Отпуск на двоих",
       "type": "movie",
       "status": "dropped",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "скип",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
@@ -226,7 +286,10 @@
       "title": "Душа",
       "type": "movie",
       "status": "watched",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
@@ -237,7 +300,10 @@
       "title": "Тайна Коко",
       "type": "movie",
       "status": "watched",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
@@ -248,7 +314,10 @@
       "title": "50 первых поцелуев",
       "type": "movie",
       "status": "watched",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
@@ -259,7 +328,10 @@
       "title": "День выборов",
       "type": "movie",
       "status": "watched",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
@@ -270,7 +342,10 @@
       "title": "Семейка Аддамс",
       "type": "show",
       "status": "watched",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "офлайн",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
@@ -281,7 +356,10 @@
       "title": "Мулан",
       "type": "movie",
       "status": "watched",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
@@ -292,7 +370,10 @@
       "title": "Терапия",
       "type": "series",
       "status": "watching",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
@@ -303,7 +384,10 @@
       "title": "Ты",
       "type": "series",
       "status": "watched",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
@@ -314,7 +398,10 @@
       "title": "Сумерки",
       "type": "movie",
       "status": "watched",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
@@ -325,7 +412,10 @@
       "title": "Дюна: часть 2",
       "type": "movie",
       "status": "watched",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
@@ -336,7 +426,10 @@
       "title": "Граф Монте-Кристо",
       "type": "series",
       "status": "watched",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
@@ -347,7 +440,10 @@
       "title": "Каратель",
       "type": "series",
       "status": "dropped",
-      "rating": null,
+      "ratings": {
+        "S": null,
+        "L": null
+      },
       "note": "брошен",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
