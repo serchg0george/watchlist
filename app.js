@@ -13,7 +13,9 @@ const FILE_PATH = "data/movies.json";
 const API_FILE_URL = `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}?ref=${BRANCH}`;
 const LS_TOKEN = "watchlist.token";
 const LS_LOGIN = "watchlist.login";
+const LS_PERSON = "watchlist.person";
 
+const PEOPLE = ["S", "L"];
 const TYPES = ["movie", "series", "anime", "show"];
 const STATUSES = ["planned", "watching", "watched", "dropped"];
 
@@ -40,6 +42,7 @@ const SORTS = [
 const state = {
   token: localStorage.getItem(LS_TOKEN) || "",
   login: localStorage.getItem(LS_LOGIN) || "",
+  person: localStorage.getItem(LS_PERSON) || "",
   data: null, // { version, items: [...] }
   loading: true,
   error: null,
@@ -131,6 +134,20 @@ async function fetchFileLocal() {
   return { data: await res.json(), sha: null };
 }
 
+function validRating(r) {
+  return Number.isInteger(r) && r >= 1 && r <= 5 ? r : null;
+}
+
+function normalizeRatings(it) {
+  const src = it.ratings && typeof it.ratings === "object" ? it.ratings : { S: it.rating };
+  return { S: validRating(src.S), L: validRating(src.L) };
+}
+
+function avgRating(it) {
+  const vals = PEOPLE.map((p) => it.ratings[p]).filter((r) => r != null);
+  return vals.length ? vals.reduce((s, r) => s + r, 0) / vals.length : null;
+}
+
 function normalize(raw) {
   const data = raw && typeof raw === "object" ? raw : {};
   data.version = Number.isInteger(data.version) ? data.version : 1;
@@ -140,7 +157,7 @@ function normalize(raw) {
     title: String(it.title ?? ""),
     type: TYPES.includes(it.type) ? it.type : "movie",
     status: STATUSES.includes(it.status) ? it.status : "planned",
-    rating: Number.isInteger(it.rating) && it.rating >= 1 && it.rating <= 5 ? it.rating : null,
+    ratings: normalizeRatings(it),
     note: String(it.note ?? ""),
     addedAt: typeof it.addedAt === "string" && it.addedAt ? it.addedAt : todayStr(),
     watchedAt: typeof it.watchedAt === "string" && it.watchedAt ? it.watchedAt : null,
@@ -210,6 +227,7 @@ async function performSave(op, message) {
     // 1. Fetch the latest content + sha from the server.
     const fresh = await fetchFileViaApi(token);
     // 2. Apply the same op to the fresh copy so concurrent edits are kept.
+    fresh.data = normalize(fresh.data);
     op(fresh.data);
     // 3. Commit via PUT with the file sha.
     const body = {
@@ -260,7 +278,7 @@ function addItem(title, type) {
     title,
     type,
     status: "planned",
-    rating: null,
+    ratings: { S: null, L: null },
     note: "",
     addedAt: todayStr(),
     watchedAt: null,
@@ -285,18 +303,20 @@ function toggleWatched(id) {
   applyAndSave(op, message);
 }
 
-function rateItem(id, star) {
+function rateItem(id, person, star) {
   const item = state.data.items.find((i) => i.id === id);
   if (!item) return;
   // Clicking the current rating again clears it.
-  const newRating = item.rating === star ? null : star;
+  const newRating = item.ratings[person] === star ? null : star;
   const op = (data) => {
     const it = data.items.find((i) => i.id === id);
     if (!it) return;
-    it.rating = newRating;
+    it.ratings[person] = newRating;
     it.updatedBy = state.login;
   };
-  const message = newRating == null ? `Edit "${item.title}"` : `Rate "${item.title}" ${newRating}/5`;
+  const message = newRating == null
+    ? `Clear ${person} rating of "${item.title}"`
+    : `Rate "${item.title}" ${person} ${newRating}/5`;
   applyAndSave(op, message);
 }
 
@@ -339,7 +359,9 @@ function render() {
 
 function renderHeader() {
   const line = document.getElementById("auth-status");
-  line.textContent = state.token && state.login ? `Редактирует: ${state.login}` : "Только просмотр";
+  line.textContent = state.token && state.login
+    ? `Редактирует: ${state.login}${state.person ? ` (${state.person})` : ""}`
+    : "Только просмотр";
 }
 
 function sortItems(items, key) {
@@ -349,7 +371,7 @@ function sortItems(items, key) {
       arr.sort((a, b) => (b.watchedAt || "").localeCompare(a.watchedAt || "") || b.addedAt.localeCompare(a.addedAt));
       break;
     case "rating-desc":
-      arr.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1) || a.title.localeCompare(b.title, "ru"));
+      arr.sort((a, b) => (avgRating(b) ?? -1) - (avgRating(a) ?? -1) || a.title.localeCompare(b.title, "ru"));
       break;
     case "title-asc":
       arr.sort((a, b) => a.title.localeCompare(b.title, "ru"));
@@ -393,20 +415,29 @@ function buildItemRow(item) {
   }
   if (item.note) children.push(el("span", { class: "item-note", text: item.note }));
 
-  // Stars are shown only for finished items; read-only without a token.
+  // Each person rates only on their own line; the other line is read-only.
   if (isFinished) {
-    const stars = el("span", { class: "stars" });
-    for (let i = 1; i <= 5; i++) {
-      const on = i <= item.rating;
-      if (canEdit) {
-        const s = el("button", { type: "button", class: `star${on ? " on" : ""}`, text: on ? "★" : "☆", "aria-label": `${i} из 5` });
-        s.addEventListener("click", () => rateItem(item.id, i));
-        stars.append(s);
-      } else {
-        stars.append(el("span", { class: `star static${on ? " on" : ""}`, text: on ? "★" : "☆" }));
+    const ratings = el("div", { class: "ratings" });
+    for (const p of PEOPLE) {
+      const value = item.ratings[p];
+      const mine = canEdit && state.person === p;
+      const line = el("div", { class: `rating-line person-${p.toLowerCase()}${mine ? " mine" : ""}` },
+        el("span", { class: "person-tag", text: p }));
+      const stars = el("span", { class: "stars" });
+      for (let i = 1; i <= 5; i++) {
+        const on = value != null && i <= value;
+        if (mine) {
+          const s = el("button", { type: "button", class: `star${on ? " on" : ""}`, text: on ? "★" : "☆", "aria-label": `${p}: ${i} из 5` });
+          s.addEventListener("click", () => rateItem(item.id, p, i));
+          stars.append(s);
+        } else {
+          stars.append(el("span", { class: `star static${on ? " on" : ""}`, text: on ? "★" : "☆" }));
+        }
       }
+      line.append(stars, el("span", { class: "rating-value", text: value != null ? String(value) : "—" }));
+      ratings.append(line);
     }
-    children.push(stars);
+    children.push(ratings);
   }
 
   if (canEdit) {
@@ -509,10 +540,15 @@ function renderList() {
 
 // ===== Stats tab =====
 
-function statCard(label, value) {
-  return el("div", { class: "card" },
+function statCard(label, value, extraClass) {
+  return el("div", { class: `card${extraClass ? ` ${extraClass}` : ""}` },
     el("div", { class: "card-value", text: String(value) }),
     el("div", { class: "card-label", text: label }));
+}
+
+function ratingPair(it) {
+  return el("span", { class: "rating-pair" },
+    ...PEOPLE.map((p) => el("span", { class: `pair-chip person-${p.toLowerCase()}`, text: `${p} ${it.ratings[p] ?? "—"}` })));
 }
 
 function sectionTitle(text) {
@@ -520,9 +556,9 @@ function sectionTitle(text) {
 }
 
 // valueNum drives the bar width; display overrides the count text.
-function barRow(labelText, valueNum, max, display) {
+function barRow(labelText, valueNum, max, display, extraClass) {
   const pct = max > 0 && valueNum > 0 ? Math.max(3, (valueNum / max) * 100) : 0;
-  return el("div", { class: "bar-row" },
+  return el("div", { class: `bar-row${extraClass ? ` ${extraClass}` : ""}` },
     el("span", { class: "bar-label", text: labelText }),
     el("div", { class: "bar-track" }, el("div", { class: "bar-fill", style: `width:${pct}%` })),
     el("span", { class: "bar-count", text: display != null ? String(display) : String(valueNum) }));
@@ -564,33 +600,66 @@ function renderStats() {
   const watching = countBy((i) => i.status === "watching");
   const planned = countBy((i) => i.status === "planned");
   const dropped = countBy((i) => i.status === "dropped");
-  const ratedItems = items.filter((i) => i.rating != null);
-  const avg = ratedItems.length ? ratedItems.reduce((s, i) => s + i.rating, 0) / ratedItems.length : null;
+  const fmtAvg = (vals) => vals.length ? (vals.reduce((s, r) => s + r, 0) / vals.length).toFixed(1) : "—";
+  const valsOf = (p) => items.map((i) => i.ratings[p]).filter((r) => r != null);
+  const both = items.filter((i) => i.ratings.S != null && i.ratings.L != null);
+  const allVals = [...valsOf("S"), ...valsOf("L")];
 
   box.append(el("div", { class: "cards" },
     statCard("Всего", total),
     statCard("Просмотрено", watched),
     statCard("Смотрим", watching),
     statCard("В планах", planned),
-    statCard("Брошено", dropped),
-    statCard("Средняя оценка", avg == null ? "—" : avg.toFixed(1)),
-    statCard("Оценено", ratedItems.length)
+    statCard("Брошено", dropped)
   ));
 
-  // Rating distribution, 5 stars down to 1.
+  box.append(sectionTitle("Оценки S и L"));
+  box.append(el("div", { class: "cards" },
+    statCard("Средняя S", fmtAvg(valsOf("S")), "person-s"),
+    statCard("Средняя L", fmtAvg(valsOf("L")), "person-l"),
+    statCard("Средняя общая", fmtAvg(allVals)),
+    statCard("Оценок S", valsOf("S").length, "person-s"),
+    statCard("Оценок L", valsOf("L").length, "person-l"),
+    statCard("Оценили оба", both.length),
+    statCard("Совпали", both.filter((i) => i.ratings.S === i.ratings.L).length)
+  ));
+
+  // Rating distribution, 5 stars down to 1, S and L side by side.
   box.append(sectionTitle("Распределение оценок"));
-  const dist = el("div", { class: "bars" });
-  let maxCount = 0;
-  const counts = {};
-  for (let s = 5; s >= 1; s--) {
-    counts[s] = countBy((i) => i.rating === s);
-    maxCount = Math.max(maxCount, counts[s]);
-  }
-  if (maxCount === 0) {
+  if (allVals.length === 0) {
     box.append(el("div", { class: "state-msg", text: "Пока нет оценок" }));
   } else {
-    for (let s = 5; s >= 1; s--) dist.append(barRow(`${s}★`, counts[s], maxCount));
+    const dist = el("div", { class: "bars" });
+    const counts = {};
+    let maxCount = 0;
+    for (const p of PEOPLE) {
+      counts[p] = {};
+      for (let s = 1; s <= 5; s++) {
+        counts[p][s] = countBy((i) => i.ratings[p] === s);
+        maxCount = Math.max(maxCount, counts[p][s]);
+      }
+    }
+    for (let s = 5; s >= 1; s--) {
+      for (const p of PEOPLE) {
+        dist.append(barRow(`${s}★ ${p}`, counts[p][s], maxCount, null, `person-${p.toLowerCase()}`));
+      }
+    }
     box.append(dist);
+  }
+
+  box.append(sectionTitle("Самые большие расхождения"));
+  const diffs = both
+    .filter((i) => i.ratings.S !== i.ratings.L)
+    .sort((a, b) => Math.abs(b.ratings.S - b.ratings.L) - Math.abs(a.ratings.S - a.ratings.L))
+    .slice(0, 10);
+  if (diffs.length === 0) {
+    box.append(el("div", { class: "state-msg", text: both.length ? "Пока во всём согласны" : "Нет фильмов, оценённых обоими" }));
+  } else {
+    const list = el("ol", { class: "top-list" });
+    diffs.forEach((it) => list.append(el("li", {},
+      el("span", { class: "top-title", text: it.title }),
+      ratingPair(it))));
+    box.append(list);
   }
 
   // Breakdown by type: watched / total.
@@ -615,11 +684,11 @@ function renderStats() {
     box.append(mBox);
   }
 
-  // Top rated: up to 10, rating desc then watchedAt desc.
-  box.append(sectionTitle("Топ по оценке"));
+  // Top rated by the average of S and L: up to 10, then watchedAt desc.
+  box.append(sectionTitle("Топ по средней оценке"));
   const top = items
-    .filter((i) => i.rating != null)
-    .sort((a, b) => (b.rating - a.rating) || (b.watchedAt || "").localeCompare(a.watchedAt || ""))
+    .filter((i) => avgRating(i) != null)
+    .sort((a, b) => (avgRating(b) - avgRating(a)) || (b.watchedAt || "").localeCompare(a.watchedAt || ""))
     .slice(0, 10);
   if (top.length === 0) {
     box.append(el("div", { class: "state-msg", text: "Пока нет оценок" }));
@@ -627,7 +696,8 @@ function renderStats() {
     const topList = el("ol", { class: "top-list" });
     top.forEach((it) => topList.append(el("li", {},
       el("span", { class: "top-title", text: it.title }),
-      el("span", { class: "top-rating", text: `${it.rating}★` }))));
+      ratingPair(it),
+      el("span", { class: "top-rating", text: `${avgRating(it).toFixed(1)}★` }))));
     box.append(topList);
   }
 
@@ -661,14 +731,17 @@ function showToast(msg) {
 function openSettings() {
   const dlg = document.getElementById("settings-dialog");
   document.getElementById("settings-error").textContent = "";
+  document.getElementById("person-select").value = state.person;
   dlg.showModal();
 }
 
 async function saveToken() {
   const input = document.getElementById("token-input");
   const errEl = document.getElementById("settings-error");
-  const token = input.value.trim();
+  const token = input.value.trim() || state.token;
+  const person = document.getElementById("person-select").value;
   if (!token) { errEl.textContent = "Введите токен."; return; }
+  if (!PEOPLE.includes(person)) { errEl.textContent = "Выберите, кто вы: S или L."; return; }
   errEl.textContent = "";
   try {
     // Verify the token and learn our login.
@@ -677,8 +750,10 @@ async function saveToken() {
     const user = await res.json();
     localStorage.setItem(LS_TOKEN, token);
     localStorage.setItem(LS_LOGIN, user.login || "");
+    localStorage.setItem(LS_PERSON, person);
     state.token = token;
     state.login = user.login || "";
+    state.person = person;
     input.value = "";
     document.getElementById("settings-dialog").close();
     showToast(`Вход выполнен: ${state.login}`);
@@ -692,8 +767,10 @@ async function saveToken() {
 function logout() {
   localStorage.removeItem(LS_TOKEN);
   localStorage.removeItem(LS_LOGIN);
+  localStorage.removeItem(LS_PERSON);
   state.token = "";
   state.login = "";
+  state.person = "";
   document.getElementById("settings-dialog").close();
   showToast("Вы вышли. Режим: только просмотр.");
   loadAll(); // back to the public copy of data/movies.json

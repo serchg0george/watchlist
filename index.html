@@ -61,7 +61,13 @@
       <li>Второй участник (коллаборатор): Tokens (classic), scope — только <code>public_repo</code>.</li>
     </ul>
     <label class="token-label" for="token-input">Токен</label>
-    <input id="token-input" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false">
+    <input id="token-input" type="password" placeholder="github_pat_… (оставьте пустым, чтобы не менять)" autocomplete="off" spellcheck="false">
+    <label class="token-label person-label" for="person-select">Кто вы (чью оценку ставите)</label>
+    <select id="person-select">
+      <option value="">— выберите —</option>
+      <option value="S">S</option>
+      <option value="L">L</option>
+    </select>
     <div id="settings-error" class="settings-error" role="alert"></div>
     <div class="dialog-actions">
       <button type="button" id="cancel-settings-btn" class="btn">Отмена</button>
