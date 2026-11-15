@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Append Co-authored-by trailers for every model registered via scripts/coauthor.sh.
+set -u
+msg="$1"
+file="$(git rev-parse --git-common-dir)/session-coauthors"
+[[ -s "$file" ]] || exit 0
+while IFS= read -r entry; do
+  [[ -n "$entry" ]] || continue
+  git interpret-trailers --in-place --if-exists addIfDifferent \
+    --trailer "Co-authored-by: $entry" "$msg"
+done <"$file"

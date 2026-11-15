@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Что посмотреть</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="wrap header-inner">
+      <div class="header-left">
+        <h1>Что посмотреть</h1>
+        <div id="auth-status" class="auth-status">Только просмотр</div>
+      </div>
+      <div class="header-right">
+        <span id="save-indicator" class="save-indicator"></span>
+        <button id="settings-btn" type="button" class="icon-btn settings-btn" aria-label="Настройки" title="Настройки">⚙</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <div class="wrap tabs-inner">
+      <button type="button" class="tab-btn active" data-tab="list">Список</button>
+      <button type="button" class="tab-btn" data-tab="stats">Статистика</button>
+    </div>
+  </nav>
+
+  <main id="content" class="wrap">
+    <section id="list-tab" class="tab-panel">
+      <form id="add-form" class="add-form" hidden>
+        <input id="add-title" type="text" placeholder="Название…" autocomplete="off" required>
+        <select id="add-type" aria-label="Тип"></select>
+        <button type="submit" class="btn btn-primary">Добавить</button>
+      </form>
+
+      <div class="filters">
+        <div id="chips" class="chips" role="group" aria-label="Фильтр по статусу"></div>
+        <div class="filter-row">
+          <select id="type-filter" aria-label="Тип"></select>
+          <input id="search" type="search" placeholder="Поиск…" autocomplete="off">
+          <select id="sort" aria-label="Сортировка"></select>
+        </div>
+      </div>
+
+      <div id="items" class="items"></div>
+    </section>
+
+    <section id="stats-tab" class="tab-panel" hidden>
+      <div id="stats" class="stats"></div>
+    </section>
+  </main>
+
+  <dialog id="settings-dialog">
+    <h2>Настройки</h2>
+    <p class="settings-text">Чтобы редактировать список, создайте токен GitHub: Settings → Developer settings → Personal access tokens.</p>
+    <ul class="settings-steps">
+      <li>Владелец репозитория: Fine-grained tokens, Repository access — только <code>serchg0george/watchlist</code>, Permissions — Contents: Read and write.</li>
+      <li>Второй участник (коллаборатор): Tokens (classic), scope — только <code>public_repo</code>.</li>
+    </ul>
+    <label class="token-label" for="token-input">Токен</label>
+    <input id="token-input" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false">
+    <div id="settings-error" class="settings-error" role="alert"></div>
+    <div class="dialog-actions">
+      <button type="button" id="cancel-settings-btn" class="btn">Отмена</button>
+      <button type="button" id="logout-btn" class="btn btn-danger">Выйти</button>
+      <button type="button" id="save-token-btn" class="btn btn-primary">Сохранить</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status"></div>
+</body>
+</html>
