@@ -16,6 +16,14 @@ const LS_LOGIN = "watchlist.login";
 const LS_PERSON = "watchlist.person";
 
 const PEOPLE = ["S", "L"];
+// Exactly two editors: the repo owner is S, the collaborator (any other login with write access) is L.
+const OWNER_LOGIN = "serchg0george";
+const UNDO_MS = 5000;
+
+function personFor(login) {
+  if (!login) return "";
+  return login.toLowerCase() === OWNER_LOGIN ? "S" : "L";
+}
 const TYPES = ["movie", "series", "anime", "show"];
 const STATUSES = ["planned", "watching", "watched", "dropped"];
 
@@ -42,7 +50,7 @@ const SORTS = [
 const state = {
   token: localStorage.getItem(LS_TOKEN) || "",
   login: localStorage.getItem(LS_LOGIN) || "",
-  person: localStorage.getItem(LS_PERSON) || "",
+  person: personFor(localStorage.getItem(LS_LOGIN) || ""),
   data: null, // { version, items: [...] }
   loading: true,
   error: null,
@@ -53,9 +61,12 @@ const state = {
   sort: "added-desc",
   watchedSectionOpen: true,
   editingId: null,
-  commentingId: null
+  commentingId: null,
+  highlightId: null
 };
 
+let lastPickId = null;
+let highlightTimer = null;
 let pendingSaves = 0;
 let saveChain = Promise.resolve();
 let toastTimer = null;
@@ -202,12 +213,13 @@ async function loadAll() {
 function applyAndSave(op, message) {
   if (!state.token) {
     showToast("Войдите через ⚙, чтобы редактировать список");
-    return;
+    return false;
   }
   // Optimistic local update.
   op(state.data);
   render();
   enqueueSave(op, message);
+  return true;
 }
 
 function enqueueSave(op, message) {
@@ -296,9 +308,29 @@ function addItem(title, type) {
   applyAndSave(op, `Add "${title}"`);
 }
 
+// Undo restores the item exactly as it was before the change (re-inserting it if it was deleted).
+function snapshotOf(item) {
+  return { item: JSON.parse(JSON.stringify(item)), index: state.data.items.indexOf(item) };
+}
+
+function offerUndo(msg, snap) {
+  showToast(msg, { label: "Отменить", run: () => restoreItem(snap) });
+}
+
+function restoreItem(snap) {
+  const op = (data) => {
+    const restored = JSON.parse(JSON.stringify(snap.item)); // fresh copy: op runs on local and server data
+    const i = data.items.findIndex((x) => x.id === restored.id);
+    if (i >= 0) data.items[i] = restored;
+    else data.items.splice(Math.min(Math.max(snap.index, 0), data.items.length), 0, restored);
+  };
+  applyAndSave(op, `Undo change of "${snap.item.title}"`);
+}
+
 function toggleWatched(id) {
   const item = state.data.items.find((i) => i.id === id);
   if (!item) return;
+  const snap = snapshotOf(item);
   const toWatched = !(item.status === "watched" || item.status === "dropped");
   const op = (data) => {
     const it = data.items.find((i) => i.id === id);
@@ -308,7 +340,9 @@ function toggleWatched(id) {
     it.updatedBy = state.login;
   };
   const message = toWatched ? `Mark "${item.title}" watched` : `Edit "${item.title}"`;
-  applyAndSave(op, message);
+  if (applyAndSave(op, message)) {
+    offerUndo(toWatched ? `«${item.title}» — просмотрено` : `«${item.title}» снова в списке`, snap);
+  }
 }
 
 function rateItem(id, person, star) {
@@ -364,8 +398,46 @@ function deleteItem(id) {
   const item = state.data.items.find((i) => i.id === id);
   if (!item) return;
   state.editingId = null;
+  const snap = snapshotOf(item);
   const op = (data) => { data.items = data.items.filter((i) => i.id !== id); };
-  applyAndSave(op, `Delete "${item.title}"`);
+  if (applyAndSave(op, `Delete "${item.title}"`)) offerUndo(`«${item.title}» удалено`, snap);
+}
+
+// Duplicate check: case-, "ё"- and punctuation-insensitive title match.
+function titleKey(s) {
+  return s.toLowerCase().replace(/ё/g, "е").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+function findDuplicate(title) {
+  if (!state.data) return null;
+  const key = titleKey(title);
+  return state.data.items.find((it) => titleKey(it.title) === key) || null;
+}
+
+// Random pick from "planned", respecting the type filter; avoids repeating the previous pick.
+function pickRandom() {
+  if (!state.data) return;
+  const pool = state.data.items.filter((it) => it.status === "planned" && (state.typeFilter === "all" || it.type === state.typeFilter));
+  if (pool.length === 0) { showToast("В «Хочу посмотреть» пусто"); return; }
+  const candidates = pool.length > 1 ? pool.filter((it) => it.id !== lastPickId) : pool;
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  lastPickId = pick.id;
+  // Make sure the picked row is visible.
+  state.tab = "list";
+  state.statusFilter = "all";
+  state.search = "";
+  document.getElementById("search").value = "";
+  state.highlightId = pick.id;
+  render();
+  showToast(`🎲 ${pick.title}`);
+  const row = document.querySelector(`.item-row[data-id="${CSS.escape(pick.id)}"]`);
+  if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+  // Drop the highlight without a re-render, so nothing in progress gets rebuilt.
+  clearTimeout(highlightTimer);
+  highlightTimer = setTimeout(() => {
+    state.highlightId = null;
+    document.querySelectorAll(".item-row.highlight").forEach((r) => r.classList.remove("highlight"));
+  }, 3000);
 }
 
 // ===== Rendering =====
@@ -515,7 +587,7 @@ function buildItemRow(item) {
     children.push(editBtn);
   }
 
-  return el("div", { class: "item-row" }, ...children);
+  return el("div", { class: `item-row${state.highlightId === item.id ? " highlight" : ""}`, "data-id": item.id }, ...children);
 }
 
 function buildEditor(item) {
@@ -787,12 +859,24 @@ function renderStats() {
 
 // ===== Toast =====
 
-function showToast(msg) {
+// action: optional { label, run } rendered as a button inside the toast (e.g. undo).
+function showToast(msg, action) {
   const t = document.getElementById("toast");
-  t.textContent = msg;
+  t.textContent = "";
+  t.append(el("span", { class: "toast-text", text: msg }));
+  if (action) {
+    const btn = el("button", { type: "button", class: "toast-action", text: action.label });
+    btn.addEventListener("click", () => {
+      clearTimeout(toastTimer);
+      t.classList.remove("visible");
+      action.run();
+    });
+    t.append(btn);
+  }
+  t.classList.toggle("has-action", !!action);
   t.classList.add("visible");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove("visible"), 2600);
+  toastTimer = setTimeout(() => t.classList.remove("visible"), action ? UNDO_MS : 2600);
 }
 
 // ===== Settings dialog =====
@@ -800,7 +884,6 @@ function showToast(msg) {
 function openSettings() {
   const dlg = document.getElementById("settings-dialog");
   document.getElementById("settings-error").textContent = "";
-  document.getElementById("person-select").value = state.person;
   dlg.showModal();
 }
 
@@ -808,9 +891,7 @@ async function saveToken() {
   const input = document.getElementById("token-input");
   const errEl = document.getElementById("settings-error");
   const token = input.value.trim() || state.token;
-  const person = document.getElementById("person-select").value;
   if (!token) { errEl.textContent = "Введите токен."; return; }
-  if (!PEOPLE.includes(person)) { errEl.textContent = "Выберите, кто вы: S или L."; return; }
   errEl.textContent = "";
   try {
     // Verify the token and learn our login.
@@ -819,13 +900,13 @@ async function saveToken() {
     const user = await res.json();
     localStorage.setItem(LS_TOKEN, token);
     localStorage.setItem(LS_LOGIN, user.login || "");
-    localStorage.setItem(LS_PERSON, person);
+    localStorage.removeItem(LS_PERSON); // legacy: person is now derived from the login
     state.token = token;
     state.login = user.login || "";
-    state.person = person;
+    state.person = personFor(state.login);
     input.value = "";
     document.getElementById("settings-dialog").close();
-    showToast(`Вход выполнен: ${state.login}`);
+    showToast(`Вход выполнен: ${state.login} (${state.person})`);
     loadAll(); // from now on read fresh data via the API
   } catch (e) {
     console.error("token check failed", e);
@@ -885,9 +966,19 @@ function init() {
     e.preventDefault();
     const t = addTitle.value.trim();
     if (!t) return;
+    const dup = findDuplicate(t);
+    if (dup && !confirm(`«${dup.title}» уже есть в списке (${STATUS_LABELS[dup.status]}). Всё равно добавить?`)) return;
     addItem(t, addType.value);
     addTitle.value = "";
   });
+
+  // Random pick.
+  document.getElementById("random-btn").addEventListener("click", pickRandom);
+
+  // Installable app / offline cache (needs http(s), not file://).
+  if ("serviceWorker" in navigator && location.protocol !== "file:") {
+    navigator.serviceWorker.register("sw.js").catch((e) => console.warn("service worker registration failed", e));
+  }
 
   // Settings dialog.
   document.getElementById("settings-btn").addEventListener("click", openSettings);

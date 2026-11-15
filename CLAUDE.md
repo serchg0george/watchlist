@@ -21,6 +21,7 @@ GitHub user **serchg0george**, repo **serchg0george/watchlist**, branch **master
 ## 3. Структура
 
 - `index.html`, `style.css`, `app.js` — сайт, чистый HTML/CSS/JS, без сборки, npm и фреймворков.
+- `manifest.json`, `sw.js`, `icons/` — установка на телефон и офлайн-кэш (network-first). При изменении списка файлов оболочки — поднять `CACHE` в `sw.js`.
 - `data/movies.json` — данные (схема в `README.md`).
 - `scripts/` — `delegate.sh`, `qwen.sh`, `coauthor.sh`. `.githooks/` — трейлеры соавторов.
 
