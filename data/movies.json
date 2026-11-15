@@ -367,7 +367,7 @@
       "type": "movie",
       "status": "dropped",
       "ratings": {
-        "S": null,
+        "S": 1,
         "L": null
       },
       "comments": {
@@ -377,7 +377,7 @@
       "note": "скип",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     },
     {
       "id": "dusha",
