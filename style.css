@@ -311,7 +311,8 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 
 .rating-line { display: flex; align-items: center; gap: 6px; }
 .rating-line .stars { margin-left: 0; }
-.rating-line .star.static { min-width: 22px; min-height: 26px; font-size: 16px; }
+.rating-line .star { min-width: 26px; min-height: 36px; font-size: 18px; }
+.rating-line .star.static { min-width: 16px; min-height: 26px; font-size: 14px; }
 
 .person-tag {
   display: inline-flex;
@@ -329,7 +330,7 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 .person-s .person-tag { background: var(--s); color: #fff; }
 .person-l .person-tag { background: var(--l); color: #fff; }
 
-.rating-value { width: 16px; text-align: right; font-size: 13px; font-weight: 600; color: var(--muted); }
+.rating-value { width: 20px; text-align: right; font-size: 13px; font-weight: 600; color: var(--muted); }
 .person-s .rating-value { color: var(--s); }
 .person-l .rating-value { color: var(--l); }
 
