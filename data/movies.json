@@ -204,11 +204,11 @@
       "title": "Вечность",
       "type": "movie",
       "status": "watched",
-      "rating": null,
+      "rating": 5,
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     },
     {
       "id": "otpusk-na-dvoih",
