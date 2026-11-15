@@ -349,7 +349,7 @@
       "type": "movie",
       "status": "watched",
       "ratings": {
-        "S": null,
+        "S": 8,
         "L": null
       },
       "comments": {
@@ -359,7 +359,7 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": ""
+      "updatedBy": "serchg0george"
     },
     {
       "id": "otpusk-na-dvoih",
