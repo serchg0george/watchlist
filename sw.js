@@ -4,7 +4,7 @@
 
 "use strict";
 
-const CACHE = "watchlist-v2";
+const CACHE = "watchlist-v3";
 const SHELL = ["./", "index.html", "style.css", "app.js", "manifest.json", "data/movies.json", "icons/icon-192.png"];
 
 self.addEventListener("install", (e) => {

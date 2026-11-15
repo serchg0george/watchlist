@@ -25,11 +25,20 @@ function personFor(login) {
   return login.toLowerCase() === OWNER_LOGIN ? "S" : "L";
 }
 const DEFAULT_TYPES = [
-  { key: "movie", label: "Фильм" },
-  { key: "series", label: "Сериал" },
-  { key: "anime", label: "Аниме" },
-  { key: "show", label: "Шоу/офлайн" }
+  { key: "movie", label: "Фильм", color: "#e05638" },
+  { key: "series", label: "Сериал", color: "#2563eb" },
+  { key: "anime", label: "Аниме", color: "#7c3aed" },
+  { key: "show", label: "Шоу", color: "#059669" }
 ];
+
+const PALETTE_PRESETS = [
+  "#e05638", "#ea580c", "#d97706", "#ca8a04",
+  "#65a30d", "#16a34a", "#059669", "#0d9488",
+  "#0891b2", "#0284c7", "#2563eb", "#4f46e5",
+  "#7c3aed", "#9333ea", "#c026d3", "#db2777",
+  "#e11d48", "#475569"
+];
+
 const STATUSES = ["planned", "watching", "watched", "dropped"];
 const STATUS_LABELS = { planned: "Хочу посмотреть", watching: "Смотрим", watched: "Просмотрено", dropped: "Брошено" };
 
@@ -43,6 +52,11 @@ function getTypes() {
 function getTypeLabel(key) {
   const t = getTypes().find((item) => item.key === key);
   return t ? t.label : key;
+}
+
+function getTypeColor(key) {
+  const t = getTypes().find((item) => item.key === key);
+  return t && t.color ? t.color : "#5b6b53";
 }
 
 function transliterate(str) {
@@ -197,13 +211,17 @@ function normalizeTypes(rawTypes) {
   if (Array.isArray(rawTypes) && rawTypes.length > 0) {
     const seen = new Set();
     const result = [];
-    for (const t of rawTypes) {
+    for (let i = 0; i < rawTypes.length; i++) {
+      const t = rawTypes[i];
       if (!t) continue;
       const key = String(t.key ?? "").trim();
       const label = String(t.label ?? key).trim();
       if (!key || !label || seen.has(key)) continue;
       seen.add(key);
-      result.push({ key, label });
+      const color = typeof t.color === "string" && /^#[0-9a-fA-F]{3,8}$/.test(t.color.trim())
+        ? t.color.trim()
+        : PALETTE_PRESETS[i % PALETTE_PRESETS.length];
+      result.push({ key, label, color });
     }
     if (result.length > 0) return result;
   }
@@ -451,7 +469,7 @@ function deleteItem(id) {
   if (applyAndSave(op, `Delete "${item.title}"`)) offerUndo(`«${item.title}» удалено`, snap);
 }
 
-function addCategory(label) {
+function addCategory(label, color) {
   const trimmed = label.trim();
   if (!trimmed) return;
   const types = getTypes();
@@ -464,12 +482,30 @@ function addCategory(label) {
   if (types.some((t) => t.key === key)) {
     key = `${key}-${Date.now().toString(36).slice(-4)}`;
   }
+  const chosenColor = color && /^#[0-9a-fA-F]{3,8}$/.test(color.trim())
+    ? color.trim()
+    : PALETTE_PRESETS[types.length % PALETTE_PRESETS.length];
   const op = (data) => {
     if (!Array.isArray(data.types)) data.types = DEFAULT_TYPES.map((t) => ({ ...t }));
-    data.types.push({ key, label: trimmed });
+    data.types.push({ key, label: trimmed, color: chosenColor });
   };
   if (applyAndSave(op, `Add category "${trimmed}"`)) {
     showToast(`Категория «${trimmed}» добавлена`);
+    renderCategoriesDialog();
+  }
+}
+
+function updateCategoryColor(key, newColor) {
+  const trimmed = newColor.trim();
+  if (!/^#[0-9a-fA-F]{3,8}$/.test(trimmed)) return;
+  const current = getTypes().find((t) => t.key === key);
+  if (!current || current.color === trimmed) return;
+  const op = (data) => {
+    if (!Array.isArray(data.types)) data.types = DEFAULT_TYPES.map((t) => ({ ...t }));
+    const t = data.types.find((item) => item.key === key);
+    if (t) t.color = trimmed;
+  };
+  if (applyAndSave(op, `Change color for category "${current.label}"`)) {
     renderCategoriesDialog();
   }
 }
@@ -619,7 +655,8 @@ function buildItemRow(item) {
 
   const children = [el("label", { class: "check-wrap" }, cb)];
   children.push(el("span", { class: "item-title", text: item.title }));
-  children.push(el("span", { class: "badge badge-type", text: getTypeLabel(item.type) }));
+  const typeColor = getTypeColor(item.type);
+  children.push(el("span", { class: "badge badge-type", style: `--cat-color: ${typeColor}`, text: getTypeLabel(item.type) }));
 
   if (item.status === "watching" || item.status === "dropped") {
     children.push(el("span", { class: `badge badge-status-${item.status}`, text: STATUS_LABELS[item.status] }));
@@ -928,7 +965,12 @@ function renderStats() {
   for (const t of getTypes()) {
     const tot = countBy((i) => i.type === t.key);
     const w = countBy((i) => i.type === t.key && i.status === "watched");
-    typeBox.append(barRow(t.label, w, tot, `${w} / ${tot}`));
+    const row = barRow(t.label, w, tot, `${w} / ${tot}`);
+    if (t.color) {
+      const fill = row.querySelector(".bar-fill");
+      if (fill) fill.style.backgroundColor = t.color;
+    }
+    typeBox.append(row);
   }
   box.append(typeBox);
 
@@ -1047,6 +1089,31 @@ function logout() {
 
 // ===== Categories dialog =====
 
+let selectedCategoryKey = null;
+
+function renderPaletteSwatches() {
+  const container = document.getElementById("palette-swatches");
+  if (!container) return;
+  container.textContent = "";
+  PALETTE_PRESETS.forEach((hex) => {
+    const btn = el("button", {
+      type: "button",
+      class: "palette-swatch-btn",
+      style: `background-color: ${hex}`,
+      title: hex,
+      "aria-label": `Оттенок ${hex}`
+    });
+    btn.addEventListener("click", () => {
+      if (selectedCategoryKey) {
+        updateCategoryColor(selectedCategoryKey, hex);
+      }
+      const newColorInput = document.getElementById("new-category-color");
+      if (newColorInput) newColorInput.value = hex;
+    });
+    container.append(btn);
+  });
+}
+
 function openCategories() {
   const dlg = document.getElementById("categories-dialog");
   renderCategoriesDialog();
@@ -1066,8 +1133,29 @@ function renderCategoriesDialog() {
   const addForm = document.getElementById("add-category-form");
   if (addForm) addForm.hidden = !canEdit;
 
+  const paletteBox = document.getElementById("palette-presets-box");
+  if (paletteBox) paletteBox.hidden = !canEdit;
+
+  renderPaletteSwatches();
+
   types.forEach((t) => {
     const count = state.data ? state.data.items.filter((i) => i.type === t.key).length : 0;
+
+    const colorInput = el("input", {
+      type: "color",
+      class: "category-color-input",
+      value: t.color || "#5b6b53",
+      title: "Выбрать цвет из палитры",
+      "aria-label": `Цвет категории ${t.label}`,
+      disabled: !canEdit
+    });
+
+    colorInput.addEventListener("focus", () => { selectedCategoryKey = t.key; });
+    colorInput.addEventListener("change", () => {
+      selectedCategoryKey = t.key;
+      updateCategoryColor(t.key, colorInput.value);
+    });
+
     const input = el("input", {
       type: "text",
       class: "category-name-input",
@@ -1075,6 +1163,8 @@ function renderCategoriesDialog() {
       "aria-label": `Название категории ${t.label}`,
       disabled: !canEdit
     });
+
+    input.addEventListener("focus", () => { selectedCategoryKey = t.key; });
 
     const saveBtn = el("button", {
       type: "button",
@@ -1123,7 +1213,7 @@ function renderCategoriesDialog() {
     });
     delBtn.addEventListener("click", () => deleteCategory(t.key));
 
-    const row = el("div", { class: "category-row" }, input, saveBtn, countSpan, delBtn);
+    const row = el("div", { class: "category-row" }, colorInput, input, saveBtn, countSpan, delBtn);
     list.append(row);
   });
 }
@@ -1238,12 +1328,17 @@ function init() {
 
   const addCategoryForm = document.getElementById("add-category-form");
   const newCategoryInput = document.getElementById("new-category-input");
+  const newCategoryColor = document.getElementById("new-category-color");
   addCategoryForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const val = newCategoryInput.value.trim();
     if (!val) return;
-    addCategory(val);
+    const color = newCategoryColor ? newCategoryColor.value : null;
+    addCategory(val, color);
     newCategoryInput.value = "";
+    if (newCategoryColor) {
+      newCategoryColor.value = PALETTE_PRESETS[getTypes().length % PALETTE_PRESETS.length];
+    }
   });
 
   render();
