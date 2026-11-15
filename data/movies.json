@@ -5,7 +5,7 @@
       "id": "5285791d-4492-442e-81ac-6d07115da69d",
       "title": "Дюна",
       "type": "movie",
-      "status": "planned",
+      "status": "watched",
       "ratings": {
         "S": null,
         "L": null
@@ -16,7 +16,7 @@
       },
       "note": "",
       "addedAt": "2026-11-15",
-      "watchedAt": null,
+      "watchedAt": "2026-11-15",
       "updatedBy": "serchg0george"
     },
     {
