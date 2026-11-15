@@ -342,6 +342,35 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 .pair-chip.person-s { background: var(--s); }
 .pair-chip.person-l { background: var(--l); }
 
+.comments {
+  order: 11;
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 50px;
+}
+.comment-line { display: flex; align-items: flex-start; gap: 6px; font-size: 14px; }
+.comment-line .person-tag { margin-top: 1px; }
+.comment-text { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; padding-top: 3px; }
+.comment-line.mine { border-radius: 8px; padding: 2px 6px 2px 0; cursor: pointer; }
+.comment-line.person-s.mine { background: var(--s-bg); }
+.comment-line.person-l.mine { background: var(--l-bg); }
+.comment-line .comment-input { flex: 1; min-width: 0; font: inherit; resize: vertical; }
+.comment-line:has(.comment-input) { flex-wrap: wrap; cursor: default; }
+.comment-actions { flex-basis: 100%; display: flex; gap: 8px; padding-left: 30px; }
+.comment-add {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.comment-add:hover { color: var(--text); }
+
 .card.person-s .card-value { color: var(--s); }
 .card.person-l .card-value { color: var(--l); }
 .bar-row.person-s .bar-fill { background: var(--s); }
