@@ -52,7 +52,8 @@ const state = {
   search: "",
   sort: "added-desc",
   watchedSectionOpen: true,
-  editingId: null
+  editingId: null,
+  commentingId: null
 };
 
 let pendingSaves = 0;
@@ -143,6 +144,11 @@ function normalizeRatings(it) {
   return { S: validRating(src.S), L: validRating(src.L) };
 }
 
+function normalizeComments(it) {
+  const src = it.comments && typeof it.comments === "object" ? it.comments : {};
+  return { S: String(src.S ?? ""), L: String(src.L ?? "") };
+}
+
 function avgRating(it) {
   const vals = PEOPLE.map((p) => it.ratings[p]).filter((r) => r != null);
   return vals.length ? vals.reduce((s, r) => s + r, 0) / vals.length : null;
@@ -158,6 +164,7 @@ function normalize(raw) {
     type: TYPES.includes(it.type) ? it.type : "movie",
     status: STATUSES.includes(it.status) ? it.status : "planned",
     ratings: normalizeRatings(it),
+    comments: normalizeComments(it),
     note: String(it.note ?? ""),
     addedAt: typeof it.addedAt === "string" && it.addedAt ? it.addedAt : todayStr(),
     watchedAt: typeof it.watchedAt === "string" && it.watchedAt ? it.watchedAt : null,
@@ -279,6 +286,7 @@ function addItem(title, type) {
     type,
     status: "planned",
     ratings: { S: null, L: null },
+    comments: { S: "", L: "" },
     note: "",
     addedAt: todayStr(),
     watchedAt: null,
@@ -317,6 +325,21 @@ function rateItem(id, person, star) {
   const message = newRating == null
     ? `Clear ${person} rating of "${item.title}"`
     : `Rate "${item.title}" ${person} ${newRating}/5`;
+  applyAndSave(op, message);
+}
+
+function setComment(id, person, text) {
+  const item = state.data.items.find((i) => i.id === id);
+  if (!item) return;
+  state.commentingId = null;
+  if ((item.comments[person] || "") === text) { render(); return; }
+  const op = (data) => {
+    const it = data.items.find((i) => i.id === id);
+    if (!it) return;
+    it.comments[person] = text;
+    it.updatedBy = state.login;
+  };
+  const message = text ? `Comment "${item.title}" as ${person}` : `Clear ${person} comment of "${item.title}"`;
   applyAndSave(op, message);
 }
 
@@ -440,6 +463,52 @@ function buildItemRow(item) {
     children.push(ratings);
   }
 
+  // Comments are shown for any status; each person edits only their own line.
+  const comments = el("div", { class: "comments" });
+  for (const p of PEOPLE) {
+    const text = item.comments[p];
+    const mine = canEdit && state.person === p;
+    if (mine && state.commentingId === item.id) {
+      const ta = el("textarea", { class: "comment-input", rows: 2, placeholder: "Ваш комментарий…", "aria-label": `Комментарий ${p}` });
+      ta.value = text;
+      const saveBtn = el("button", { type: "button", class: "btn btn-primary", text: "Сохранить" });
+      const cancelBtn = el("button", { type: "button", class: "btn", text: "Отмена" });
+      saveBtn.addEventListener("click", () => setComment(item.id, p, ta.value.trim()));
+      cancelBtn.addEventListener("click", () => { state.commentingId = null; render(); });
+      ta.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+          e.preventDefault();
+          setComment(item.id, p, ta.value.trim());
+        } else if (e.key === "Escape") {
+          state.commentingId = null;
+          render();
+        }
+      });
+      comments.append(el("div", { class: `comment-line person-${p.toLowerCase()} mine` },
+        el("span", { class: "person-tag", text: p }), ta,
+        el("div", { class: "comment-actions" }, saveBtn, cancelBtn)));
+      setTimeout(() => ta.focus(), 0);
+    } else if (text) {
+      const line = el("div", {
+        class: `comment-line person-${p.toLowerCase()}${mine ? " mine" : ""}`,
+        role: mine ? "button" : null,
+        tabindex: mine ? 0 : null,
+        title: mine ? "Изменить комментарий" : null
+      }, el("span", { class: "person-tag", text: p }), el("span", { class: "comment-text", text }));
+      if (mine) {
+        const open = () => { state.commentingId = item.id; render(); };
+        line.addEventListener("click", open);
+        line.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); open(); } });
+      }
+      comments.append(line);
+    } else if (mine) {
+      const addBtn = el("button", { type: "button", class: "comment-add", text: "💬 Комментарий" });
+      addBtn.addEventListener("click", () => { state.commentingId = item.id; render(); });
+      comments.append(addBtn);
+    }
+  }
+  if (comments.children.length > 0) children.push(comments);
+
   if (canEdit) {
     const editBtn = el("button", { type: "button", class: "icon-btn edit-btn", text: "✎", "aria-label": "Редактировать" });
     editBtn.addEventListener("click", () => { state.editingId = item.id; render(); });
@@ -511,7 +580,7 @@ function renderList() {
   // Base list respects type + search filters (not the status filter).
   const base = state.data.items.filter((it) => {
     if (state.typeFilter !== "all" && it.type !== state.typeFilter) return false;
-    if (q && !(it.title.toLowerCase().includes(q) || it.note.toLowerCase().includes(q))) return false;
+    if (q && !(it.title.toLowerCase().includes(q) || it.note.toLowerCase().includes(q) || PEOPLE.some((p) => it.comments[p].toLowerCase().includes(q)))) return false;
     return true;
   });
 
