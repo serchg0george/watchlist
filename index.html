@@ -23,7 +23,7 @@
       </div>
       <div class="header-right">
         <span id="save-indicator" class="save-indicator"></span>
-        <button id="categories-btn" type="button" class="icon-btn categories-btn" aria-label="Категории" title="Категории">🏷️</button>
+        <button id="categories-btn" type="button" class="btn header-btn categories-btn">Категории</button>
         <button id="settings-btn" type="button" class="icon-btn settings-btn" aria-label="Настройки" title="Настройки">⚙</button>
       </div>
     </div>
@@ -73,7 +73,7 @@
     <input id="token-input" type="password" placeholder="github_pat_… (оставьте пустым, чтобы не менять)" autocomplete="off" spellcheck="false">
     <p class="settings-text person-hint">Кто вы, сайт определит по логину: владелец репозитория — S, второй участник — L.</p>
     <div class="settings-section">
-      <button type="button" id="open-categories-from-settings" class="btn full-width-btn">🏷️ Управление категориями</button>
+      <button type="button" id="open-categories-from-settings" class="btn full-width-btn">Категории</button>
     </div>
     <div id="settings-error" class="settings-error" role="alert"></div>
     <div class="dialog-actions">
@@ -85,10 +85,15 @@
 
   <dialog id="categories-dialog">
     <h2>Категории</h2>
-    <p class="dialog-desc">Редактируйте категории списка или добавляйте новые.</p>
+    <p class="dialog-desc">Редактируйте категории и цвета из палитры или добавляйте новые.</p>
     <div id="categories-auth-hint" class="settings-text dialog-hint" hidden>Войдите через ⚙, чтобы редактировать категории.</div>
     <div id="categories-list" class="categories-list"></div>
+    <div id="palette-presets-box" class="palette-presets-box">
+      <div class="palette-title">Быстрые оттенки (нажмите на кружок или на значок цвета):</div>
+      <div id="palette-swatches" class="palette-swatches"></div>
+    </div>
     <form id="add-category-form" class="add-category-form">
+      <input id="new-category-color" type="color" value="#e05638" class="category-color-input" title="Выбрать цвет из палитры" aria-label="Цвет новой категории">
       <input id="new-category-input" type="text" placeholder="Новая категория…" autocomplete="off" required>
       <button type="submit" class="btn btn-primary">Добавить</button>
     </form>

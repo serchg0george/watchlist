@@ -3,19 +3,23 @@
   "types": [
     {
       "key": "movie",
-      "label": "Фильм"
+      "label": "Фильм",
+      "color": "#e05638"
     },
     {
       "key": "series",
-      "label": "Сериал"
+      "label": "Сериал",
+      "color": "#2563eb"
     },
     {
       "key": "anime",
-      "label": "Аниме"
+      "label": "Аниме",
+      "color": "#7c3aed"
     },
     {
       "key": "show",
-      "label": "Шоу"
+      "label": "Шоу",
+      "color": "#059669"
     }
   ],
   "items": [
