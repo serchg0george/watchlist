@@ -376,8 +376,7 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 .bar-row.person-s .bar-fill { background: var(--s); }
 .bar-row.person-l .bar-fill { background: var(--l); }
 
-.person-label { margin-top: 12px; }
-#person-select { width: 100%; }
+.person-hint { margin-top: 10px; color: var(--muted); }
 
 .item-row .icon-btn.edit-btn { margin-left: auto; flex-shrink: 0; font-size: 17px; }
 
@@ -529,6 +528,27 @@ dialog h2 { margin: 0 0 10px; font-size: 20px; }
 }
 
 .toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.toast.has-action { display: flex; align-items: center; gap: 12px; padding-right: 8px; }
+.toast.visible.has-action { pointer-events: auto; }
+.toast-action {
+  min-height: 32px;
+  padding: 4px 12px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ===== Random pick ===== */
+
+.random-btn { width: 100%; margin-top: 8px; }
+
+.item-row.highlight { animation: pick-flash 1.2s ease 2; outline: 2px solid var(--accent); outline-offset: 2px; }
+@keyframes pick-flash { 50% { background: var(--chip-active-bg); } }
 
 /* ===== Wider screens ===== */
 

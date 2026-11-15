@@ -4,6 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Что посмотреть</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Посмотреть">
+  <meta name="theme-color" content="#fbfcf9" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#12160f" media="(prefers-color-scheme: dark)">
   <link rel="stylesheet" href="style.css">
   <script src="app.js" defer></script>
 </head>
@@ -43,6 +50,7 @@
           <input id="search" type="search" placeholder="Поиск…" autocomplete="off">
           <select id="sort" aria-label="Сортировка"></select>
         </div>
+        <button id="random-btn" type="button" class="btn random-btn">🎲 Что посмотреть сегодня?</button>
       </div>
 
       <div id="items" class="items"></div>
@@ -62,12 +70,7 @@
     </ul>
     <label class="token-label" for="token-input">Токен</label>
     <input id="token-input" type="password" placeholder="github_pat_… (оставьте пустым, чтобы не менять)" autocomplete="off" spellcheck="false">
-    <label class="token-label person-label" for="person-select">Кто вы (чью оценку ставите)</label>
-    <select id="person-select">
-      <option value="">— выберите —</option>
-      <option value="S">S</option>
-      <option value="L">L</option>
-    </select>
+    <p class="settings-text person-hint">Кто вы, сайт определит по логину: владелец репозитория — S, второй участник — L.</p>
     <div id="settings-error" class="settings-error" role="alert"></div>
     <div class="dialog-actions">
       <button type="button" id="cancel-settings-btn" class="btn">Отмена</button>
