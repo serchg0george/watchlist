@@ -24,11 +24,39 @@ function personFor(login) {
   if (!login) return "";
   return login.toLowerCase() === OWNER_LOGIN ? "S" : "L";
 }
-const TYPES = ["movie", "series", "anime", "show"];
+const DEFAULT_TYPES = [
+  { key: "movie", label: "Фильм" },
+  { key: "series", label: "Сериал" },
+  { key: "anime", label: "Аниме" },
+  { key: "show", label: "Шоу/офлайн" }
+];
 const STATUSES = ["planned", "watching", "watched", "dropped"];
-
-const TYPE_LABELS = { movie: "Фильм", series: "Сериал", anime: "Аниме", show: "Шоу/офлайн" };
 const STATUS_LABELS = { planned: "Хочу посмотреть", watching: "Смотрим", watched: "Просмотрено", dropped: "Брошено" };
+
+function getTypes() {
+  if (state.data && Array.isArray(state.data.types) && state.data.types.length > 0) {
+    return state.data.types;
+  }
+  return DEFAULT_TYPES;
+}
+
+function getTypeLabel(key) {
+  const t = getTypes().find((item) => item.key === key);
+  return t ? t.label : key;
+}
+
+function transliterate(str) {
+  const ru = {
+    а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "yo", ж: "zh",
+    з: "z", и: "i", й: "y", к: "k", л: "l", м: "m", н: "n", о: "o",
+    п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f", х: "kh", ц: "ts",
+    ч: "ch", ш: "sh", щ: "shch", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya"
+  };
+  return str.split("").map((c) => {
+    const low = c.toLowerCase();
+    return ru[low] !== undefined ? ru[low] : c;
+  }).join("");
+}
 
 const CHIPS = [
   { key: "all", label: "Все" },
@@ -165,14 +193,34 @@ function avgRating(it) {
   return vals.length ? vals.reduce((s, r) => s + r, 0) / vals.length : null;
 }
 
+function normalizeTypes(rawTypes) {
+  if (Array.isArray(rawTypes) && rawTypes.length > 0) {
+    const seen = new Set();
+    const result = [];
+    for (const t of rawTypes) {
+      if (!t) continue;
+      const key = String(t.key ?? "").trim();
+      const label = String(t.label ?? key).trim();
+      if (!key || !label || seen.has(key)) continue;
+      seen.add(key);
+      result.push({ key, label });
+    }
+    if (result.length > 0) return result;
+  }
+  return DEFAULT_TYPES.map((t) => ({ ...t }));
+}
+
 function normalize(raw) {
   const data = raw && typeof raw === "object" ? raw : {};
   data.version = Number.isInteger(data.version) ? data.version : 1;
+  data.types = normalizeTypes(data.types);
+  const fallbackKey = data.types[0]?.key || "movie";
+
   if (!Array.isArray(data.items)) data.items = [];
   data.items = data.items.map((it) => ({
     id: String(it.id ?? ""),
     title: String(it.title ?? ""),
-    type: TYPES.includes(it.type) ? it.type : "movie",
+    type: typeof it.type === "string" && it.type.trim() ? it.type.trim() : fallbackKey,
     status: STATUSES.includes(it.status) ? it.status : "planned",
     ratings: normalizeRatings(it),
     comments: normalizeComments(it),
@@ -403,6 +451,73 @@ function deleteItem(id) {
   if (applyAndSave(op, `Delete "${item.title}"`)) offerUndo(`«${item.title}» удалено`, snap);
 }
 
+function addCategory(label) {
+  const trimmed = label.trim();
+  if (!trimmed) return;
+  const types = getTypes();
+  if (types.some((t) => t.label.toLowerCase() === trimmed.toLowerCase())) {
+    showToast(`Категория «${trimmed}» уже существует`);
+    return;
+  }
+  const baseSlug = transliterate(trimmed).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  let key = baseSlug || `type-${Date.now().toString(36)}`;
+  if (types.some((t) => t.key === key)) {
+    key = `${key}-${Date.now().toString(36).slice(-4)}`;
+  }
+  const op = (data) => {
+    if (!Array.isArray(data.types)) data.types = DEFAULT_TYPES.map((t) => ({ ...t }));
+    data.types.push({ key, label: trimmed });
+  };
+  if (applyAndSave(op, `Add category "${trimmed}"`)) {
+    showToast(`Категория «${trimmed}» добавлена`);
+    renderCategoriesDialog();
+  }
+}
+
+function updateCategory(key, newLabel) {
+  const trimmed = newLabel.trim();
+  if (!trimmed) {
+    showToast("Название категории не может быть пустым");
+    renderCategoriesDialog();
+    return;
+  }
+  const current = getTypes().find((t) => t.key === key);
+  if (!current || current.label === trimmed) return;
+  const op = (data) => {
+    if (!Array.isArray(data.types)) data.types = DEFAULT_TYPES.map((t) => ({ ...t }));
+    const t = data.types.find((item) => item.key === key);
+    if (t) t.label = trimmed;
+  };
+  if (applyAndSave(op, `Rename category to "${trimmed}"`)) {
+    showToast(`Категория переименована в «${trimmed}»`);
+    renderCategoriesDialog();
+  }
+}
+
+function deleteCategory(key) {
+  const types = getTypes();
+  if (types.length <= 1) {
+    showToast("Нельзя удалить последнюю категорию");
+    return;
+  }
+  const target = types.find((t) => t.key === key);
+  if (!target) return;
+  const count = state.data ? state.data.items.filter((i) => i.type === key).length : 0;
+  const confirmMsg = count > 0
+    ? `В категории «${target.label}» есть ${count} элементов. При удалении категории они сохранятся. Удалить категорию?`
+    : `Удалить категорию «${target.label}»?`;
+  if (!confirm(confirmMsg)) return;
+
+  const op = (data) => {
+    if (!Array.isArray(data.types)) data.types = DEFAULT_TYPES.map((t) => ({ ...t }));
+    data.types = data.types.filter((item) => item.key !== key);
+  };
+  if (applyAndSave(op, `Delete category "${target.label}"`)) {
+    showToast(`Категория «${target.label}» удалена`);
+    renderCategoriesDialog();
+  }
+}
+
 // Duplicate check: case-, "ё"- and punctuation-insensitive title match.
 function titleKey(s) {
   return s.toLowerCase().replace(/ё/g, "е").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
@@ -444,6 +559,7 @@ function pickRandom() {
 
 function render() {
   renderHeader();
+  updateTypeSelects();
   document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === state.tab));
   document.getElementById("list-tab").hidden = state.tab !== "list";
   document.getElementById("stats-tab").hidden = state.tab !== "stats";
@@ -503,7 +619,7 @@ function buildItemRow(item) {
 
   const children = [el("label", { class: "check-wrap" }, cb)];
   children.push(el("span", { class: "item-title", text: item.title }));
-  children.push(el("span", { class: "badge badge-type", text: TYPE_LABELS[item.type] || item.type }));
+  children.push(el("span", { class: "badge badge-type", text: getTypeLabel(item.type) }));
 
   if (item.status === "watching" || item.status === "dropped") {
     children.push(el("span", { class: `badge badge-status-${item.status}`, text: STATUS_LABELS[item.status] }));
@@ -593,8 +709,11 @@ function buildItemRow(item) {
 function buildEditor(item) {
   const titleInput = el("input", { type: "text", class: "edit-title", value: item.title, "aria-label": "Название" });
   const typeSelect = el("select", { class: "edit-type", "aria-label": "Тип" },
-    ...Object.entries(TYPE_LABELS).map(([k, v]) => el("option", { value: k, text: v })));
+    ...getTypes().map((t) => el("option", { value: t.key, text: t.label })));
   typeSelect.value = item.type;
+  if (!typeSelect.value && getTypes().length > 0) {
+    typeSelect.value = getTypes()[0].key;
+  }
 
   const statusSelect = el("select", { class: "edit-status", "aria-label": "Статус" },
     ...Object.entries(STATUS_LABELS).map(([k, v]) => el("option", { value: k, text: v })));
@@ -806,10 +925,10 @@ function renderStats() {
   // Breakdown by type: watched / total.
   box.append(sectionTitle("По типам"));
   const typeBox = el("div", { class: "bars" });
-  for (const t of TYPES) {
-    const tot = countBy((i) => i.type === t);
-    const w = countBy((i) => i.type === t && i.status === "watched");
-    typeBox.append(barRow(TYPE_LABELS[t], w, tot, `${w} / ${tot}`));
+  for (const t of getTypes()) {
+    const tot = countBy((i) => i.type === t.key);
+    const w = countBy((i) => i.type === t.key && i.status === "watched");
+    typeBox.append(barRow(t.label, w, tot, `${w} / ${tot}`));
   }
   box.append(typeBox);
 
@@ -926,6 +1045,120 @@ function logout() {
   loadAll(); // back to the public copy of data/movies.json
 }
 
+// ===== Categories dialog =====
+
+function openCategories() {
+  const dlg = document.getElementById("categories-dialog");
+  renderCategoriesDialog();
+  dlg.showModal();
+}
+
+function renderCategoriesDialog() {
+  const list = document.getElementById("categories-list");
+  if (!list) return;
+  list.textContent = "";
+  const types = getTypes();
+  const canEdit = !!state.token;
+
+  const hint = document.getElementById("categories-auth-hint");
+  if (hint) hint.hidden = canEdit;
+
+  const addForm = document.getElementById("add-category-form");
+  if (addForm) addForm.hidden = !canEdit;
+
+  types.forEach((t) => {
+    const count = state.data ? state.data.items.filter((i) => i.type === t.key).length : 0;
+    const input = el("input", {
+      type: "text",
+      class: "category-name-input",
+      value: t.label,
+      "aria-label": `Название категории ${t.label}`,
+      disabled: !canEdit
+    });
+
+    const saveBtn = el("button", {
+      type: "button",
+      class: "icon-btn category-save-btn",
+      text: "✓",
+      title: "Сохранить название",
+      "aria-label": "Сохранить название",
+      disabled: true
+    });
+
+    const handleSave = () => {
+      const val = input.value.trim();
+      if (val && val !== t.label) {
+        updateCategory(t.key, val);
+      } else {
+        input.value = t.label;
+        saveBtn.disabled = true;
+      }
+    };
+
+    input.addEventListener("input", () => {
+      saveBtn.disabled = !canEdit || input.value.trim() === t.label || !input.value.trim();
+    });
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleSave();
+      } else if (e.key === "Escape") {
+        input.value = t.label;
+        saveBtn.disabled = true;
+      }
+    });
+
+    saveBtn.addEventListener("click", handleSave);
+
+    const countSpan = el("span", { class: "category-count", text: `${count}` });
+
+    const delBtn = el("button", {
+      type: "button",
+      class: "icon-btn category-del-btn",
+      text: "✕",
+      title: "Удалить категорию",
+      "aria-label": `Удалить категорию ${t.label}`,
+      disabled: !canEdit || types.length <= 1
+    });
+    delBtn.addEventListener("click", () => deleteCategory(t.key));
+
+    const row = el("div", { class: "category-row" }, input, saveBtn, countSpan, delBtn);
+    list.append(row);
+  });
+}
+
+function updateTypeSelects() {
+  const types = getTypes();
+
+  const typeSel = document.getElementById("type-filter");
+  if (typeSel) {
+    const curVal = state.typeFilter;
+    typeSel.textContent = "";
+    typeSel.append(el("option", { value: "all", text: "Все типы" }));
+    types.forEach((t) => typeSel.append(el("option", { value: t.key, text: t.label })));
+    typeSel.append(el("option", { value: "__manage__", text: "⚙ Настроить категории…" }));
+    if (curVal === "all" || types.some((t) => t.key === curVal)) {
+      typeSel.value = curVal;
+    } else {
+      state.typeFilter = "all";
+      typeSel.value = "all";
+    }
+  }
+
+  const addType = document.getElementById("add-type");
+  if (addType) {
+    const curVal = addType.value;
+    addType.textContent = "";
+    types.forEach((t) => addType.append(el("option", { value: t.key, text: t.label })));
+    if (types.some((t) => t.key === curVal)) {
+      addType.value = curVal;
+    } else if (types.length > 0) {
+      addType.value = types[0].key;
+    }
+  }
+}
+
 // ===== Init =====
 
 function init() {
@@ -944,9 +1177,15 @@ function init() {
 
   // Type filter.
   const typeSel = document.getElementById("type-filter");
-  typeSel.append(el("option", { value: "all", text: "Все типы" }));
-  Object.entries(TYPE_LABELS).forEach(([k, v]) => typeSel.append(el("option", { value: k, text: v })));
-  typeSel.addEventListener("change", () => { state.typeFilter = typeSel.value; render(); });
+  typeSel.addEventListener("change", () => {
+    if (typeSel.value === "__manage__") {
+      typeSel.value = state.typeFilter;
+      openCategories();
+      return;
+    }
+    state.typeFilter = typeSel.value;
+    render();
+  });
 
   // Search.
   const searchInput = document.getElementById("search");
@@ -961,7 +1200,6 @@ function init() {
   const addForm = document.getElementById("add-form");
   const addTitle = document.getElementById("add-title");
   const addType = document.getElementById("add-type");
-  Object.entries(TYPE_LABELS).forEach(([k, v]) => addType.append(el("option", { value: k, text: v })));
   addForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const t = addTitle.value.trim();
@@ -986,8 +1224,27 @@ function init() {
   document.getElementById("logout-btn").addEventListener("click", logout);
   const dlg = document.getElementById("settings-dialog");
   document.getElementById("cancel-settings-btn").addEventListener("click", () => dlg.close());
-  // Close when clicking the backdrop.
   dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+
+  // Categories dialog.
+  document.getElementById("categories-btn").addEventListener("click", openCategories);
+  document.getElementById("open-categories-from-settings").addEventListener("click", () => {
+    dlg.close();
+    openCategories();
+  });
+  const catDlg = document.getElementById("categories-dialog");
+  document.getElementById("close-categories-btn").addEventListener("click", () => catDlg.close());
+  catDlg.addEventListener("click", (e) => { if (e.target === catDlg) catDlg.close(); });
+
+  const addCategoryForm = document.getElementById("add-category-form");
+  const newCategoryInput = document.getElementById("new-category-input");
+  addCategoryForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const val = newCategoryInput.value.trim();
+    if (!val) return;
+    addCategory(val);
+    newCategoryInput.value = "";
+  });
 
   render();
   loadAll();

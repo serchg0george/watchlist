@@ -1,5 +1,23 @@
 {
   "version": 1,
+  "types": [
+    {
+      "key": "movie",
+      "label": "Фильм"
+    },
+    {
+      "key": "series",
+      "label": "Сериал"
+    },
+    {
+      "key": "anime",
+      "label": "Аниме"
+    },
+    {
+      "key": "show",
+      "label": "Шоу/офлайн"
+    }
+  ],
   "items": [
     {
       "id": "5285791d-4492-442e-81ac-6d07115da69d",
