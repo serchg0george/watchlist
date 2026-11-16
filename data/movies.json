@@ -390,7 +390,7 @@
       "status": "dropped",
       "ratings": {
         "S": 3,
-        "L": null
+        "L": 10
       },
       "comments": {
         "S": "Рик и Морти на минималках",
@@ -399,7 +399,7 @@
       "note": "скип",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "vechnost",
