@@ -480,7 +480,7 @@
       "status": "watched",
       "ratings": {
         "S": 10,
-        "L": null
+        "L": 10
       },
       "comments": {
         "S": "",
@@ -489,7 +489,7 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "den-vyborov",
