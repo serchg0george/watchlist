@@ -16,6 +16,11 @@ const LS_LOGIN = "watchlist.login";
 const LS_PERSON = "watchlist.person";
 
 const PEOPLE = ["S", "L"];
+const REACTION_KINDS = [
+  { key: "like", emoji: "👍", label: "Нравится" },
+  { key: "heart", emoji: "❤️", label: "Люблю" },
+  { key: "dislike", emoji: "👎", label: "Не нравится" }
+];
 // Exactly two editors: the repo owner is S, the collaborator (any other login with write access) is L.
 const OWNER_LOGIN = "serchg0george";
 const UNDO_MS = 5000;
@@ -103,6 +108,8 @@ const state = {
   sort: "added-desc",
   editingId: null,
   commentingId: null,
+  replyDraft: null,
+  editingReplyId: null,
   highlightId: null
 };
 
@@ -201,6 +208,29 @@ function normalizeComments(it) {
   return { S: String(src.S ?? ""), L: String(src.L ?? "") };
 }
 
+function normalizeReplies(it) {
+  if (!Array.isArray(it.replies)) return [];
+  return it.replies.filter((r) => r && typeof r === "object" &&
+    typeof r.id === "string" && PEOPLE.includes(r.by) &&
+    typeof r.text === "string" && r.text.trim() &&
+    typeof r.to === "string" && typeof r.at === "string")
+    .map((r) => {
+      const reply = { ...r, text: r.text.trim() };
+      if (typeof reply.editedAt !== "string") delete reply.editedAt;
+      return reply;
+    });
+}
+
+function normalizeReactions(it) {
+  if (!it.reactions || typeof it.reactions !== "object" || Array.isArray(it.reactions)) return {};
+  return Object.fromEntries(Object.entries(it.reactions).flatMap(([target, map]) => {
+    if (!map || typeof map !== "object" || Array.isArray(map)) return [];
+    const entries = Object.entries(map).filter(([person, kind]) =>
+      PEOPLE.includes(person) && REACTION_KINDS.some((r) => r.key === kind));
+    return entries.length ? [[target, Object.fromEntries(entries)]] : [];
+  }));
+}
+
 function avgRating(it) {
   const vals = PEOPLE.map((p) => it.ratings[p]).filter((r) => r != null);
   return vals.length ? vals.reduce((s, r) => s + r, 0) / vals.length : null;
@@ -245,6 +275,8 @@ function normalize(raw) {
       status: STATUSES.includes(it.status) ? it.status : "planned",
       ratings: normalizeRatings(it),
       comments: normalizeComments(it),
+      replies: normalizeReplies(it),
+      reactions: normalizeReactions(it),
       note: String(it.note ?? ""),
       addedAt: typeof it.addedAt === "string" && it.addedAt ? it.addedAt : todayStr(),
       watchedAt: typeof it.watchedAt === "string" && it.watchedAt ? it.watchedAt : null,
@@ -369,6 +401,8 @@ function addItem(title, type) {
     status: "planned",
     ratings: { S: null, L: null },
     comments: { S: "", L: "" },
+    replies: [],
+    reactions: {},
     note: "",
     addedAt: todayStr(),
     watchedAt: null,
@@ -435,15 +469,118 @@ function rateItem(id, person, star) {
 function setComment(id, person, text) {
   const item = state.data.items.find((i) => i.id === id);
   if (!item) return;
-  state.commentingId = null;
+  closeEditors();
   if ((item.comments[person] || "") === text) { render(); return; }
+  const login = state.login;
   const op = (data) => {
     const it = data.items.find((i) => i.id === id);
     if (!it) return;
     it.comments[person] = text;
-    it.updatedBy = state.login;
+    if (!text) delete it.reactions[person];
+    it.updatedBy = login;
   };
   const message = text ? `Comment "${item.title}" as ${person}` : `Clear ${person} comment of "${item.title}"`;
+  applyAndSave(op, message);
+}
+
+function closeEditors() {
+  state.editingId = null;
+  state.commentingId = null;
+  state.replyDraft = null;
+  state.editingReplyId = null;
+}
+
+function commentAuthor(item, target) {
+  if (PEOPLE.includes(target)) return item.comments[target] ? target : null;
+  return item.replies.find((r) => r.id === target)?.by || null;
+}
+
+function addReply(id, to, text) {
+  const item = state.data.items.find((i) => i.id === id);
+  const by = state.person;
+  if (!state.token || !PEOPLE.includes(by) || !item) return;
+  closeEditors();
+  const trimmed = text.trim();
+  if (!trimmed || !commentAuthor(item, to)) { render(); return; }
+  const reply = { id: newId(), to, by, text: trimmed, at: new Date().toISOString() };
+  const login = state.login;
+  const op = (data) => {
+    const it = data.items.find((i) => i.id === id);
+    if (!it || !commentAuthor(it, to) || it.replies.some((r) => r.id === reply.id)) return;
+    it.replies.push({ ...reply });
+    it.updatedBy = login;
+  };
+  const target = PEOPLE.includes(to) ? `${to} comment` : "reply";
+  applyAndSave(op, `Reply to ${target} on "${item.title}" as ${by}`);
+}
+
+function editReply(id, replyId, text) {
+  const item = state.data.items.find((i) => i.id === id);
+  const by = state.person;
+  const reply = item?.replies.find((r) => r.id === replyId);
+  if (!state.token || !reply || reply.by !== by) return;
+  closeEditors();
+  const trimmed = text.trim();
+  if (!trimmed || trimmed === reply.text) { render(); return; }
+  const editedAt = new Date().toISOString();
+  const login = state.login;
+  const op = (data) => {
+    const it = data.items.find((i) => i.id === id);
+    const r = it?.replies.find((r) => r.id === replyId);
+    if (!r || r.by !== by) return;
+    r.text = trimmed;
+    r.editedAt = editedAt;
+    it.updatedBy = login;
+  };
+  applyAndSave(op, `Edit reply on "${item.title}"`);
+}
+
+function deleteReply(id, replyId) {
+  const item = state.data.items.find((i) => i.id === id);
+  const by = state.person;
+  const reply = item?.replies.find((r) => r.id === replyId);
+  if (!state.token || !reply || reply.by !== by || !confirm("Удалить ответ?")) return;
+  closeEditors();
+  const login = state.login;
+  const op = (data) => {
+    const it = data.items.find((i) => i.id === id);
+    const r = it?.replies.find((r) => r.id === replyId);
+    if (!r || r.by !== by) return;
+    for (const child of it.replies) {
+      if (child.to === replyId) child.to = r.to;
+    }
+    it.replies = it.replies.filter((r) => r.id !== replyId);
+    delete it.reactions[replyId];
+    it.updatedBy = login;
+  };
+  applyAndSave(op, `Delete reply on "${item.title}"`);
+}
+
+function reactToComment(id, target, kind) {
+  const item = state.data.items.find((i) => i.id === id);
+  const by = state.person;
+  if (!state.token || !PEOPLE.includes(by) || !item ||
+      !REACTION_KINDS.some((r) => r.key === kind)) return;
+  const author = commentAuthor(item, target);
+  if (!author || author === by) return;
+  const selected = item.reactions[target]?.[by] === kind ? null : kind;
+  const login = state.login;
+  const op = (data) => {
+    const it = data.items.find((i) => i.id === id);
+    if (!it) return;
+    const currentAuthor = commentAuthor(it, target);
+    if (!currentAuthor || currentAuthor === by) return;
+    const map = { ...it.reactions[target] };
+    if (selected) map[by] = selected;
+    else delete map[by];
+    if (Object.keys(map).length) it.reactions = { ...it.reactions, [target]: map };
+    else delete it.reactions[target];
+    it.updatedBy = login;
+  };
+  const label = PEOPLE.includes(target) ? `${target} comment` : "reply";
+  const message = selected
+    ? `React ${selected} to ${label} on "${item.title}" as ${by}`
+    : `Remove reaction on "${item.title}"`;
   applyAndSave(op, message);
 }
 
@@ -647,6 +784,158 @@ function updateChips(base) {
   });
 }
 
+function buildCommentEditor(person, text, save, label) {
+  const ta = el("textarea", { class: "comment-input", rows: 2, placeholder: label, "aria-label": label });
+  ta.value = text;
+  const cancel = () => { closeEditors(); render(); };
+  const saveBtn = el("button", { type: "button", class: "btn btn-primary", text: "Сохранить" });
+  const cancelBtn = el("button", { type: "button", class: "btn", text: "Отмена" });
+  saveBtn.addEventListener("click", () => save(ta.value.trim()));
+  cancelBtn.addEventListener("click", cancel);
+  ta.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      save(ta.value.trim());
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      cancel();
+    }
+  });
+  const editor = el("div", { class: `comment-line person-${person.toLowerCase()} mine` },
+    el("span", { class: "person-tag", text: person }), ta,
+    el("div", { class: "comment-actions" }, saveBtn, cancelBtn));
+  setTimeout(() => { if (ta.isConnected) ta.focus(); }, 0);
+  return editor;
+}
+
+function buildCommentActions(item, target, author, canEdit, isReply) {
+  const actions = el("div", { class: "comment-controls" });
+  const mine = canEdit && state.person === author;
+  const map = item.reactions[target] || {};
+  for (const kind of REACTION_KINDS) {
+    const count = PEOPLE.filter((p) => map[p] === kind.key).length;
+    const active = canEdit && map[state.person] === kind.key;
+    const btn = el("button", {
+      type: "button",
+      class: `reaction-pill${active ? ` person-${state.person.toLowerCase()}` : ""}`,
+      text: `${kind.emoji}${count ? ` ${count}` : ""}`,
+      disabled: !canEdit || mine,
+      title: mine ? "Нельзя реагировать на свой комментарий" : canEdit ? kind.label : "Войдите, чтобы реагировать",
+      "aria-label": `${kind.label}: ${count}`,
+      "aria-pressed": String(!!active)
+    });
+    btn.addEventListener("click", () => reactToComment(item.id, target, kind.key));
+    actions.append(btn);
+  }
+  if (canEdit) {
+    const replyBtn = el("button", { type: "button", class: "comment-action", text: "Ответить" });
+    replyBtn.addEventListener("click", () => {
+      closeEditors();
+      state.replyDraft = { itemId: item.id, to: target };
+      render();
+    });
+    actions.append(replyBtn);
+  }
+  if (isReply && mine) {
+    const editBtn = el("button", { type: "button", class: "comment-action", text: "Изменить" });
+    editBtn.addEventListener("click", () => { closeEditors(); state.editingReplyId = target; render(); });
+    const deleteBtn = el("button", { type: "button", class: "comment-action", text: "Удалить" });
+    deleteBtn.addEventListener("click", () => deleteReply(item.id, target));
+    actions.append(editBtn, deleteBtn);
+  }
+  return actions;
+}
+
+function replyDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(date.getDate())}.${pad(date.getMonth() + 1)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function buildComments(item, canEdit) {
+  const comments = el("div", { class: "comments" });
+  const sorted = item.replies.slice().sort((a, b) => a.at.localeCompare(b.at));
+  const children = new Map();
+  const ids = new Set(item.replies.map((r) => r.id));
+  for (const reply of sorted) {
+    if (!children.has(reply.to)) children.set(reply.to, []);
+    children.get(reply.to).push(reply);
+  }
+  const appendDraft = (node, target) => {
+    if (canEdit && state.replyDraft?.itemId === item.id && state.replyDraft.to === target) {
+      node.append(buildCommentEditor(state.person, "", (text) => addReply(item.id, target, text), "Ваш ответ…"));
+    }
+  };
+  // Flatten the tree so the visual indent can stop growing after level three.
+  // Track reply objects to render malformed cycles/duplicate ids without looping or losing text.
+  const visited = new Set();
+  const appendReplies = (replies, depth) => {
+    const stack = replies.slice().reverse().map((reply) => ({ reply, depth }));
+    while (stack.length) {
+      const { reply, depth } = stack.pop();
+      if (visited.has(reply)) continue;
+      visited.add(reply);
+      const node = el("div", {
+        class: "comment-node reply-node", style: `--reply-depth:${Math.min(depth, 3)}`, "data-reply-id": reply.id
+      });
+      const mine = canEdit && state.person === reply.by;
+      if (mine && state.editingReplyId === reply.id) {
+        node.append(buildCommentEditor(reply.by, reply.text,
+          (text) => editReply(item.id, reply.id, text), "Ваш ответ…"));
+      } else {
+        node.append(el("div", { class: `comment-line person-${reply.by.toLowerCase()}` },
+          el("span", { class: "person-tag", text: reply.by }),
+          el("span", { class: "comment-text", text: reply.text }),
+          el("span", { class: "reply-date", text: `${replyDate(reply.at)}${reply.editedAt ? " (изм.)" : ""}` })),
+        buildCommentActions(item, reply.id, reply.by, canEdit, true));
+      }
+      appendDraft(node, reply.id);
+      comments.append(node);
+      const nested = children.get(reply.id) || [];
+      for (let i = nested.length - 1; i >= 0; i--) stack.push({ reply: nested[i], depth: depth + 1 });
+    }
+  };
+  for (const p of PEOPLE) {
+    const text = item.comments[p];
+    const mine = canEdit && state.person === p;
+    const rootReplies = children.get(p) || [];
+    const node = el("div", { class: "comment-node" });
+    if (mine && state.commentingId === item.id) {
+      node.append(buildCommentEditor(p, text, (value) => setComment(item.id, p, value), `Комментарий ${p}`));
+    } else {
+      if (text || rootReplies.length) {
+        const line = el("div", {
+          class: `comment-line person-${p.toLowerCase()}${mine && text ? " mine" : ""}${!text ? " comment-deleted" : ""}`,
+          role: mine && text ? "button" : null,
+          tabindex: mine && text ? 0 : null,
+          title: mine && text ? "Изменить комментарий" : null
+        }, el("span", { class: "person-tag", text: p }),
+        el("span", { class: "comment-text", text: text || "Комментарий удалён" }));
+        if (mine && text) {
+          const open = () => { closeEditors(); state.commentingId = item.id; render(); };
+          line.addEventListener("click", open);
+          line.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); open(); } });
+        }
+        node.append(line);
+        if (text) node.append(buildCommentActions(item, p, p, canEdit, false));
+      }
+      if (!text && mine) {
+        const addBtn = el("button", { type: "button", class: "comment-add", text: "💬 Комментарий" });
+        addBtn.addEventListener("click", () => { closeEditors(); state.commentingId = item.id; render(); });
+        node.append(addBtn);
+      }
+    }
+    appendDraft(node, p);
+    if (node.children.length) comments.append(node);
+    appendReplies(rootReplies, 1);
+  }
+  // Orphans follow both roots. Cycles have no root, so start any remaining component here as well.
+  appendReplies(sorted.filter((r) => !PEOPLE.includes(r.to) && !ids.has(r.to)), 1);
+  for (const reply of sorted) if (!visited.has(reply)) appendReplies([reply], 1);
+  return comments;
+}
+
 function buildItemRow(item) {
   if (state.editingId === item.id && state.token) return buildEditor(item);
 
@@ -694,55 +983,12 @@ function buildItemRow(item) {
     children.push(ratings);
   }
 
-  // Comments are shown for any status; each person edits only their own line.
-  const comments = el("div", { class: "comments" });
-  for (const p of PEOPLE) {
-    const text = item.comments[p];
-    const mine = canEdit && state.person === p;
-    if (mine && state.commentingId === item.id) {
-      const ta = el("textarea", { class: "comment-input", rows: 2, placeholder: "Ваш комментарий…", "aria-label": `Комментарий ${p}` });
-      ta.value = text;
-      const saveBtn = el("button", { type: "button", class: "btn btn-primary", text: "Сохранить" });
-      const cancelBtn = el("button", { type: "button", class: "btn", text: "Отмена" });
-      saveBtn.addEventListener("click", () => setComment(item.id, p, ta.value.trim()));
-      cancelBtn.addEventListener("click", () => { state.commentingId = null; render(); });
-      ta.addEventListener("keydown", (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-          e.preventDefault();
-          setComment(item.id, p, ta.value.trim());
-        } else if (e.key === "Escape") {
-          state.commentingId = null;
-          render();
-        }
-      });
-      comments.append(el("div", { class: `comment-line person-${p.toLowerCase()} mine` },
-        el("span", { class: "person-tag", text: p }), ta,
-        el("div", { class: "comment-actions" }, saveBtn, cancelBtn)));
-      setTimeout(() => ta.focus(), 0);
-    } else if (text) {
-      const line = el("div", {
-        class: `comment-line person-${p.toLowerCase()}${mine ? " mine" : ""}`,
-        role: mine ? "button" : null,
-        tabindex: mine ? 0 : null,
-        title: mine ? "Изменить комментарий" : null
-      }, el("span", { class: "person-tag", text: p }), el("span", { class: "comment-text", text }));
-      if (mine) {
-        const open = () => { state.commentingId = item.id; render(); };
-        line.addEventListener("click", open);
-        line.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); open(); } });
-      }
-      comments.append(line);
-    } else if (mine) {
-      const addBtn = el("button", { type: "button", class: "comment-add", text: "💬 Комментарий" });
-      addBtn.addEventListener("click", () => { state.commentingId = item.id; render(); });
-      comments.append(addBtn);
-    }
-  }
+  const comments = buildComments(item, canEdit);
   if (comments.children.length > 0) children.push(comments);
 
   if (canEdit) {
     const editBtn = el("button", { type: "button", class: "icon-btn edit-btn", text: "✎", "aria-label": "Редактировать" });
-    editBtn.addEventListener("click", () => { state.editingId = item.id; render(); });
+    editBtn.addEventListener("click", () => { closeEditors(); state.editingId = item.id; render(); });
     children.push(editBtn);
   }
 
@@ -814,7 +1060,7 @@ function renderList() {
   // Base list respects type + search filters (not the status filter).
   const base = state.data.items.filter((it) => {
     if (state.typeFilter !== "all" && it.type !== state.typeFilter) return false;
-    if (q && !(it.title.toLowerCase().includes(q) || it.note.toLowerCase().includes(q) || PEOPLE.some((p) => it.comments[p].toLowerCase().includes(q)))) return false;
+    if (q && !(it.title.toLowerCase().includes(q) || it.note.toLowerCase().includes(q) || PEOPLE.some((p) => it.comments[p].toLowerCase().includes(q)) || it.replies.some((r) => r.text.toLowerCase().includes(q)))) return false;
     return true;
   });
 

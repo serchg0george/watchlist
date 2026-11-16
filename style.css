@@ -371,7 +371,9 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
   flex-direction: column;
   gap: 4px;
   padding-left: 50px;
+  min-width: 0;
 }
+.comment-node { min-width: 0; }
 .comment-line { display: flex; align-items: flex-start; gap: 6px; font-size: 14px; }
 .comment-line .person-tag { margin-top: 1px; }
 .comment-text { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; padding-top: 3px; }
@@ -380,7 +382,37 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 .comment-line.person-l.mine { background: var(--l-bg); }
 .comment-line .comment-input { flex: 1; min-width: 0; font: inherit; resize: vertical; }
 .comment-line:has(.comment-input) { flex-wrap: wrap; cursor: default; }
-.comment-actions { flex-basis: 100%; display: flex; gap: 8px; padding-left: 30px; }
+.comment-actions { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 8px; padding-left: 30px; }
+.comment-input { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+.comment-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.comment-deleted, .reply-date { color: var(--muted); }
+.reply-node {
+  margin-left: calc(var(--reply-depth) * 12px);
+  border-left: 1px solid var(--border);
+  padding: 3px 0 3px 8px;
+}
+.reply-node .comment-line { flex-wrap: wrap; }
+.reply-node .comment-text { flex: 1 1 100px; }
+.reply-date { font-size: 11px; padding-top: 4px; white-space: nowrap; }
+.comment-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 3px 0 3px 30px; }
+.reaction-pill, .comment-action {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  min-height: 28px;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+.reaction-pill { border-color: var(--border); border-radius: 999px; }
+.reaction-pill:not(:disabled):hover, .comment-action:hover { background: var(--card-hover); color: var(--text); }
+.reaction-pill:disabled { cursor: default; }
+.reaction-pill.person-s[aria-pressed="true"] { color: var(--s); background: var(--s-bg); border-color: var(--s); }
+.reaction-pill.person-l[aria-pressed="true"] { color: var(--l); background: var(--l-bg); border-color: var(--l); }
+@media (max-width: 639px) {
+  .comments { padding-left: 0; }
+}
 .comment-add {
   align-self: flex-start;
   border: none;
