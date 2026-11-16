@@ -18,6 +18,9 @@ resolve() {
     qwen)              echo "Qwen3.8-27B (local) <qwen3.8-27b@models.invalid>" ;;
     glm)               echo "GLM-5.3-Flash (OpenCode Zen) <glm-5.3-flash@models.invalid>" ;;
     deepseek)          echo "DeepSeek V4.1 Flash (OpenCode Zen) <deepseek-v4.1-flash@models.invalid>" ;;
+    codex-astra)       echo "GPT-6 Astra (Codex) <gpt-6-astra@models.invalid>" ;;
+    codex-sol)         echo "GPT-6.1 Sol (Codex) <gpt-6.1-sol@models.invalid>" ;;
+    codex-terra)       echo "GPT-6.1 Terra (Codex) <gpt-6.1-terra@models.invalid>" ;;
     *'<'*'@'*'>')      echo "$1" ;;
     *) return 1 ;;
   esac
