@@ -24,6 +24,26 @@
   ],
   "items": [
     {
+      "id": "eb16a27b-bc29-4434-99d1-b642f92f1973",
+      "title": "Мультик",
+      "type": "movie",
+      "status": "planned",
+      "ratings": {
+        "S": null,
+        "L": null
+      },
+      "comments": {
+        "S": "",
+        "L": ""
+      },
+      "replies": [],
+      "reactions": {},
+      "note": "",
+      "addedAt": "2026-11-16",
+      "watchedAt": null,
+      "updatedBy": "serchg0george"
+    },
+    {
       "id": "07e791d7-1405-4943-a3dc-716449ae4228",
       "title": "Дрянь Сезон 2",
       "type": "movie",
