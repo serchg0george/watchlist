@@ -262,6 +262,17 @@ function normalizeTypes(rawTypes) {
   return DEFAULT_TYPES.map((t) => ({ ...t }));
 }
 
+function normalizeGenres(value) {
+  const seen = new Set();
+  return (Array.isArray(value) ? value : []).filter((genre) => {
+    if (typeof genre !== "string" || !genre.trim()) return false;
+    const key = genre.trim().toLocaleLowerCase("ru-RU");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).map((genre) => genre.trim());
+}
+
 function normalize(raw) {
   const data = raw && typeof raw === "object" ? raw : {};
   data.version = Number.isInteger(data.version) ? data.version : 1;
@@ -282,9 +293,11 @@ function normalize(raw) {
       comments: normalizeComments(it),
       replies: normalizeReplies(it),
       reactions: normalizeReactions(it),
+      genres: normalizeGenres(it.genres),
       note: String(it.note ?? ""),
       addedAt: typeof it.addedAt === "string" && it.addedAt ? it.addedAt : todayStr(),
       watchedAt: typeof it.watchedAt === "string" && it.watchedAt ? it.watchedAt : null,
+      droppedAt: typeof it.droppedAt === "string" && it.droppedAt ? it.droppedAt : null,
       updatedBy: String(it.updatedBy ?? "")
     };
   });
@@ -408,9 +421,11 @@ function addItem(title, type) {
     comments: { S: "", L: "" },
     replies: [],
     reactions: {},
+    genres: [],
     note: "",
     addedAt: todayStr(),
     watchedAt: null,
+    droppedAt: null,
     updatedBy: state.login
   };
   const op = (data) => { data.items.unshift(item); };
@@ -441,12 +456,13 @@ function toggleWatched(id) {
   if (!item) return;
   const snap = snapshotOf(item);
   const toWatched = !(item.status === "watched" || item.status === "dropped");
+  const date = todayStr(), login = state.login;
   const op = (data) => {
     const it = data.items.find((i) => i.id === id);
     if (!it) return;
-    if (toWatched) { it.status = "watched"; it.watchedAt = todayStr(); }
-    else { it.status = "planned"; it.watchedAt = null; }
-    it.updatedBy = state.login;
+    if (toWatched) { it.status = "watched"; it.watchedAt = date; }
+    else { it.status = "planned"; it.watchedAt = null; it.droppedAt = null; }
+    it.updatedBy = login;
   };
   const message = toWatched ? `Mark "${item.title}" watched` : `Edit "${item.title}"`;
   if (applyAndSave(op, message)) {
@@ -592,6 +608,10 @@ function reactToComment(id, target, kind) {
 function commitEdit(id, fields) {
   const item = state.data.items.find((i) => i.id === id);
   if (!item) return;
+  const dateKey = fields.status === "watched" ? "watchedAt" : fields.status === "dropped" ? "droppedAt" : null;
+  const transitioned = fields.status !== item.status;
+  const date = fields.finishedAt || todayStr();
+  const login = state.login;
   state.editingId = null; // close the editor on save
   const op = (data) => {
     const it = data.items.find((i) => i.id === id);
@@ -600,8 +620,10 @@ function commitEdit(id, fields) {
     it.type = fields.type;
     it.status = fields.status;
     it.note = fields.note;
-    it.watchedAt = fields.watchedAt;
-    it.updatedBy = state.login;
+    it.genres = normalizeGenres(fields.genres);
+    // Capture the intended date once, including across conflict retries.
+    if (dateKey && (transitioned || fields.dateEdited)) it[dateKey] = date;
+    it.updatedBy = login;
   };
   applyAndSave(op, `Edit "${fields.title}"`);
 }
@@ -966,6 +988,9 @@ function buildItemRow(item) {
     children.push(el("span", { class: `badge badge-status-${item.status}`, text: STATUS_LABELS[item.status] }));
   }
   if (item.note) children.push(el("span", { class: "item-note", text: item.note }));
+  if (item.genres?.length) children.push(el("span", { class: "item-genres", text: item.genres.join(" · ") }));
+  const finishedAt = item.status === "dropped" ? item.droppedAt : item.status === "watched" ? item.watchedAt : null;
+  if (finishedAt) children.push(el("span", { class: "item-date", text: `${item.status === "dropped" ? "Брошено" : "Просмотрено"}: ${finishedAt.split("-").reverse().join(".")}` }));
 
   // Each person rates only on their own line; the other line is read-only.
   if (isFinished) {
@@ -1018,7 +1043,25 @@ function buildEditor(item) {
   statusSelect.value = item.status;
 
   const noteInput = el("input", { type: "text", class: "edit-note", value: item.note || "", placeholder: "Заметка", "aria-label": "Заметка" });
-  const dateInput = el("input", { type: "date", class: "edit-date", value: item.watchedAt || "", "aria-label": "Дата просмотра" });
+  const genresInput = el("input", { type: "text", value: (item.genres || []).join(", "), placeholder: "Например: комедия, драма", "aria-label": "Жанры через запятую" });
+  const genresField = el("label", { class: "edit-genres" }, el("span", { text: "Жанры через запятую" }), genresInput);
+  const dateInput = el("input", { type: "date", class: "edit-date" });
+  const dateLabel = el("span");
+  const dateField = el("label", { class: "edit-date-field" }, dateLabel, dateInput,
+    el("small", { text: "При смене статуса дата ставится автоматически. Можно исправить вручную." }));
+  let dateEdited = false;
+  const updateDateField = () => {
+    const status = statusSelect.value;
+    const key = status === "watched" ? "watchedAt" : status === "dropped" ? "droppedAt" : null;
+    dateField.hidden = !key;
+    dateLabel.textContent = status === "dropped" ? "Дата отказа от просмотра" : "Дата просмотра";
+    dateInput.setAttribute("aria-label", dateLabel.textContent);
+    dateInput.value = key ? (status !== item.status ? todayStr() : item[key] || "") : "";
+    dateEdited = false;
+  };
+  updateDateField();
+  statusSelect.addEventListener("change", updateDateField);
+  dateInput.addEventListener("input", () => { dateEdited = true; });
 
   const saveBtn = el("button", { type: "button", class: "btn btn-primary", text: "Сохранить" });
   const cancelBtn = el("button", { type: "button", class: "btn", text: "Отмена" });
@@ -1027,12 +1070,15 @@ function buildEditor(item) {
   saveBtn.addEventListener("click", () => {
     const t = titleInput.value.trim();
     if (!t) { showToast("Название не может быть пустым"); return; }
+    if (!dateField.hidden && !dateInput.checkValidity()) { dateInput.reportValidity(); return; }
     commitEdit(item.id, {
       title: t,
       type: typeSelect.value,
       status: statusSelect.value,
       note: noteInput.value.trim(),
-      watchedAt: dateInput.value || null
+      genres: genresInput.value.split(","),
+      finishedAt: dateInput.value || null,
+      dateEdited
     });
   });
   cancelBtn.addEventListener("click", () => { state.editingId = null; render(); });
@@ -1041,7 +1087,7 @@ function buildEditor(item) {
   });
 
   return el("div", { class: "editor" },
-    el("div", { class: "editor-grid" }, titleInput, typeSelect, statusSelect, noteInput, dateInput),
+    el("div", { class: "editor-grid" }, titleInput, typeSelect, statusSelect, noteInput, genresField, dateField),
     el("div", { class: "editor-actions" }, saveBtn, cancelBtn, deleteBtn)
   );
 }
@@ -1128,13 +1174,46 @@ function computeStats(items, types, today = new Date()) {
   items.forEach((item) => {
     if (!categories.some((type) => type.key === item.type)) categories.push({ key: item.type, label: item.type || "Без типа", color: "var(--muted)" });
   });
+  const watched = items.filter((item) => item.status === "watched");
+  const watchedBoth = both.filter((item) => item.status === "watched");
+  const genreGroups = new Map();
+  watched.forEach((item) => {
+    const seen = new Set();
+    for (const raw of Array.isArray(item.genres) ? item.genres : []) {
+      if (typeof raw !== "string" || !raw.trim()) continue;
+      const label = raw.trim(), key = label.toLocaleLowerCase("ru-RU");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (!genreGroups.has(key)) genreGroups.set(key, { label, items: [] });
+      genreGroups.get(key).items.push(item);
+    }
+  });
+  const genres = [...genreGroups.values()].map((genre) => {
+    const paired = genre.items.filter((item) => valid(item.ratings?.S) && valid(item.ratings?.L));
+    const people = Object.fromEntries(PEOPLE.map((person) => {
+      const ratings = genre.items.map((item) => item.ratings?.[person]).filter(valid);
+      return [person, { count: ratings.length, average: ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : null }];
+    }));
+    return { label: genre.label, count: genre.items.length, people, paired: paired.length,
+      agreement: paired.length ? 100 * (1 - paired.reduce((sum, item) => sum + Math.abs(item.ratings.S - item.ratings.L), 0) / paired.length / 9) : null };
+  }).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "ru"));
+  const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  const currentDate = `${currentMonth}-${String(today.getDate()).padStart(2, "0")}`;
+  const monthly = watchedBoth.filter((item) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(item.watchedAt || "") || item.watchedAt.slice(0, 7) !== currentMonth || item.watchedAt > currentDate) return false;
+    const day = Number(item.watchedAt.slice(8)), maxDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    return day >= 1 && day <= maxDay;
+  });
+  const bestMonthly = Math.max(0, ...monthly.map((item) => item.ratings.S + item.ratings.L));
   return {
-    values, counts, averages, both, groups,
+    values, counts, averages, both, groups, genres,
+    favoriteMonth: { label: `${MONTH_FULL[today.getMonth()]} ${today.getFullYear()}`, count: monthly.length,
+      items: monthly.filter((item) => item.ratings.S + item.ratings.L === bestMonthly).sort((a, b) => newer(a, b) || a.title.localeCompare(b.title, "ru")) },
     close: both.filter((item) => Math.abs(item.ratings.S - item.ratings.L) <= 1).length,
     exact: both.filter((item) => item.ratings.S === item.ratings.L).length,
     statuses: Object.fromEntries(STATUSES.map((status) => [status, items.filter((item) => item.status === status).length])),
     months: computeMonths(items, today),
-    diffs: [...both].sort((a, b) => Math.abs(b.ratings.S - b.ratings.L) - Math.abs(a.ratings.S - a.ratings.L) || newer(a, b)).slice(0, 5),
+    diffs: watchedBoth.filter((item) => item.ratings.S !== item.ratings.L).sort((a, b) => Math.abs(b.ratings.S - b.ratings.L) - Math.abs(a.ratings.S - a.ratings.L) || newer(a, b)).slice(0, 5),
     top: [...both].sort((a, b) => (b.ratings.S + b.ratings.L) - (a.ratings.S + a.ratings.L) || newer(a, b)).slice(0, 10),
     categories: categories.map((type) => ({ ...type, total: items.filter((item) => item.type === type.key).length, watched: items.filter((item) => item.type === type.key && item.status === "watched").length }))
   };
@@ -1322,10 +1401,63 @@ function renderStatsScatter(data, tip) {
   return section;
 }
 
+function statsItemButton(item) {
+  const button = el("button", { type: "button", class: "title stats-title-button", text: item.title, title: item.title, "aria-label": `Открыть обсуждение: ${item.title}` });
+  button.addEventListener("click", () => {
+    closeEditors();
+    state.tab = "list";
+    state.statusFilter = item.status;
+    state.typeFilter = "all";
+    state.search = "";
+    document.getElementById("search").value = "";
+    state.highlightId = item.id;
+    render();
+    const row = document.querySelector(`.item-row[data-id="${CSS.escape(item.id)}"]`);
+    if (row) { row.setAttribute("tabindex", "-1"); row.focus({ preventScroll: true }); row.scrollIntoView({ behavior: "smooth", block: "center" }); }
+    clearTimeout(highlightTimer);
+    highlightTimer = setTimeout(() => {
+      state.highlightId = null;
+      document.querySelectorAll(".item-row.highlight").forEach((node) => node.classList.remove("highlight"));
+    }, 3000);
+  });
+  return button;
+}
+
+function renderStatsGenres(data) {
+  const { section, body } = statsSection("genres", "Совпадение по жанрам", "Только просмотренное. Один тайтл может входить в несколько жанров.");
+  if (!data.genres.length) { body.append(statsEmpty("Добавьте жанры в редакторе просмотренных тайтлов — здесь появится сравнение ваших вкусов.")); return section; }
+  body.append(el("div", { class: "genre-grid" }, ...data.genres.map((genre) => {
+    const card = el("article", { class: "genre-card" },
+      el("div", { class: "genre-head" }, el("h3", { text: genre.label }), el("span", { class: "genre-count", text: `Просмотрено: ${genre.count}` })),
+      el("div", { class: "genre-ratings" }, ...PEOPLE.map((person) => el("div", { class: "genre-rating" },
+        statsWho(person), el("strong", { text: statsFmt(genre.people[person].average) }),
+        el("span", { class: "genre-count", text: `оценок: ${genre.people[person].count}` })))),
+      el("div", { class: "genre-agreement" }, el("strong", { text: genre.agreement == null ? "Пока не сравнить" : `${Math.round(genre.agreement)}% совпадения` }),
+        el("span", { class: "genre-count", text: `Оценили оба: ${genre.paired}` })));
+    if (genre.agreement != null) card.append(el("div", { class: "genre-meter", "aria-hidden": "true" }, el("i", { style: `width:${genre.agreement}%` })));
+    if (genre.paired < 3) card.append(el("p", { class: "sec-note", text: genre.paired ? "Пока мало совместных оценок — результат предварительный." : "Нужны оценки обоих на одни и те же тайтлы." }));
+    return card;
+  })));
+  body.append(el("p", { class: "sec-note genre-formula", text: "Средние оценки S и L учитывают все их оценки в жанре. Совпадение = 100 × (1 − средняя разница общих оценок / 9): одинаковые оценки дают 100%, разница в 9 баллов — 0%." }));
+  return section;
+}
+
+function renderStatsFavorite(data) {
+  const favorite = data.favoriteMonth;
+  const { section, body } = statsSection("favorite", "Фаворит месяца", `${favorite.label} · по средней оценке двоих`);
+  if (!favorite.items.length) { body.append(statsEmpty("В этом месяце пока нет просмотренных тайтлов с датой и оценками обоих.")); return section; }
+  body.append(el("p", { class: "sec-note", text: `Тайтлов с двумя оценками за месяц: ${favorite.count}${favorite.items.length > 1 ? ". Первое место разделили:" : ""}` }));
+  favorite.items.forEach((item) => body.append(el("div", { class: "favorite-row" },
+    el("div", { class: "favorite-main" }, statsItemButton(item), statsBadge(item)),
+    el("div", { class: "pair" }, statsWho("S", `S ${item.ratings.S}`), statsWho("L", `L ${item.ratings.L}`)),
+    el("strong", { class: "favorite-score", "aria-label": `Средняя оценка ${statsFmt((item.ratings.S + item.ratings.L) / 2)}`, text: statsFmt((item.ratings.S + item.ratings.L) / 2) }))));
+  return section;
+}
+
 function renderStatsDiffs(data) {
-  const { section, body } = statsSection("diff", "Самые большие расхождения");
+  const { section, body } = statsSection("diff", "Самые спорные просмотры", "Пять самых больших расхождений среди просмотренного. Нажмите на название, чтобы открыть обсуждение.");
   body.id = "diffs";
-  if (!data.diffs.length) { body.append(statsEmpty("Пока нет общих оценок")); return section; }
+  if (!data.diffs.length) { body.append(statsEmpty("Пока нет просмотренных тайтлов с разными оценками обоих.")); return section; }
   const position = (value) => (value - 1) / 9 * 100;
   data.diffs.forEach((item) => {
     const { S: s, L: l } = item.ratings;
@@ -1333,7 +1465,7 @@ function renderStatsDiffs(data) {
     for (let value = 1; value <= 10; value++) scale.append(el("i", { class: "scale-tick", style: `left:${position(value)}%` }));
     scale.append(el("i", { class: "scale-line", style: `left:${position(Math.min(s, l))}%;width:${Math.abs(s - l) / 9 * 100}%;background:linear-gradient(90deg,var(--${s <= l ? "s" : "l"}),var(--${s <= l ? "l" : "s"}))` }),
       el("span", { class: "dot s", style: `left:${position(s)}%`, text: "S" }), el("span", { class: "dot l", style: `left:${position(l)}%`, text: "L" }));
-    body.append(el("div", { class: "row" }, el("div", { class: "row-head" }, el("span", { class: "title", text: item.title, title: item.title }),
+    body.append(el("div", { class: "row" }, el("div", { class: "row-head" }, statsItemButton(item),
       el("span", { class: "pair" }, statsWho("S", `S ${s}`), statsWho("L", `L ${l}`)), el("span", { class: "delta", "aria-label": `разница ${Math.abs(s - l)}`, text: `Δ ${Math.abs(s - l)}` })), scale));
   });
   body.append(el("div", { class: "scale-axis", "aria-hidden": "true" }, ...Array.from({ length: 10 }, (_, i) => el("span", { style: `left:${position(i + 1)}%`, text: i + 1 }))));
@@ -1367,7 +1499,7 @@ function renderStats() {
   if (state.error) { box.append(el("div", { class: "state-msg error", text: state.error })); return; }
   const items = state.data?.items || [], data = computeStats(items, getTypes());
   const tip = el("div", { class: "tip", role: "tooltip", hidden: true });
-  const stack = el("div", { class: "stack" }, renderStatsHero(items, data), renderStatsHistogram(data, tip), renderStatsMonths(data, tip), renderStatsScatter(data, tip), renderStatsDiffs(data), renderStatsCategories(items, data), renderStatsTop(data));
+  const stack = el("div", { class: "stack" }, renderStatsHero(items, data), renderStatsFavorite(data), renderStatsDiffs(data), renderStatsGenres(data), renderStatsHistogram(data, tip), renderStatsMonths(data, tip), renderStatsScatter(data, tip), renderStatsCategories(items, data), renderStatsTop(data));
   box.append(el("div", { class: "stats-wrap" }, el("header", { class: "page-head" }, el("h1", { text: "Статистика" }), el("p", { text: `S и L · данные на ${new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}` })), stack), tip);
 }
 
