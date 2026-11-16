@@ -4,8 +4,8 @@
 
 "use strict";
 
-const CACHE = "watchlist-v8";
-const SHELL = ["./", "index.html", "style.css", "app.js", "manifest.json", "data/movies.json", "icons/icon-192.png"];
+const CACHE = "watchlist-v9";
+const SHELL = ["./", "index.html", "style.css", "tmdb.js", "app.js", "manifest.json", "data/movies.json", "icons/icon-192.png", "icons/tmdb.svg"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
