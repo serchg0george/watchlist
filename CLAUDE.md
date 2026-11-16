@@ -6,7 +6,7 @@
 
 ## 1. Git & GitHub
 
-GitHub user **serchg0george**, repo **serchg0george/watchlist**, branch **master**. GitHub Pages публикует `master` из корня.
+GitHub user **serchg0george**, repo **serchg0george/watchlist**, branch **master**. GitHub Pages собирается workflow `deploy.yml`: код из `master`, `data/movies.json` из текущей ветки `data/*`.
 
 - Перед работой: `gh auth switch --user serchg0george` (не `gh auth status` — зависает), затем `git fetch --all --prune && git pull --ff-only`. Pull не прошёл (diverged, конфликты, auth/network) → стоп, сообщить, спросить. Никаких `rebase`, `merge`, `reset --hard`, force без явного запроса.
 - **Identity — MANDATORY.** Перед любым коммитом: `git config --local user.name` = `serchg0george`, `user.email` = `serchg0george@users.noreply.github.com`; если не так — выставить с `--local`. Никогда `git config --global` — глобальный конфиг принадлежит рабочему аккаунту Expedia.
