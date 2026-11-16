@@ -20,6 +20,11 @@
       "key": "show",
       "label": "Шоу",
       "color": "#059669"
+    },
+    {
+      "key": "multfilm",
+      "label": "Мультфильм",
+      "color": "#46ddda"
     }
   ],
   "items": [
@@ -39,7 +44,9 @@
       "note": "",
       "addedAt": "2026-11-16",
       "watchedAt": null,
-      "updatedBy": "serchg0george"
+      "updatedBy": "serchg0george",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "6fd42c57-b829-456d-90a3-ef35af589ce3",
@@ -57,7 +64,9 @@
       "note": "Фильм 10/10, легенда",
       "addedAt": "2026-11-16",
       "watchedAt": "2026-11-16",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "panilubov-bit",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "5285791d-4492-442e-81ac-6d07115da69d",
@@ -75,7 +84,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "panilubov-bit",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "chego-hotyat-zhenshchiny",
@@ -93,7 +104,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": ""
+      "updatedBy": "",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "dryan",
@@ -111,7 +124,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-16",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "panilubov-bit",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "tipa-krutye-legavye",
@@ -129,7 +144,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": ""
+      "updatedBy": "",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "karolina",
@@ -147,7 +164,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "serchg0george",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "horisty",
@@ -165,7 +184,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": ""
+      "updatedBy": "",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "chernoe-zerkalo",
@@ -183,7 +204,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": ""
+      "updatedBy": "",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "odna-bitva",
@@ -201,7 +224,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": ""
+      "updatedBy": "",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "legkoe-povedenie",
@@ -219,7 +244,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": ""
+      "updatedBy": "",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "realnaya-lyubov",
@@ -237,7 +264,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": ""
+      "updatedBy": "",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "menshova-greciya",
@@ -255,7 +284,9 @@
       "note": "офлайн",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": ""
+      "updatedBy": "",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "forma-golosa",
@@ -273,7 +304,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": ""
+      "updatedBy": "",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "patema",
@@ -291,7 +324,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": ""
+      "updatedBy": "",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "garri-i-salli",
@@ -309,7 +344,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": ""
+      "updatedBy": "",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "hod-korolevy",
@@ -327,7 +364,9 @@
       "note": "про шахматы",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": ""
+      "updatedBy": "",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "hrustalnyy",
@@ -345,7 +384,9 @@
       "note": "посмотри сам",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": ""
+      "updatedBy": "",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "trigger",
@@ -363,7 +404,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": ""
+      "updatedBy": "",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "luchshee-mesto",
@@ -381,7 +424,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": ""
+      "updatedBy": "",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "temnaya-materiya",
@@ -399,12 +444,14 @@
       "note": "скип",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "panilubov-bit",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "vechnost",
       "title": "Вечность",
-      "type": "movie",
+      "type": "multfilm",
       "status": "watched",
       "ratings": {
         "S": 8,
@@ -417,7 +464,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "serchg0george",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "otpusk-na-dvoih",
@@ -435,12 +484,14 @@
       "note": "скип",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "panilubov-bit",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "dusha",
       "title": "Душа",
-      "type": "movie",
+      "type": "multfilm",
       "status": "watched",
       "ratings": {
         "S": 7,
@@ -453,25 +504,41 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "serchg0george",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "tayna-koko",
       "title": "Тайна Коко",
-      "type": "movie",
+      "type": "multfilm",
       "status": "watched",
       "ratings": {
         "S": 10,
         "L": 10
       },
       "comments": {
-        "S": "",
+        "S": "Отличный мультик, просто нереально крутой. Плакал 2 раза, с ударением на вторую а",
         "L": "Лучший добрый мультик  про семью"
       },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "serchg0george",
+      "replies": [
+        {
+          "id": "0ebdf9fe-df5f-4f16-b2de-53011d31e506",
+          "to": "L",
+          "by": "S",
+          "text": "100%",
+          "at": "2026-11-16T17:59:59.456Z"
+        }
+      ],
+      "reactions": {
+        "L": {
+          "S": "heart"
+        }
+      }
     },
     {
       "id": "50-pervyh-poceluev",
@@ -489,7 +556,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "panilubov-bit",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "den-vyborov",
@@ -507,7 +576,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "panilubov-bit",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "semeyka-addams",
@@ -525,7 +596,9 @@
       "note": "офлайн",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "panilubov-bit",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "mulan",
@@ -543,7 +616,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "panilubov-bit",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "terapiya",
@@ -561,7 +636,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "panilubov-bit",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "ty",
@@ -579,7 +656,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "panilubov-bit",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "sumerki",
@@ -597,7 +676,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "panilubov-bit",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "dyuna-2",
@@ -615,7 +696,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "panilubov-bit",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "graf-monte-kristo",
@@ -633,7 +716,9 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "panilubov-bit",
+      "replies": [],
+      "reactions": {}
     },
     {
       "id": "karatel",
@@ -651,7 +736,9 @@
       "note": "брошен",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "panilubov-bit",
+      "replies": [],
+      "reactions": {}
     }
   ]
 }
