@@ -119,9 +119,39 @@ const state = {
 };
 
 let lastPickId = null;
+const openItems = new Set();
+const draftMemory = new Map();
+const draftCleanups = new Map();
+let catalogSavePending = false;
+
+function readLocal(key, fallback = null) {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
+}
+
+function writeLocal(key, value) {
+  try { if (value == null) localStorage.removeItem(key); else localStorage.setItem(key, JSON.stringify(value)); } catch { /* Keep in-memory drafts when storage is unavailable. */ }
+}
+
+function draftKey(kind, id) { return `watchlist.draft.${state.login}.${kind}.${id}`; }
+function readDraft(key) { return draftMemory.get(key) ?? readLocal(key); }
+function writeDraft(key, value) {
+  if (value == null) draftMemory.delete(key); else draftMemory.set(key, value);
+  writeLocal(key, value);
+}
+
+function clearDraftAfterSave(key, snapshot) {
+  draftCleanups.set(key, snapshot);
+  waitForSaves().then(() => {
+    if (JSON.stringify(readDraft(key)) === JSON.stringify(snapshot)) writeDraft(key, null);
+    draftCleanups.delete(key);
+  }).catch(() => {});
+}
 let highlightTimer = null;
 let pendingSaves = 0;
-let saveChain = Promise.resolve();
+const saveQueue = [];
+const saveWaiters = [];
+let saveRunning = false;
+let saveError = null;
 let toastTimer = null;
 let saveHideTimer = null;
 
@@ -186,11 +216,19 @@ function apiHeaders(token) {
   };
 }
 
+async function fetchTimed(url, options = {}, read = (response) => response) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try { return await read(await fetch(url, { ...options, signal: controller.signal })); }
+  finally { clearTimeout(timer); }
+}
+
 async function fetchFileViaApi(token) {
-  const res = await fetch(API_FILE_URL, { headers: apiHeaders(token), cache: "no-store" });
+  return fetchTimed(API_FILE_URL, { headers: apiHeaders(token), cache: "no-store" }, async (res) => {
   if (!res.ok) throw Object.assign(new Error(`GitHub API: HTTP ${res.status}`), { status: res.status });
   const json = await res.json();
   return { data: JSON.parse(base64ToUtf8(json.content)), sha: json.sha };
+  });
 }
 
 async function fetchFileLocal() {
@@ -313,6 +351,7 @@ function friendlyError(e) {
 }
 
 async function loadAll() {
+  if (hasUnsavedChanges()) return;
   state.loading = true;
   state.error = null;
   render();
@@ -328,14 +367,21 @@ async function loadAll() {
   }
 }
 
-// ===== Saving: optimistic op + serialized queue with sha retry =====
+// ===== Saving: retained optimistic queue with conflict retry =====
+
+function hasUnsavedChanges() {
+  return saveQueue.length > 0;
+}
 
 function applyAndSave(op, message) {
   if (!state.token) {
     showToast("Войдите через ⚙, чтобы редактировать список");
     return false;
   }
-  // Optimistic local update.
+  if (saveQueue.some((entry) => entry.login !== state.login)) {
+    showToast("Сначала сохраните изменения предыдущего пользователя");
+    return false;
+  }
   op(state.data);
   render();
   enqueueSave(op, message);
@@ -343,52 +389,97 @@ function applyAndSave(op, message) {
 }
 
 function enqueueSave(op, message) {
-  pendingSaves++;
+  saveQueue.push({ op, message, token: state.token, login: state.login });
+  pendingSaves = saveQueue.length;
   updateSaveIndicator();
-  saveChain = saveChain
-    .then(() => performSave(op, message))
-    .catch((err) => {
-      console.error("save failed", err);
-      showToast("Не удалось сохранить. Перезагружаю данные…");
-      loadAll(); // resync with the server copy
-    })
-    .finally(() => {
-      pendingSaves--;
-      updateSaveIndicator();
-    });
+  void flushSaves();
 }
 
-async function performSave(op, message) {
-  const token = state.token;
+function waitForSaves() {
+  if (saveError) return Promise.reject(saveError);
+  if (!saveQueue.length) return Promise.resolve();
+  return new Promise((resolve, reject) => saveWaiters.push({ resolve, reject }));
+}
+
+function settleSaveWaiters(error) {
+  if (!error) {
+    for (const [key, snapshot] of draftCleanups) {
+      if (JSON.stringify(readDraft(key)) === JSON.stringify(snapshot)) writeDraft(key, null);
+    }
+    draftCleanups.clear();
+    if (catalogSavePending) {
+      catalogSavePending = false;
+      window.WatchlistTMDB?.acknowledgeSave();
+    }
+  }
+  const waiters = saveWaiters.splice(0);
+  for (const waiter of waiters) error ? waiter.reject(error) : waiter.resolve();
+}
+
+function rebindPendingSaves(token, login) {
+  if (saveQueue.some((entry) => entry.login !== login)) return false;
+  for (const entry of saveQueue) entry.token = token;
+  return true;
+}
+
+function retryFailedSaves() {
+  if (saveRunning || !saveQueue.length) return;
+  saveError = null;
+  updateSaveIndicator();
+  void flushSaves();
+}
+
+async function flushSaves() {
+  if (saveRunning || saveError || !saveQueue.length) return;
+  saveRunning = true;
+  try {
+    while (saveQueue.length) {
+      const entry = saveQueue[0];
+      if (state.login !== entry.login) throw new Error("Войдите под автором несохранённых изменений");
+      const saved = await performSave(entry.op, entry.message, entry.token);
+      saveQueue.shift();
+      // Keep subsequent optimistic edits visible while each operation is committed.
+      state.data = saved;
+      for (const pending of saveQueue) pending.op(state.data);
+      pendingSaves = saveQueue.length;
+      render();
+      updateSaveIndicator();
+    }
+    settleSaveWaiters();
+  } catch (error) {
+    // The failed head remains queued. Never reload over unsaved local edits.
+    saveError = error;
+    settleSaveWaiters(error);
+    showToast("Не удалось сохранить. Изменения остались здесь — нажмите «Повторить сохранение».");
+  } finally {
+    saveRunning = false;
+    pendingSaves = saveQueue.length;
+    updateSaveIndicator();
+  }
+}
+
+async function performSave(op, message, token = state.token) {
   if (!token) throw new Error("Нет токена");
   let lastErr = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
-    // 1. Fetch the latest content + sha from the server.
     const fresh = await fetchFileViaApi(token);
-    // 2. Apply the same op to the fresh copy so concurrent edits are kept.
     fresh.data = normalize(fresh.data);
     op(fresh.data);
-    // 3. Commit via PUT with the file sha.
     const body = {
       message,
       content: utf8ToBase64(JSON.stringify(fresh.data, null, 2) + "\n"),
       sha: fresh.sha,
       branch: BRANCH
     };
-    const res = await fetch(API_FILE_URL, {
+    const res = await fetchTimed(API_FILE_URL, {
       method: "PUT",
       headers: { ...apiHeaders(token), "Content-Type": "application/json" },
       cache: "no-store",
       body: JSON.stringify(body)
     });
-    if (res.ok) {
-      // 5. Success: local state becomes the saved data.
-      state.data = normalize(fresh.data);
-      render();
-      return;
-    }
+    if (res.ok) return normalize(fresh.data);
     lastErr = Object.assign(new Error(`GitHub API: HTTP ${res.status}`), { status: res.status });
-    if (res.status === 409 || res.status === 422) continue; // sha mismatch: retry from step 1
+    if (res.status === 409 || res.status === 422) continue;
     throw lastErr;
   }
   throw lastErr;
@@ -398,8 +489,22 @@ function updateSaveIndicator() {
   const ind = document.getElementById("save-indicator");
   if (!ind) return;
   clearTimeout(saveHideTimer);
-  if (pendingSaves > 0) {
-    ind.textContent = "Сохранение…";
+  ind.setAttribute("role", "status");
+  let retry = document.getElementById("retry-save-btn");
+  if (!retry) {
+    retry = el("button", { id: "retry-save-btn", type: "button", class: "btn retry-save-btn", text: "Повторить сохранение" });
+    retry.addEventListener("click", retryFailedSaves);
+    ind.after(retry);
+  }
+  retry.hidden = !saveError;
+  retry.disabled = saveRunning;
+  ind.classList.toggle("save-error", !!saveError);
+  if (saveError) {
+    ind.textContent = `Не сохранено: ${pendingSaves}. Не закрывайте страницу.`;
+    ind.classList.add("visible");
+    ind.classList.remove("busy");
+  } else if (pendingSaves > 0) {
+    ind.textContent = `Сохраняется: ${pendingSaves}…`;
     ind.classList.add("visible", "busy");
   } else {
     ind.textContent = "Сохранено";
@@ -411,7 +516,7 @@ function updateSaveIndicator() {
 
 // ===== Operations (each is an absolute mutation applied to a data object) =====
 
-function addItem(title, type) {
+function addItem(title, type, metadata = {}) {
   const item = {
     id: newId(),
     title,
@@ -421,15 +526,19 @@ function addItem(title, type) {
     comments: { S: "", L: "" },
     replies: [],
     reactions: {},
-    genres: [],
+    genres: normalizeGenres(metadata.genres),
     note: "",
     addedAt: todayStr(),
     watchedAt: null,
     droppedAt: null,
     updatedBy: state.login
   };
-  const op = (data) => { data.items.unshift(item); };
-  applyAndSave(op, `Add "${title}"`);
+  if (metadata.tmdb) item.tmdb = { ...metadata.tmdb };
+  const op = (data) => {
+    if (data.items.some((entry) => entry.id === item.id || (item.tmdb && entry.tmdb?.id === item.tmdb.id && entry.tmdb?.mediaType === item.tmdb.mediaType))) return;
+    data.items.unshift(JSON.parse(JSON.stringify(item)));
+  };
+  return applyAndSave(op, `Add "${title}"`);
 }
 
 // Undo restores the item exactly as it was before the change (re-inserting it if it was deleted).
@@ -762,12 +871,14 @@ function pickRandom() {
 // ===== Rendering =====
 
 function render() {
+  persistView();
   renderHeader();
   updateTypeSelects();
   document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === state.tab));
   document.getElementById("list-tab").hidden = state.tab !== "list";
   document.getElementById("stats-tab").hidden = state.tab !== "stats";
   document.getElementById("add-form").hidden = !state.token;
+  document.getElementById("mobile-add-btn").hidden = !state.token || state.tab !== "list";
   if (state.tab === "list") renderList();
   else renderStats();
 }
@@ -812,17 +923,26 @@ function updateChips(base) {
 }
 
 function buildCommentEditor(person, text, save, label) {
+  const identity = state.editingReplyId ? `edit-${state.editingReplyId}` : state.replyDraft ? `reply-${state.replyDraft.itemId}-${state.replyDraft.to}` : `comment-${state.commentingId}-${person}`;
+  const key = draftKey("comment", identity);
   const ta = el("textarea", { class: "comment-input", rows: 2, placeholder: label, "aria-label": label });
-  ta.value = text;
+  ta.value = readDraft(key)?.text ?? text;
+  ta.addEventListener("input", () => writeDraft(key, { text: ta.value }));
+  const submit = () => {
+    const snapshot = { text: ta.value };
+    writeDraft(key, snapshot);
+    save(ta.value.trim());
+    clearDraftAfterSave(key, snapshot);
+  };
   const cancel = () => { closeEditors(); render(); };
   const saveBtn = el("button", { type: "button", class: "btn btn-primary", text: "Сохранить" });
   const cancelBtn = el("button", { type: "button", class: "btn", text: "Отмена" });
-  saveBtn.addEventListener("click", () => save(ta.value.trim()));
+  saveBtn.addEventListener("click", submit);
   cancelBtn.addEventListener("click", cancel);
   ta.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
-      save(ta.value.trim());
+      submit();
     } else if (e.key === "Escape") {
       e.preventDefault();
       cancel();
@@ -987,8 +1107,24 @@ function buildItemRow(item) {
   if (item.status === "watching" || item.status === "dropped") {
     children.push(el("span", { class: `badge badge-status-${item.status}`, text: STATUS_LABELS[item.status] }));
   }
-  if (item.note) children.push(el("span", { class: "item-note", text: item.note }));
-  if (item.genres?.length) children.push(el("span", { class: "item-genres", text: item.genres.join(" · ") }));
+  const details = el("details", { class: "item-details" }, el("summary", { text: "Подробности и обсуждение" }));
+  details.open = openItems.has(item.id) || state.commentingId === item.id || state.replyDraft?.itemId === item.id || item.replies.some((r) => r.id === state.editingReplyId);
+  details.addEventListener("toggle", () => { if (details.isConnected) { if (details.open) openItems.add(item.id); else openItems.delete(item.id); } });
+  if (item.note) details.append(el("span", { class: "item-note", text: item.note }));
+  if (item.genres?.length) details.append(el("span", { class: "item-genres", text: item.genres.join(" · ") }));
+  if (item.tmdb && ["movie", "tv"].includes(item.tmdb.mediaType) && Number.isSafeInteger(item.tmdb.id) && item.tmdb.id > 0) {
+    const meta = item.tmdb;
+    children.push(el("span", { class: "item-meta", text: [meta.year, meta.runtime > 0 ? `${meta.runtime} мин${meta.mediaType === "tv" ? " / серия" : ""}` : ""].filter(Boolean).join(" · ") }));
+    const info = el("div", { class: "catalog-info" });
+    if (typeof meta.posterPath === "string" && /^\/[a-zA-Z0-9_-]+\.(jpg|png|webp)$/.test(meta.posterPath)) {
+      const image = el("img", { class: "catalog-poster", src: `https://image.tmdb.org/t/p/w185${meta.posterPath}`, alt: `Постер: ${item.title}`, loading: "lazy", width: 92, height: 138 });
+      image.addEventListener("error", () => { image.hidden = true; });
+      info.append(image);
+    }
+    info.append(el("div", { class: "catalog-description" }, el("p", { text: meta.overview || "Описание пока отсутствует." }),
+      el("a", { class: "catalog-source", href: `https://www.themoviedb.org/${meta.mediaType}/${meta.id}`, target: "_blank", rel: "noopener noreferrer", text: "Открыть в TMDB" })));
+    details.append(info);
+  }
   const finishedAt = item.status === "dropped" ? item.droppedAt : item.status === "watched" ? item.watchedAt : null;
   if (finishedAt) children.push(el("span", { class: "item-date", text: `${item.status === "dropped" ? "Брошено" : "Просмотрено"}: ${finishedAt.split("-").reverse().join(".")}` }));
 
@@ -1014,11 +1150,12 @@ function buildItemRow(item) {
       line.append(stars, el("span", { class: "rating-value", text: value != null ? String(value) : "—" }));
       ratings.append(line);
     }
-    children.push(ratings);
+    details.append(ratings);
   }
 
   const comments = buildComments(item, canEdit);
-  if (comments.children.length > 0) children.push(comments);
+  if (comments.children.length > 0) details.append(comments);
+  children.push(details);
 
   if (canEdit) {
     const editBtn = el("button", { type: "button", class: "icon-btn edit-btn", text: "✎", "aria-label": "Редактировать" });
@@ -1030,6 +1167,8 @@ function buildItemRow(item) {
 }
 
 function buildEditor(item) {
+  const key = draftKey("item", item.id);
+  const draft = readDraft(key);
   const titleInput = el("input", { type: "text", class: "edit-title", value: item.title, "aria-label": "Название" });
   const typeSelect = el("select", { class: "edit-type", "aria-label": "Тип" },
     ...getTypes().map((t) => el("option", { value: t.key, text: t.label })));
@@ -1062,6 +1201,21 @@ function buildEditor(item) {
   updateDateField();
   statusSelect.addEventListener("change", updateDateField);
   dateInput.addEventListener("input", () => { dateEdited = true; });
+  if (draft && typeof draft === "object") {
+    titleInput.value = draft.title ?? item.title;
+    typeSelect.value = getTypes().some((t) => t.key === draft.type) ? draft.type : item.type;
+    statusSelect.value = STATUSES.includes(draft.status) ? draft.status : item.status;
+    noteInput.value = draft.note ?? item.note;
+    genresInput.value = draft.genres ?? (item.genres || []).join(", ");
+    updateDateField();
+    dateInput.value = draft.date ?? dateInput.value;
+    dateEdited = !!draft.dateEdited;
+  }
+  const snapshot = () => ({ title: titleInput.value, type: typeSelect.value, status: statusSelect.value, note: noteInput.value, genres: genresInput.value, date: dateInput.value, dateEdited });
+  for (const input of [titleInput, typeSelect, statusSelect, noteInput, genresInput, dateInput]) {
+    input.addEventListener("input", () => writeDraft(key, snapshot()));
+    input.addEventListener("change", () => writeDraft(key, snapshot()));
+  }
 
   const saveBtn = el("button", { type: "button", class: "btn btn-primary", text: "Сохранить" });
   const cancelBtn = el("button", { type: "button", class: "btn", text: "Отмена" });
@@ -1071,6 +1225,8 @@ function buildEditor(item) {
     const t = titleInput.value.trim();
     if (!t) { showToast("Название не может быть пустым"); return; }
     if (!dateField.hidden && !dateInput.checkValidity()) { dateInput.reportValidity(); return; }
+    const savedDraft = snapshot();
+    writeDraft(key, savedDraft);
     commitEdit(item.id, {
       title: t,
       type: typeSelect.value,
@@ -1080,6 +1236,7 @@ function buildEditor(item) {
       finishedAt: dateInput.value || null,
       dateEdited
     });
+    clearDraftAfterSave(key, savedDraft);
   });
   cancelBtn.addEventListener("click", () => { state.editingId = null; render(); });
   deleteBtn.addEventListener("click", () => {
@@ -1115,7 +1272,7 @@ function renderList() {
   // Base list respects type + search filters (not the status filter).
   const base = state.data.items.filter((it) => {
     if (state.typeFilter !== "all" && it.type !== state.typeFilter) return false;
-    if (q && !(it.title.toLowerCase().includes(q) || it.note.toLowerCase().includes(q) || PEOPLE.some((p) => it.comments[p].toLowerCase().includes(q)) || it.replies.some((r) => r.text.toLowerCase().includes(q)))) return false;
+    if (q && !(it.title.toLowerCase().includes(q) || String(it.tmdb?.originalTitle || "").toLowerCase().includes(q) || it.note.toLowerCase().includes(q) || PEOPLE.some((p) => it.comments[p].toLowerCase().includes(q)) || it.replies.some((r) => r.text.toLowerCase().includes(q)))) return false;
     return true;
   });
 
@@ -1411,6 +1568,7 @@ function statsItemButton(item) {
     state.search = "";
     document.getElementById("search").value = "";
     state.highlightId = item.id;
+    openItems.add(item.id);
     render();
     const row = document.querySelector(`.item-row[data-id="${CSS.escape(item.id)}"]`);
     if (row) { row.setAttribute("tabindex", "-1"); row.focus({ preventScroll: true }); row.scrollIntoView({ behavior: "smooth", block: "center" }); }
@@ -1544,12 +1702,17 @@ async function saveToken() {
     const res = await fetch("https://api.github.com/user", { headers: apiHeaders(token), cache: "no-store" });
     if (!res.ok) throw Object.assign(new Error(`GitHub API: HTTP ${res.status}`), { status: res.status });
     const user = await res.json();
+    if (!rebindPendingSaves(token, user.login || "")) {
+      errEl.textContent = "Сначала сохраните изменения текущего пользователя. Можно обновить его токен.";
+      return;
+    }
     localStorage.setItem(LS_TOKEN, token);
     localStorage.setItem(LS_LOGIN, user.login || "");
     localStorage.removeItem(LS_PERSON); // legacy: person is now derived from the login
     state.token = token;
     state.login = user.login || "";
     state.person = personFor(state.login);
+    retryFailedSaves();
     input.value = "";
     document.getElementById("settings-dialog").close();
     showToast(`Вход выполнен: ${state.login} (${state.person})`);
@@ -1561,6 +1724,7 @@ async function saveToken() {
 }
 
 function logout() {
+  if (hasUnsavedChanges()) { showToast("Сначала сохраните изменения — нажмите «Повторить сохранение»."); return; }
   localStorage.removeItem(LS_TOKEN);
   localStorage.removeItem(LS_LOGIN);
   localStorage.removeItem(LS_PERSON);
@@ -1736,10 +1900,27 @@ function updateTypeSelects() {
 
 // ===== Init =====
 
+function persistView() {
+  if (state.loading) return;
+  writeLocal("watchlist.view", { tab: state.tab, statusFilter: state.statusFilter, typeFilter: state.typeFilter, search: state.search, sort: state.sort });
+}
+
 function init() {
+  const savedScroll = readLocal("watchlist.scroll", {});
+  const tabScroll = { list: 0, stats: 0 };
+  window.addEventListener("beforeunload", (event) => {
+    if (!hasUnsavedChanges()) return;
+    event.preventDefault();
+    event.returnValue = "";
+  });
   // Tabs.
   document.querySelectorAll(".tab-btn").forEach((btn) => {
-    btn.addEventListener("click", () => { state.tab = btn.dataset.tab; render(); });
+    btn.addEventListener("click", () => {
+      tabScroll[state.tab] = window.scrollY;
+      state.tab = btn.dataset.tab;
+      render();
+      window.scrollTo(0, tabScroll[state.tab] || 0);
+    });
   });
 
   // Status chips (built once, counts updated on each list render).
@@ -1771,19 +1952,32 @@ function init() {
   SORTS.forEach((s) => sortSel.append(el("option", { value: s.key, text: s.label })));
   sortSel.addEventListener("change", () => { state.sort = sortSel.value; render(); });
 
-  // Add form (hidden without a token).
-  const addForm = document.getElementById("add-form");
-  const addTitle = document.getElementById("add-title");
-  const addType = document.getElementById("add-type");
-  addForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const t = addTitle.value.trim();
-    if (!t) return;
-    const dup = findDuplicate(t);
-    if (dup && !confirm(`«${dup.title}» уже есть в списке (${STATUS_LABELS[dup.status]}). Всё равно добавить?`)) return;
-    addItem(t, addType.value);
-    addTitle.value = "";
+  updateTypeSelects();
+  const initCatalog = () => WatchlistTMDB.init({
+    getItems: () => state.data?.items || [], getTypes, canEdit: () => !!state.token && !state.loading && !state.error,
+    add: async (title, type, metadata) => {
+      if (metadata?.tmdb && state.data.items.some((it) => it.tmdb?.id === metadata.tmdb.id && it.tmdb?.mediaType === metadata.tmdb.mediaType)) {
+        throw new Error("Этот тайтл уже есть в списке.");
+      }
+      if (!addItem(title, type, metadata)) return false;
+      catalogSavePending = true;
+      await waitForSaves();
+      return true;
+    }
   });
+  const view = readLocal("watchlist.view", {});
+  state.tab = view.tab === "stats" ? "stats" : "list";
+  state.statusFilter = CHIPS.some((c) => c.key === view.statusFilter) ? view.statusFilter : "all";
+  state.typeFilter = typeof view.typeFilter === "string" ? view.typeFilter : "all";
+  state.search = typeof view.search === "string" ? view.search : "";
+  state.sort = SORTS.some((s) => s.key === view.sort) ? view.sort : "added-desc";
+  searchInput.value = state.search;
+  sortSel.value = state.sort;
+  const clearFilters = el("button", { type: "button", class: "btn", text: "Сбросить фильтры" });
+  clearFilters.addEventListener("click", () => { state.statusFilter = "all"; state.typeFilter = "all"; state.search = ""; searchInput.value = ""; render(); });
+  document.querySelector(".filters").append(clearFilters);
+  let scrollTimer;
+  window.addEventListener("scroll", () => { clearTimeout(scrollTimer); scrollTimer = setTimeout(() => writeLocal("watchlist.scroll", { tab: state.tab, y: window.scrollY }), 200); }, { passive: true });
 
   // Random pick.
   document.getElementById("random-btn").addEventListener("click", pickRandom);
@@ -1827,7 +2021,10 @@ function init() {
   });
 
   render();
-  loadAll();
+  loadAll().then(() => {
+    initCatalog();
+    if (savedScroll.tab === state.tab && Number.isFinite(savedScroll.y)) window.scrollTo(0, savedScroll.y);
+  });
 }
 
 document.addEventListener("DOMContentLoaded", init);
