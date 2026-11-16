@@ -135,7 +135,7 @@
       "id": "karolina",
       "title": "Коралина в стране кошмаров",
       "type": "movie",
-      "status": "planned",
+      "status": "dropped",
       "ratings": {
         "S": null,
         "L": null
@@ -146,8 +146,8 @@
       },
       "note": "",
       "addedAt": "2026-11-15",
-      "watchedAt": null,
-      "updatedBy": ""
+      "watchedAt": "2026-11-15",
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "horisty",
