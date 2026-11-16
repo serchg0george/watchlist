@@ -101,7 +101,7 @@
       "type": "series",
       "status": "watched",
       "ratings": {
-        "S": null,
+        "S": 9,
         "L": null
       },
       "comments": {
