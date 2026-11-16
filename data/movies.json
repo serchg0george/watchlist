@@ -451,7 +451,7 @@
     {
       "id": "vechnost",
       "title": "Вечность",
-      "type": "movie",
+      "type": "multfilm",
       "status": "watched",
       "ratings": {
         "S": 8,
@@ -464,7 +464,7 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit",
+      "updatedBy": "serchg0george",
       "replies": [],
       "reactions": {}
     },
