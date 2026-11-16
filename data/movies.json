@@ -137,7 +137,7 @@
       "type": "movie",
       "status": "dropped",
       "ratings": {
-        "S": null,
+        "S": 7,
         "L": 3
       },
       "comments": {
@@ -147,7 +147,7 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit"
+      "updatedBy": "serchg0george"
     },
     {
       "id": "horisty",
