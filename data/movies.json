@@ -99,7 +99,7 @@
       "id": "dryan",
       "title": "Дрянь Сезон 1",
       "type": "series",
-      "status": "watching",
+      "status": "watched",
       "ratings": {
         "S": null,
         "L": null
@@ -110,7 +110,7 @@
       },
       "note": "",
       "addedAt": "2026-11-15",
-      "watchedAt": null,
+      "watchedAt": "2026-11-16",
       "updatedBy": "serchg0george"
     },
     {
