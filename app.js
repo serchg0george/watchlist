@@ -83,11 +83,10 @@ function transliterate(str) {
 
 const CHIPS = [
   { key: "all", label: "Все" },
-  { key: "planned", label: "Хочу" },
-  { key: "watching", label: "Смотрим" },
-  { key: "watched", label: "Просмотрено" },
-  { key: "dropped", label: "Брошено" }
+  { key: "watching", label: "Смотрим" }
 ];
+// Tabs that show the item list; "list" is filtered by CHIPS, the others by their own status.
+const LIST_TABS = ["list", "watched", "dropped"];
 
 const SORTS = [
   { key: "added-desc", label: "Недавно добавленные" },
@@ -866,7 +865,7 @@ function findDuplicate(title) {
 function pickRandom() {
   if (!state.data) return;
   const pool = state.data.items.filter((it) => it.status === "planned" && (state.typeFilter === "all" || it.type === state.typeFilter));
-  if (pool.length === 0) { showToast("В «Хочу посмотреть» пусто"); return; }
+  if (pool.length === 0) { showToast("В списке «Все» пусто"); return; }
   const candidates = pool.length > 1 ? pool.filter((it) => it.id !== lastPickId) : pool;
   const pick = candidates[Math.floor(Math.random() * candidates.length)];
   lastPickId = pick.id;
@@ -895,11 +894,14 @@ function render() {
   renderHeader();
   updateTypeSelects();
   document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === state.tab));
-  document.getElementById("list-tab").hidden = state.tab !== "list";
+  const isList = LIST_TABS.includes(state.tab);
+  document.getElementById("list-tab").hidden = !isList;
   document.getElementById("stats-tab").hidden = state.tab !== "stats";
-  document.getElementById("add-form").hidden = !state.token;
+  document.getElementById("add-form").hidden = !state.token || state.tab !== "list";
   document.getElementById("mobile-add-btn").hidden = !state.token || state.tab !== "list";
-  if (state.tab === "list") renderList();
+  document.getElementById("chips").hidden = state.tab !== "list";
+  document.getElementById("random-btn").hidden = state.tab !== "list";
+  if (isList) renderList();
   else renderStats();
 }
 
@@ -933,12 +935,14 @@ function sortItems(items, key) {
 function updateChips(base) {
   const counts = { all: 0, planned: 0, watching: 0, watched: 0, dropped: 0 };
   base.forEach((it) => { if (counts[it.status] != null) counts[it.status]++; });
-  // "all" chip matches the list view: active items only.
-  counts.all = counts.planned + counts.watching;
+  counts.all = counts.planned;
   document.querySelectorAll("#chips .chip").forEach((chip) => {
     const key = chip.dataset.key;
     chip.querySelector(".count").textContent = String(counts[key]);
     chip.classList.toggle("active", state.statusFilter === key);
+  });
+  document.querySelectorAll(".tab-btn .count").forEach((span) => {
+    span.textContent = String(counts[span.parentElement.dataset.tab]);
   });
 }
 
@@ -1299,12 +1303,8 @@ function renderList() {
   updateChips(base);
   const sorted = sortItems(base, state.sort);
 
-  if (state.statusFilter === "all") {
-    // "all" shows active items only; finished ones are reachable via the status chips.
-    box.append(buildSection(sorted.filter((it) => it.status === "planned" || it.status === "watching")));
-  } else {
-    box.append(buildSection(sorted.filter((it) => it.status === state.statusFilter)));
-  }
+  const status = state.tab !== "list" ? state.tab : state.statusFilter === "watching" ? "watching" : "planned";
+  box.append(buildSection(sorted.filter((it) => it.status === status)));
 }
 
 // ===== Stats tab =====
@@ -1582,8 +1582,8 @@ function statsItemButton(item) {
   const button = el("button", { type: "button", class: "title stats-title-button", text: item.title, title: item.title, "aria-label": `Открыть обсуждение: ${item.title}` });
   button.addEventListener("click", () => {
     closeEditors();
-    state.tab = "list";
-    state.statusFilter = item.status;
+    state.tab = LIST_TABS.includes(item.status) ? item.status : "list";
+    state.statusFilter = item.status === "watching" ? "watching" : "all";
     state.typeFilter = "all";
     state.search = "";
     document.getElementById("search").value = "";
@@ -1933,7 +1933,7 @@ function persistView() {
 
 function init() {
   const savedScroll = readLocal("watchlist.scroll", {});
-  const tabScroll = { list: 0, stats: 0 };
+  const tabScroll = { list: 0, watched: 0, dropped: 0, stats: 0 };
   window.addEventListener("beforeunload", (event) => {
     if (!hasUnsavedChanges()) return;
     event.preventDefault();
@@ -1992,7 +1992,8 @@ function init() {
     }
   });
   const view = readLocal("watchlist.view", {});
-  state.tab = view.tab === "stats" ? "stats" : "list";
+  state.tab = view.tab === "stats" || LIST_TABS.includes(view.tab) ? view.tab : "list";
+  if (state.tab === "list" && (view.statusFilter === "watched" || view.statusFilter === "dropped")) state.tab = view.statusFilter;
   state.statusFilter = CHIPS.some((c) => c.key === view.statusFilter) ? view.statusFilter : "all";
   state.typeFilter = typeof view.typeFilter === "string" ? view.typeFilter : "all";
   state.search = typeof view.search === "string" ? view.search : "";
