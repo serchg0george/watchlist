@@ -587,7 +587,11 @@
       "watchedAt": "2026-11-15",
       "updatedBy": "serchg0george",
       "replies": [],
-      "reactions": {},
+      "reactions": {
+        "L": {
+          "S": "heart"
+        }
+      },
       "genres": [
         "мелодрама",
         "комедия",
