@@ -511,7 +511,7 @@
     {
       "id": "tayna-koko",
       "title": "Тайна Коко",
-      "type": "movie",
+      "type": "multfilm",
       "status": "watched",
       "ratings": {
         "S": 10,
