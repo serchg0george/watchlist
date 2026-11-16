@@ -30,7 +30,7 @@ trap finish EXIT
 
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 [[ $LATE_WAIT =~ ^[0-9]+([.][0-9]+)?$ ]] || die 'LATE_WAIT must be a nonnegative number.'
-date_cmd=date
+date_cmd="date"
 if command -v gdate >/dev/null 2>&1; then date_cmd=gdate; fi
 # Calendar arithmetic at noon avoids crossing a DST transition at midnight.
 today=$(TZ="$TZ_NAME" "$date_cmd" -d "${NOW_OVERRIDE:-now}" +%F)
@@ -102,7 +102,17 @@ for attempt in 1 2 3; do
         M=$master
         break
     fi
-    M=$(commit_data "$master" "$data_blob" "$tmp/squash-message")
+    squash_blob=$data_blob
+    # Data edited directly on master since the week started: three-way merge instead of overwriting it.
+    if [[ $(git rev-parse "$master:$FILE") != $(git rev-parse "$BASE:$FILE") ]]; then
+        git show "$master:$FILE" > "$tmp/m-ours"
+        git show "$BASE:$FILE" > "$tmp/m-base"
+        git show "$H1:$FILE" > "$tmp/m-theirs"
+        git merge-file -p -L master -L "$OLD base" -L "$OLD" "$tmp/m-ours" "$tmp/m-base" "$tmp/m-theirs" > "$tmp/m-merged" ||
+            die "Data on master and $OLD conflict; merge $FILE by hand. Nothing was pushed."
+        squash_blob=$(git hash-object -w "$tmp/m-merged")
+    fi
+    M=$(commit_data "$master" "$squash_blob" "$tmp/squash-message")
     printf 'Squash %s (%s changes) onto master %s; attempt %s.\n' "$OLD" "$count" "$master" "$attempt"
     if [[ $DRY_RUN == 1 ]]; then
         printf 'DRY_RUN: would push %s to master.\n' "$M"
