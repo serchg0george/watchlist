@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Статистика — макет</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #fbfcf9;
+  --card: #e6f4d7;
+  --text: #1f2a1c;
+  --muted: #5b6b53;
+  --accent: #3e8e41;
+  --border: rgba(0, 0, 0, .1);
+  --chip-bg: #eef4e7;
+  --track: rgba(0, 0, 0, .08);
+  --star-on: #e8a93c;
+  --s: #2b6cb0;
+  --s-bg: #dbe8f7;
+  --l: #b83280;
+  --l-bg: #f7dcea;
+  --danger: #c0392b;
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  --r: 16px;
+  --r-sm: 8px;
+  --r-pill: 999px;
+
+  --fs-xs: 11px;
+  --fs-s: 13px;
+  --fs-m: 15px;
+  --fs-l: 20px;
+  --fs-xl: 28px;
+  --fs-xxl: 44px;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #12160f;
+  --card: #1e2a17;
+  --text: #e8efe2;
+  --muted: #9fb093;
+  --accent: #6fbf63;
+  --border: rgba(255, 255, 255, .12);
+  --chip-bg: #22301c;
+  --track: rgba(255, 255, 255, .1);
+  --star-on: #e8b93c;
+  --s: #7fb3ec;
+  --s-bg: #1d3550;
+  --l: #f08cc4;
+  --l-bg: #4a2240;
+  --danger: #e07b6f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #12160f;
+    --card: #1e2a17;
+    --text: #e8efe2;
+    --muted: #9fb093;
+    --accent: #6fbf63;
+    --border: rgba(255, 255, 255, .12);
+    --chip-bg: #22301c;
+    --track: rgba(255, 255, 255, .1);
+    --star-on: #e8b93c;
+    --s: #7fb3ec;
+    --s-bg: #1d3550;
+    --l: #f08cc4;
+    --l-bg: #4a2240;
+    --danger: #e07b6f;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: var(--fs-m);
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+}
+
+.tnum, svg text { font-variant-numeric: tabular-nums; }
+
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: var(--sp-5) var(--sp-3) var(--sp-6);
+}
+
+.page-head { padding: 0 var(--sp-1) var(--sp-4); }
+.page-head h1 { margin: 0; font-size: var(--fs-l); font-weight: 650; letter-spacing: -.01em; }
+.page-head p { margin: var(--sp-1) 0 0; font-size: var(--fs-s); color: var(--muted); }
+
+.theme-toggle {
+  position: fixed;
+  top: var(--sp-3);
+  right: var(--sp-3);
+  z-index: 10;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--chip-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-s);
+  cursor: pointer;
+}
+
+.stack { display: grid; gap: var(--sp-3); }
+
+.card {
+  background: var(--card);
+  border-radius: var(--r);
+  padding: var(--sp-4);
+  min-width: 0;
+}
+
+.sec-title {
+  margin: 0;
+  font-size: var(--fs-s);
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sec-note { margin: var(--sp-1) 0 0; font-size: var(--fs-s); color: var(--muted); }
+.sec-body { margin-top: var(--sp-4); }
+
+.who {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 var(--sp-1);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 1;
+}
+.who.s { background: var(--s-bg); color: var(--s); }
+.who.l { background: var(--l-bg); color: var(--l); }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-s);
+  color: var(--muted);
+}
+.legend span { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+
+/* ===== Hero ===== */
+.hero {
+  display: grid;
+  gap: var(--sp-3);
+  grid-template-columns: 1fr 1fr;
+}
+.hero .card { display: flex; flex-direction: column; gap: var(--sp-2); }
+.hero-watched, .hero-avg { grid-column: 1 / -1; }
+.hero-watched { order: 1; }
+.hero-avg { order: 2; }
+.hero-match { order: 3; }
+.hero-dropped { order: 4; }
+
+.kpi-label { font-size: var(--fs-s); color: var(--muted); }
+.kpi {
+  font-size: var(--fs-xxl);
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+.kpi small { font-size: var(--fs-l); font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.kpi-m { font-size: var(--fs-xl); font-weight: 650; line-height: 1; font-variant-numeric: tabular-nums; }
+.kpi-cap { font-size: var(--fs-s); color: var(--muted); }
+
+.status-bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  margin: var(--sp-2) 0 var(--sp-1);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.status-bar i { display: block; height: 100%; }
+
+.vs { display: flex; align-items: flex-end; gap: var(--sp-4); }
+.vs-side { display: flex; align-items: center; gap: var(--sp-2); }
+.vs-side.s .kpi { color: var(--s); }
+.vs-side.l .kpi { color: var(--l); }
+.vs-sep { font-size: var(--fs-s); color: var(--muted); padding-bottom: 6px; }
+
+.avg-bars { display: grid; gap: var(--sp-1); margin-top: var(--sp-2); }
+.avg-bar { height: 8px; border-radius: var(--r-pill); background: var(--track); overflow: hidden; }
+.avg-bar i { display: block; height: 100%; border-radius: var(--r-pill); }
+.avg-bar.s i { background: var(--s); }
+.avg-bar.l i { background: var(--l); }
+.avg-ticks { display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.match { display: flex; align-items: center; gap: var(--sp-3); }
+.match svg { flex: none; }
+
+/* ===== Dumbbell scale ===== */
+.scale { position: relative; height: 24px; margin: 0 11px; }
+.scale-track {
+  position: absolute; left: 0; right: 0; top: 50%;
+  height: 2px; margin-top: -1px;
+  background: var(--track);
+  border-radius: 1px;
+}
+.scale-tick {
+  position: absolute; top: 50%;
+  width: 2px; height: 8px; margin: -4px 0 0 -1px;
+  background: var(--track);
+  border-radius: 1px;
+}
+.scale-line {
+  position: absolute; top: 50%;
+  height: 4px; margin-top: -2px;
+  border-radius: 2px;
+  opacity: .55;
+}
+.dot {
+  position: absolute; top: 50%;
+  width: 22px; height: 22px; margin: -11px 0 0 -11px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--bg);
+  box-shadow: 0 0 0 2px var(--card);
+}
+.dot.s { background: var(--s); }
+.dot.l { background: var(--l); }
+.scale-axis { position: relative; height: 14px; margin: var(--sp-1) 11px 0; font-size: var(--fs-xs); color: var(--muted); }
+.scale-axis span { position: absolute; transform: translateX(-50%); font-variant-numeric: tabular-nums; }
+
+/* ===== Charts ===== */
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; overflow: visible; }
+.ax { fill: var(--muted); font-size: var(--fs-xs); }
+.ax-strong { fill: var(--text); font-size: var(--fs-xs); font-weight: 600; }
+.grid { stroke: var(--track); stroke-width: 1; }
+.val { font-size: 10px; font-weight: 600; }
+
+.scatter-box { max-width: 440px; margin: 0 auto; }
+.pt { cursor: pointer; outline: none; transition: fill-opacity .12s; }
+.pt:hover, .pt:focus-visible { fill-opacity: .9; }
+.col { cursor: default; outline: none; }
+.col-bg { fill: transparent; transition: fill .12s; }
+.col:hover .col-bg, .col:focus-visible .col-bg { fill: var(--track); }
+
+.tip {
+  position: fixed;
+  z-index: 20;
+  min-width: 160px;
+  max-width: 240px;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--fs-s);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .16);
+  pointer-events: none;
+}
+.tip-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.tip-row + .tip-row { margin-top: var(--sp-1); }
+.tip-r { display: inline-flex; gap: var(--sp-1); flex: none; }
+.tip-h { margin-bottom: var(--sp-1); font-weight: 600; }
+.tip-sub { color: var(--muted); }
+
+/* ===== Lists ===== */
+.row { padding: var(--sp-3) 0; border-top: 1px solid var(--border); }
+.row:first-child { border-top: 0; padding-top: 0; }
+.row-head { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.title { flex: 1; min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pair { display: inline-flex; gap: var(--sp-1); flex: none; }
+.pair .who { min-width: 34px; font-size: var(--fs-s); height: 22px; }
+.delta {
+  flex: none;
+  min-width: 40px;
+  padding: 2px var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--chip-bg);
+  font-size: var(--fs-s);
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.badge {
+  --c: var(--muted);
+  display: inline-block;
+  padding: 1px var(--sp-2);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: color-mix(in srgb, var(--c) 82%, var(--text));
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c) 30%, transparent);
+}
+
+.top-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto 48px;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-top: 1px solid var(--border);
+}
+.top-row:first-child { border-top: 0; padding-top: 0; }
+.rank { font-size: var(--fs-s); color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.top-main { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
+.top-main .title { width: 100%; }
+.mini-pair { display: grid; gap: var(--sp-1); }
+.mini { display: grid; grid-template-columns: 12px 44px 16px; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); }
+.mini b { font-weight: 700; }
+.mini.s b { color: var(--s); }
+.mini.l b { color: var(--l); }
+.mini-bar { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.mini-bar i { display: block; height: 100%; border-radius: 3px; }
+.mini.s i { background: var(--s); }
+.mini.l i { background: var(--l); }
+.mini span { text-align: right; font-variant-numeric: tabular-nums; }
+.avg { text-align: right; font-size: var(--fs-l); font-weight: 650; font-variant-numeric: tabular-nums; }
+
+/* ===== Categories ===== */
+.seg { display: flex; gap: 3px; height: 16px; }
+.seg-part {
+  position: relative;
+  min-width: 6px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--c) 28%, transparent);
+}
+.seg-part:first-child { border-radius: var(--r-sm) 4px 4px var(--r-sm); }
+.seg-part:last-child { border-radius: 4px var(--r-sm) var(--r-sm) 4px; }
+.seg-part i { position: absolute; inset: 0 auto 0 0; background: var(--c); }
+.cat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3) var(--sp-5);
+  margin-top: var(--sp-4);
+}
+.cat-item { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.cat-name { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.cat-item .cnt { font-variant-numeric: tabular-nums; font-weight: 600; }
+.cat-item .cnt small { font-weight: 400; color: var(--muted); }
+
+.foot { margin-top: var(--sp-5); text-align: center; font-size: var(--fs-xs); color: var(--muted); }
+
+@media (min-width: 640px) {
+  .wrap { padding: var(--sp-6) var(--sp-5); }
+  .stack, .hero { gap: var(--sp-4); }
+  .card { padding: var(--sp-5); }
+  .hero { grid-template-columns: 2fr 1fr; }
+  .hero-watched, .hero-avg { grid-column: auto; }
+  .hero-match { order: 2; }
+  .hero-avg { order: 3; }
+  .cat-grid { grid-template-columns: repeat(4, 1fr); }
+  .cat-item { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .page-head h1 { font-size: var(--fs-xl); }
+}
+
+@media (min-width: 960px) {
+  .stack { grid-template-columns: 1fr 1fr; align-items: stretch; }
+  .hero, .sec-cats, .sec-top { grid-column: 1 / -1; }
+  .hero { grid-template-columns: 1.25fr 1.25fr 1fr 1fr; }
+  .hero-avg { order: 2; }
+  .hero-match { order: 3; }
+  .sec-diff { display: flex; flex-direction: column; }
+  #diffs { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+  #top {
+    display: grid;
+    grid-template-rows: repeat(5, auto);
+    grid-auto-flow: column;
+    column-gap: var(--sp-6);
+  }
+  .top-row:nth-child(6) { border-top: 0; padding-top: 0; }}
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" type="button">Тема: авто</button>
+
+<main class="wrap">
+  <header class="page-head">
+    <h1>Статистика</h1>
+    <p>S и L · данные на 16 ноября 2026</p>
+  </header>
+
+  <div class="stack">
+    <section class="hero" id="hero" aria-label="Главное"></section>
+
+    <section class="card sec-hist" aria-labelledby="h-hist">
+      <h2 class="sec-title" id="h-hist">Распределение оценок</h2>
+      <p class="sec-note" id="histNote"></p>
+      <div class="sec-body">
+        <div class="legend">
+          <span><i class="sw" style="background:var(--s)"></i><b class="who s">S</b> левый столбец</span>
+          <span><i class="sw" style="background:var(--l)"></i><b class="who l">L</b> правый столбец</span>
+        </div>
+        <div class="chart" id="hist" style="margin-top:var(--sp-3)"></div>
+      </div>
+    </section>
+
+    <section class="card sec-months" aria-labelledby="h-months">
+      <h2 class="sec-title" id="h-months">Просмотрено по месяцам</h2>
+      <p class="sec-note" id="monthsNote"></p>
+      <div class="sec-body"><div class="chart" id="months"></div></div>
+    </section>
+
+    <section class="card sec-scatter" aria-labelledby="h-scatter">
+      <h2 class="sec-title" id="h-scatter">S против L</h2>
+      <p class="sec-note">Каждая точка — тайтл, оценённый обоими. Наведите на точку, чтобы увидеть названия.</p>
+      <div class="sec-body">
+        <div class="chart scatter-box" id="scatter"></div>
+        <div class="legend" style="margin-top:var(--sp-3);justify-content:center">
+          <span><i class="sw" style="background:var(--s);border-radius:50%"></i>S выше</span>
+          <span><i class="sw" style="background:var(--l);border-radius:50%"></i>L выше</span>
+          <span><i class="sw" style="background:var(--accent);border-radius:50%"></i>поровну</span>
+          <span>размер и число — сколько тайтлов</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card sec-diff" aria-labelledby="h-diff">
+      <h2 class="sec-title" id="h-diff">Самые большие расхождения</h2>
+      <div class="sec-body" id="diffs"></div>
+    </section>
+
+    <section class="card sec-cats" aria-labelledby="h-cats">
+      <h2 class="sec-title" id="h-cats">По типам</h2>
+      <p class="sec-note">Длина отрезка — всего в списке, заливка — просмотрено</p>
+      <div class="sec-body" id="cats"></div>
+    </section>
+
+    <section class="card sec-top" aria-labelledby="h-top">
+      <h2 class="sec-title" id="h-top">Топ по средней оценке</h2>
+      <p class="sec-note">Только тайтлы, оценённые обоими</p>
+      <div class="sec-body" id="top"></div>
+    </section>
+  </div>
+
+  <p class="foot">Макет экрана статистики · данные условные</p>
+</main>
+<div class="tip" id="tip" role="tooltip" hidden></div>
+
+<script>
+const TODAY = new Date(2026, 10, 16);
+
+const CATS = {
+  movie:  { label: "Фильм",  color: "#e05638" },
+  series: { label: "Сериал", color: "#0d9488" },
+  anime:  { label: "Аниме",  color: "#7c3aed" },
+  show:   { label: "Шоу",    color: "#ca8a04" }
+};
+
+// [название, категория, статус, S, L, дата просмотра]
+const RAW = [
+  ["Дюна: Часть вторая", "movie", "done", 9, 8, "2026-04-12"],
+  ["Начало", "movie", "done", 10, 9, "2026-04-20"],
+  ["Во все тяжкие", "series", "done", 10, 9, "2026-04-28"],
+  ["Вечное сияние чистого разума", "movie", "done", 9, 10, "2026-05-03"],
+  ["Паразиты", "movie", "done", 9, 9, "2026-05-17"],
+  ["Чернобыль", "series", "done", 9, 8, "2026-05-24"],
+  ["Бегущий по лезвию 2049", "movie", "done", 9, 5, "2026-06-02"],
+  ["Ла-Ла Ленд", "movie", "done", 6, 10, "2026-06-14"],
+  ["Унесённые призраками", "anime", "done", 9, 10, "2026-06-21"],
+  ["Остров проклятых", "movie", "done", 8, 8, "2026-07-05"],
+  ["Тед Лассо", "series", "done", 8, 9, "2026-07-18"],
+  ["Тетрадь смерти", "anime", "done", 8, 6, "2026-07-26"],
+  ["Всё везде и сразу", "movie", "done", 8, 9, "2026-08-09"],
+  ["Голос", "show", "done", 3, 7, "2026-08-15"],
+  ["Медведь", "series", "done", 8, 8, "2026-08-22"],
+  ["Настоящий детектив", "series", "done", 9, 4, "2026-08-30"],
+  ["Брат", "movie", "done", 9, null, "2026-09-01"],
+  ["Атака титанов", "anime", "done", 9, 3, "2026-09-12"],
+  ["Барби", "movie", "done", 4, 8, "2026-09-20"],
+  ["Шерлок", "series", "done", 8, 8, "2026-10-04"],
+  ["Оппенгеймер", "movie", "done", 8, 7, "2026-10-11"],
+  ["Твоё имя", "anime", "done", null, 9, "2026-10-25"],
+  ["Достать ножи", "movie", "done", 7, 7, "2026-11-02"],
+  ["Что? Где? Когда?", "show", "done", 8, 7, "2026-11-09"],
+  ["Игра престолов", "series", "dropped", 5, 3, null],
+  ["Ведьмак", "series", "dropped", 4, 5, null],
+  ["Одни из нас", "series", "watching", null, null, null],
+  ["Фрирен", "anime", "watching", null, null, null],
+  ["Топ Гир", "show", "watching", null, null, null],
+  ["Солярис", "movie", "plan", null, null, null],
+  ["Зелёная миля", "movie", "plan", null, null, null],
+  ["Сёгун", "series", "plan", null, null, null],
+  ["Офис", "series", "plan", null, null, null],
+  ["Ковбой Бибоп", "anime", "plan", null, null, null],
+  ["Адская кухня", "show", "plan", null, null, null]
+];
+
+const items = RAW.map(([title, cat, status, s, l, date]) => ({ title, cat, status, s, l, date: date ? new Date(date) : null }));
+const both = items.filter(t => t.s && t.l);
+
+const NS = "http://www.w3.org/2000/svg";
+const fmt1 = v => v.toLocaleString("ru-RU", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
+const plural = (n, f) => {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return f[0];
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return f[1];
+  return f[2];
+};
+const pct = v => ((v - 1) / 9 * 100).toFixed(2) + "%";
+
+function scaleHtml(marks) {
+  let h = '<div class="scale"><div class="scale-track"></div>';
+  for (let i = 1; i <= 10; i++) h += `<i class="scale-tick" style="left:${pct(i)}"></i>`;
+  const [a, b] = marks[0].v <= marks[1].v ? marks : [marks[1], marks[0]];
+  h += `<i class="scale-line" style="left:${pct(a.v)};width:calc(${pct(b.v)} - ${pct(a.v)});background:linear-gradient(90deg,var(--${a.who}),var(--${b.who}))"></i>`;
+  for (const m of marks) h += `<span class="dot ${m.who}" style="left:${pct(m.v)}" aria-hidden="true">${m.who.toUpperCase()}</span>`;
+  return h + "</div>";
+}
+function axisHtml() {
+  let h = '<div class="scale-axis" aria-hidden="true">';
+  for (let i = 1; i <= 10; i++) h += `<span style="left:${pct(i)}">${i}</span>`;
+  return h + "</div>";
+}
+
+/* ===== Hero ===== */
+function renderHero() {
+  const n = st => items.filter(t => t.status === st).length;
+  const done = n("done"), watching = n("watching"), plan = n("plan"), dropped = n("dropped");
+  const total = items.length;
+  const sVals = items.filter(t => t.s).map(t => t.s);
+  const lVals = items.filter(t => t.l).map(t => t.l);
+  const sAvg = mean(sVals), lAvg = mean(lVals);
+  const close = both.filter(t => Math.abs(t.s - t.l) <= 1).length;
+  const matchPct = Math.round(close / both.length * 100);
+  const diff = Math.abs(sAvg - lAvg);
+  const kinder = sAvg >= lAvg ? "S" : "L";
+
+  const statuses = [
+    { label: "Просмотрено", v: done, c: "var(--accent)" },
+    { label: "Смотрим", v: watching, c: "color-mix(in srgb, var(--accent) 50%, transparent)" },
+    { label: "В планах", v: plan, c: "var(--track)" },
+    { label: "Брошено", v: dropped, c: "var(--danger)" }
+  ];
+  const bar = statuses.map(s => `<i style="flex:${s.v};background:${s.c}" title="${s.label}: ${s.v}"></i>`).join("");
+  const legend = statuses.slice(1).map(s =>
+    `<span><i class="sw" style="background:${s.c}"></i>${s.label} <b class="tnum" style="color:var(--text)">${s.v}</b></span>`).join("");
+
+  const R = 24, C = 2 * Math.PI * R;
+  const donut = `<svg width="60" height="60" viewBox="0 0 60 60" aria-hidden="true">
+      <circle cx="30" cy="30" r="${R}" fill="none" stroke="var(--track)" stroke-width="8"/>
+      <circle cx="30" cy="30" r="${R}" fill="none" stroke="var(--accent)" stroke-width="8" stroke-linecap="round"
+        stroke-dasharray="${(C * matchPct / 100).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 30 30)"/>
+    </svg>`;
+
+  const droppedTitles = items.filter(t => t.status === "dropped").map(t => t.title).join(", ");
+
+  document.getElementById("hero").innerHTML = `
+    <div class="card hero-watched">
+      <div class="kpi-label">Просмотрено</div>
+      <div class="kpi">${done}<small> из ${total}</small></div>
+      <div class="status-bar" role="img" aria-label="${statuses.map(s => s.label + " " + s.v).join(", ")}">${bar}</div>
+      <div class="legend">${legend}</div>
+    </div>
+    <div class="card hero-match">
+      <div class="kpi-label">Совпадение вкусов</div>
+      <div class="match">${donut}<div class="kpi-m">${matchPct}%</div></div>
+      <div class="kpi-cap">${close} из ${both.length} общих оценок с разницей ≤ 1</div>
+    </div>
+    <div class="card hero-avg">
+      <div class="kpi-label">Средняя оценка</div>
+      <div class="vs">
+        <div class="vs-side s"><b class="who s">S</b><span class="kpi">${fmt1(sAvg)}</span></div>
+        <div class="vs-sep">vs</div>
+        <div class="vs-side l"><b class="who l">L</b><span class="kpi">${fmt1(lAvg)}</span></div>
+      </div>
+      <div class="avg-bars" aria-hidden="true">
+        <div class="avg-bar s"><i style="width:${sAvg * 10}%"></i></div>
+        <div class="avg-bar l"><i style="width:${lAvg * 10}%"></i></div>
+        <div class="avg-ticks"><span>0</span><span>5</span><span>10</span></div>
+      </div>
+      <div class="kpi-cap">${kinder} щедрее на ${fmt1(diff)} · ${sVals.length} ${plural(sVals.length, ["оценка", "оценки", "оценок"])} S, ${lVals.length} — L</div>
+    </div>
+    <div class="card hero-dropped">
+      <div class="kpi-label">Брошено</div>
+      <div class="kpi-m">${dropped}</div>
+      <div class="kpi-cap">${esc(droppedTitles)}</div>
+    </div>`;
+}
+
+/* ===== Tooltip ===== */
+const tipEl = document.getElementById("tip");
+function showTip(html, anchor) {
+  tipEl.innerHTML = html;
+  tipEl.hidden = false;
+  const r = anchor.getBoundingClientRect();
+  const tw = tipEl.offsetWidth, th = tipEl.offsetHeight, m = 8;
+  const left = Math.max(m, Math.min(innerWidth - tw - m, r.left + r.width / 2 - tw / 2));
+  const top = r.top - th - m < m ? r.bottom + m : r.top - th - m;
+  tipEl.style.left = left + "px";
+  tipEl.style.top = top + "px";
+}
+const hideTip = () => { tipEl.hidden = true; };
+function bindTip(nodes, html, anchorOf = n => n) {
+  nodes.forEach(n => {
+    const open = () => showTip(html(n), anchorOf(n));
+    n.addEventListener("pointerenter", open);
+    n.addEventListener("focus", open);
+    n.addEventListener("click", e => { e.stopPropagation(); open(); });
+    n.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") hideTip(); });
+    n.addEventListener("blur", hideTip);
+  });
+}
+document.addEventListener("click", hideTip);
+window.addEventListener("scroll", hideTip, { passive: true });
+const pairChips = (s, l) =>
+  `<span class="tip-r"><b class="who s">S ${s ?? "—"}</b><b class="who l">L ${l ?? "—"}</b></span>`;
+
+/* ===== SVG helpers ===== */
+function svg(w, h, label) {
+  const el = document.createElementNS(NS, "svg");
+  el.setAttribute("width", w);
+  el.setAttribute("height", h);
+  el.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  el.setAttribute("role", "img");
+  el.setAttribute("aria-label", label);
+  return el;
+}
+const topBar = (x, y, w, h, r) => {
+  r = Math.min(r, w / 2, h);
+  return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+};
+const niceStep = max => (max <= 4 ? 1 : max <= 8 ? 2 : max <= 15 ? 3 : Math.ceil(max / 4));
+
+/* ===== Histogram ===== */
+function renderHist() {
+  const box = document.getElementById("hist");
+  const W = box.clientWidth, H = 220;
+  const pl = 26, pr = 2, pt = 18, pb = 38;
+  const pw = W - pl - pr, ph = H - pt - pb;
+  const cs = Array(11).fill(0), cl = Array(11).fill(0);
+  items.forEach(t => { if (t.s) cs[t.s]++; if (t.l) cl[t.l]++; });
+  const max = Math.max(...cs, ...cl);
+  const step = niceStep(max), yMax = Math.ceil(max / step) * step;
+  const y = v => pt + ph - v / yMax * ph;
+  const gw = pw / 10, bw = Math.min(18, gw * 0.36);
+
+  let g = "";
+  for (let v = 0; v <= yMax; v += step) {
+    g += `<line class="grid" x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}"/>`;
+    g += `<text class="ax" x="${pl - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+  }
+  for (let i = 1; i <= 10; i++) {
+    const cx = pl + gw * (i - 0.5);
+    g += `<g class="col" tabindex="0" data-i="${i}" aria-label="Оценка ${i}: S — ${cs[i]}, L — ${cl[i]}">`;
+    g += `<rect class="col-bg" x="${cx - gw / 2 + 2}" y="${pt - 16}" width="${gw - 4}" height="${ph + 36}" rx="6"/>`;
+    [["s", cs[i], cx - bw - 1], ["l", cl[i], cx + 1]].forEach(([who, v, x]) => {
+      if (!v) return;
+      const top = y(v);
+      g += `<path d="${topBar(x, top, bw, pt + ph - top, 3)}" fill="var(--${who})"/>`;
+      g += `<text class="val" x="${x + bw / 2}" y="${top - 4}" text-anchor="middle" fill="var(--${who})">${v}</text>`;
+    });
+    g += `<text class="ax-strong" x="${cx}" y="${pt + ph + 16}" text-anchor="middle">${i}</text></g>`;
+  }
+  g += `<text class="ax" x="${pl + pw / 2}" y="${H - 4}" text-anchor="middle">оценка</text>`;
+  g += `<text class="ax" x="0" y="10">тайтлов</text>`;
+
+  const el = svg(W, H, "Распределение оценок S и L от 1 до 10");
+  el.innerHTML = g;
+  box.replaceChildren(el);
+
+  const titles = n => n + " " + plural(n, ["тайтл", "тайтла", "тайтлов"]);
+  bindTip(el.querySelectorAll(".col"), n => {
+    const i = +n.dataset.i;
+    return `<div class="tip-h">Оценка ${i}</div>
+      <div class="tip-row"><b class="who s">S</b><span class="tnum">${titles(cs[i])}</span></div>
+      <div class="tip-row"><b class="who l">L</b><span class="tnum">${titles(cl[i])}</span></div>`;
+  }, n => n.querySelector(".col-bg"));
+
+  const mode = a => a.indexOf(Math.max(...a));
+  document.getElementById("histNote").innerHTML =
+    `Чаще всего S ставит <b class="tnum">${mode(cs)}</b>, L — <b class="tnum">${mode(cl)}</b>`;
+}
+
+/* ===== Scatter ===== */
+function renderScatter() {
+  const box = document.getElementById("scatter");
+  const W = box.clientWidth, H = W;
+  const pl = 30, pr = 10, pt = 10, pb = 36;
+  const pw = W - pl - pr, ph = H - pt - pb;
+  const x = v => pl + (v - 0.5) / 10 * pw;
+  const y = v => pt + ph - (v - 0.5) / 10 * ph;
+
+  let g = "";
+  const band = [[0.5, 2], [9, 10.5], [10.5, 10.5], [10.5, 9], [2, 0.5], [0.5, 0.5]];
+  g += `<polygon points="${band.map(([a, b]) => `${x(a)},${y(b)}`).join(" ")}" fill="var(--accent)" fill-opacity=".1"/>`;
+  for (let i = 1; i <= 10; i++) {
+    g += `<line class="grid" x1="${x(i)}" x2="${x(i)}" y1="${pt}" y2="${pt + ph}"/>`;
+    g += `<line class="grid" x1="${pl}" x2="${pl + pw}" y1="${y(i)}" y2="${y(i)}"/>`;
+    g += `<text class="ax-strong" x="${x(i)}" y="${pt + ph + 15}" text-anchor="middle">${i}</text>`;
+    g += `<text class="ax-strong" x="${pl - 8}" y="${y(i) + 4}" text-anchor="end">${i}</text>`;
+  }
+  g += `<line x1="${x(0.5)}" y1="${y(0.5)}" x2="${x(10.5)}" y2="${y(10.5)}" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 5"/>`;
+  const lx = x(3.2), ly = y(3.2);
+  g += `<text class="ax" x="${lx}" y="${ly}" dy="-6" transform="rotate(-45 ${lx} ${ly})" text-anchor="middle">согласны · ±1</text>`;
+  g += `<text x="${x(1)}" y="${y(10)}" dy="4" font-size="12" font-weight="600" fill="var(--l)">L выше</text>`;
+  g += `<text x="${x(10)}" y="${y(1)}" dy="4" font-size="12" font-weight="600" fill="var(--s)" text-anchor="end">S выше</text>`;
+  g += `<text class="ax" x="${pl + pw / 2}" y="${H - 4}" text-anchor="middle">оценка S →</text>`;
+  g += `<text class="ax" transform="translate(9 ${pt + ph / 2}) rotate(-90)" text-anchor="middle">оценка L →</text>`;
+
+  const groups = new Map();
+  both.forEach(t => {
+    const k = t.s + ":" + t.l;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(t);
+  });
+  const unit = pw / 10;
+  [...groups.values()].sort((a, b) => b.length - a.length).forEach(arr => {
+    const { s, l } = arr[0];
+    const c = s > l ? "var(--s)" : l > s ? "var(--l)" : "var(--accent)";
+    const r = Math.min(unit * 0.48, 7 + 4 * (arr.length - 1));
+    const label = arr.map(t => `${t.title}: S ${t.s}, L ${t.l}`).join("; ");
+    g += `<g class="pt" tabindex="0" data-k="${s}:${l}" fill-opacity=".5" role="button" aria-label="${esc(label)}">
+      <circle cx="${x(s)}" cy="${y(l)}" r="${r}" fill="${c}" stroke="${c}" stroke-width="1.5"/>
+      ${arr.length > 1 ? `<text x="${x(s)}" y="${y(l)}" dy="4" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text)" fill-opacity="1">${arr.length}</text>` : ""}
+    </g>`;
+  });
+
+  const el = svg(W, H, "Точечная диаграмма: оценка S по горизонтали, оценка L по вертикали");
+  el.innerHTML = g;
+  box.replaceChildren(el);
+
+  bindTip(el.querySelectorAll(".pt"), n => groups.get(n.dataset.k)
+    .map(t => `<div class="tip-row"><span>${esc(t.title)}</span>${pairChips(t.s, t.l)}</div>`).join(""),
+    n => n.querySelector("circle"));
+}
+
+/* ===== Discrepancies ===== */
+function renderDiffs() {
+  const top = [...both]
+    .sort((a, b) => Math.abs(b.s - b.l) - Math.abs(a.s - a.l) || (b.s + b.l) - (a.s + a.l))
+    .slice(0, 5);
+  document.getElementById("diffs").innerHTML = top.map(t => `
+    <div class="row">
+      <div class="row-head">
+        <span class="title">${esc(t.title)}</span>
+        <span class="pair"><b class="who s">S ${t.s}</b><b class="who l">L ${t.l}</b></span>
+        <span class="delta" aria-label="разница ${Math.abs(t.s - t.l)}">Δ ${Math.abs(t.s - t.l)}</span>
+      </div>
+      ${scaleHtml([{ who: "s", v: t.s }, { who: "l", v: t.l }])}
+    </div>`).join("") + axisHtml();
+}
+
+/* ===== Months ===== */
+const MON = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+const MON_FULL = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
+
+function renderMonths() {
+  const box = document.getElementById("months");
+  const W = box.clientWidth, H = W >= 420 ? 252 : 180;
+  const pl = 2, pr = 2, pt = 18, pb = 24;
+  const pw = W - pl - pr, ph = H - pt - pb;
+
+  const months = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(TODAY.getFullYear(), TODAY.getMonth() - i, 1);
+    months.push({ y: d.getFullYear(), m: d.getMonth(), n: 0, list: [] });
+  }
+  items.forEach(t => {
+    if (t.status !== "done" || !t.date) return;
+    const mo = months.find(o => o.y === t.date.getFullYear() && o.m === t.date.getMonth());
+    if (mo) { mo.n++; mo.list.push(t); }
+  });
+  const max = Math.max(1, ...months.map(o => o.n));
+  const gw = pw / 12, bw = Math.min(28, gw * 0.62);
+
+  let g = `<line class="grid" x1="${pl}" x2="${W - pr}" y1="${pt + ph}" y2="${pt + ph}"/>`;
+  months.forEach((o, i) => {
+    const cx = pl + gw * (i + 0.5);
+    const cur = i === 11;
+    g += `<g class="col" tabindex="0" data-i="${i}" aria-label="${MON_FULL[o.m]} ${o.y}: ${o.n}">`;
+    g += `<rect class="col-bg" x="${cx - gw / 2 + 1}" y="${pt - 16}" width="${gw - 2}" height="${H - pt + 16}" rx="6"/>`;
+    if (o.n) {
+      const h = o.n / max * ph, top = pt + ph - h;
+      g += `<path d="${topBar(cx - bw / 2, top, bw, h, 4)}" fill="var(--accent)"${cur ? ' fill-opacity=".55"' : ""}/>`;
+      g += `<text class="val" x="${cx}" y="${top - 5}" text-anchor="middle" fill="var(--text)">${o.n}</text>`;
+    } else {
+      g += `<rect x="${cx - bw / 2}" y="${pt + ph - 2}" width="${bw}" height="2" rx="1" fill="var(--track)"/>`;
+      g += `<text class="val" x="${cx}" y="${pt + ph - 7}" text-anchor="middle" fill="var(--muted)">0</text>`;
+    }
+    g += `<text class="${cur ? "ax-strong" : "ax"}" x="${cx}" y="${H - 6}" text-anchor="middle">${MON[o.m]}</text></g>`;
+  });
+
+  const el = svg(W, H, "Число просмотренных тайтлов за последние 12 месяцев");
+  el.innerHTML = g;
+  box.replaceChildren(el);
+
+  bindTip(el.querySelectorAll(".col"), n => {
+    const o = months[+n.dataset.i];
+    const head = `<div class="tip-h">${MON_FULL[o.m][0].toUpperCase() + MON_FULL[o.m].slice(1)} ${o.y}</div>`;
+    if (!o.n) return head + '<div class="tip-sub">Ничего не просмотрено</div>';
+    return head + o.list.map(t => `<div class="tip-row"><span>${esc(t.title)}</span>${pairChips(t.s, t.l)}</div>`).join("");
+  }, n => n.querySelector(".col-bg"));
+
+  const total = months.reduce((a, o) => a + o.n, 0);
+  const best = months.reduce((a, o) => (o.n > a.n ? o : a));
+  document.getElementById("monthsNote").innerHTML =
+    `<b class="tnum" style="color:var(--text)">${total}</b> за 12 месяцев · больше всего — ${MON_FULL[best.m]} (<span class="tnum">${best.n}</span>) · текущий месяц ещё идёт`;
+}
+
+/* ===== Categories ===== */
+function renderCats() {
+  const rows = Object.entries(CATS).map(([k, c]) => {
+    const all = items.filter(t => t.cat === k);
+    return { ...c, total: all.length, done: all.filter(t => t.status === "done").length };
+  });
+  const seg = rows.map(r => `<div class="seg-part" style="--c:${r.color};flex:${r.total}" title="${r.label}: ${r.done} из ${r.total}">
+      <i style="width:${(r.done / r.total * 100).toFixed(1)}%"></i></div>`).join("");
+  const legend = rows.map(r => `<div class="cat-item">
+      <span class="cat-name"><i class="sw" style="background:${r.color}"></i>${r.label}</span>
+      <span class="cnt">${r.done}<small> / ${r.total}</small></span></div>`).join("");
+  document.getElementById("cats").innerHTML =
+    `<div class="seg" role="img" aria-label="${rows.map(r => `${r.label}: просмотрено ${r.done} из ${r.total}`).join(", ")}">${seg}</div>
+     <div class="cat-grid">${legend}</div>`;
+}
+
+/* ===== Top ===== */
+function renderTop() {
+  const top = [...both]
+    .map(t => ({ ...t, avg: (t.s + t.l) / 2 }))
+    .sort((a, b) => b.avg - a.avg || Math.min(b.s, b.l) - Math.min(a.s, a.l))
+    .slice(0, 10);
+  const mini = (who, v) => `<div class="mini ${who}"><b>${who.toUpperCase()}</b>
+      <span class="mini-bar"><i style="width:${v * 10}%"></i></span><span>${v}</span></div>`;
+  document.getElementById("top").innerHTML = top.map((t, i) => `
+    <div class="top-row">
+      <span class="rank">${i + 1}</span>
+      <div class="top-main">
+        <span class="title">${esc(t.title)}</span>
+        <span class="badge" style="--c:${CATS[t.cat].color}">${CATS[t.cat].label}</span>
+      </div>
+      <div class="mini-pair" aria-label="S ${t.s}, L ${t.l}">${mini("s", t.s)}${mini("l", t.l)}</div>
+      <span class="avg" aria-label="средняя ${fmt1(t.avg)}">${fmt1(t.avg)}</span>
+    </div>`).join("");
+}
+
+/* ===== Theme toggle (preview only) ===== */
+const THEMES = [["auto", "авто"], ["light", "светлая"], ["dark", "тёмная"]];
+const themeBtn = document.getElementById("themeToggle");
+let themeIdx = Math.max(0, THEMES.findIndex(([k]) => "#" + k === location.hash));
+function applyTheme() {
+  const [key, label] = THEMES[themeIdx];
+  if (key === "auto") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = key;
+  themeBtn.textContent = "Тема: " + label;
+}
+themeBtn.addEventListener("click", () => {
+  themeIdx = (themeIdx + 1) % THEMES.length;
+  applyTheme();
+});
+applyTheme();
+
+function renderCharts() { renderHist(); renderScatter(); renderMonths(); }
+
+renderHero();
+renderDiffs();
+renderCats();
+renderTop();
+renderCharts();
+
+let rt;
+let lastW = window.innerWidth;
+window.addEventListener("resize", () => {
+  if (window.innerWidth === lastW) return;
+  lastW = window.innerWidth;
+  clearTimeout(rt);
+  rt = setTimeout(renderCharts, 120);
+});
+</script>
+</body>
+</html>
