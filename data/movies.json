@@ -129,9 +129,13 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "panilubov-bit",
+      "updatedBy": "serchg0george",
       "replies": [],
-      "reactions": {},
+      "reactions": {
+        "L": {
+          "S": "fire"
+        }
+      },
       "genres": [
         "фантастика",
         "приключения",
