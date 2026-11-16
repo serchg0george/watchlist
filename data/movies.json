@@ -27,7 +27,7 @@
       "id": "6fd42c57-b829-456d-90a3-ef35af589ce3",
       "title": "Знакомьтесь, Джо Блэк",
       "type": "movie",
-      "status": "planned",
+      "status": "watched",
       "ratings": {
         "S": null,
         "L": null
@@ -38,7 +38,7 @@
       },
       "note": "Фильм 10/10, легенда",
       "addedAt": "2026-11-16",
-      "watchedAt": null,
+      "watchedAt": "2026-11-16",
       "updatedBy": "serchg0george"
     },
     {
