@@ -1077,185 +1077,289 @@ function renderList() {
 
 // ===== Stats tab =====
 
-function statCard(label, value, extraClass) {
-  return el("div", { class: `card${extraClass ? ` ${extraClass}` : ""}` },
-    el("div", { class: "card-value", text: String(value) }),
-    el("div", { class: "card-label", text: label }));
-}
-
-function ratingPair(it) {
-  return el("span", { class: "rating-pair" },
-    ...PEOPLE.map((p) => el("span", { class: `pair-chip person-${p.toLowerCase()}`, text: `${p} ${it.ratings[p] ?? "—"}` })));
-}
-
-function sectionTitle(text) {
-  return el("h2", { class: "section-title", text });
-}
-
-// valueNum drives the bar width; display overrides the count text.
-function barRow(labelText, valueNum, max, display, extraClass) {
-  const pct = max > 0 && valueNum > 0 ? Math.max(3, (valueNum / max) * 100) : 0;
-  return el("div", { class: `bar-row${extraClass ? ` ${extraClass}` : ""}` },
-    el("span", { class: "bar-label", text: labelText }),
-    el("div", { class: "bar-track" }, el("div", { class: "bar-fill", style: `width:${pct}%` })),
-    el("span", { class: "bar-count", text: display != null ? String(display) : String(valueNum) }));
-}
-
 const MONTH_NAMES = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+const MONTH_FULL = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
 
-function monthLabel(key) { // key: YYYY-MM
-  const [y, m] = key.split("-").map(Number);
-  return `${MONTH_NAMES[m - 1]} ${y}`;
+function statsFmt(value) {
+  return value == null ? "—" : value.toFixed(1).replace(".", ",");
 }
 
-function computeMonths(items) {
-  const map = {};
-  items.forEach((it) => {
-    if (it.watchedAt) {
-      const key = it.watchedAt.slice(0, 7);
-      map[key] = (map[key] || 0) + 1;
-    }
+function computeMonths(items, today = new Date()) {
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const date = new Date(today.getFullYear(), today.getMonth() - 11 + i, 1);
+    return { key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`, month: date.getMonth(), year: date.getFullYear(), count: 0, items: [] };
   });
-  return Object.entries(map)
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .slice(-12) // last 12 months that have data
-    .map(([key, count]) => ({ key, count }));
+  items.forEach((item) => {
+    if (item.status !== "watched" || !item.watchedAt) return;
+    const month = months.find((m) => m.key === item.watchedAt.slice(0, 7));
+    if (month) { month.count++; month.items.push(item); }
+  });
+  return months;
+}
+
+function computeStats(items, types, today = new Date()) {
+  const values = {}, counts = {}, averages = {};
+  for (const person of PEOPLE) {
+    values[person] = items.map((item) => item.ratings?.[person]).filter((r) => Number.isInteger(r) && r >= 1 && r <= 10);
+    counts[person] = Array(11).fill(0);
+    values[person].forEach((r) => counts[person][r]++);
+    averages[person] = values[person].length ? values[person].reduce((sum, r) => sum + r, 0) / values[person].length : null;
+  }
+  const valid = (r) => Number.isInteger(r) && r >= 1 && r <= 10;
+  const both = items.filter((item) => valid(item.ratings?.S) && valid(item.ratings?.L));
+  const newer = (a, b) => (b.watchedAt || "").localeCompare(a.watchedAt || "");
+  const groups = new Map();
+  both.forEach((item) => {
+    const key = `${item.ratings.S}:${item.ratings.L}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  });
+  // Preserve items whose category is no longer in the configured list.
+  const categories = types.map((type) => ({ ...type }));
+  items.forEach((item) => {
+    if (!categories.some((type) => type.key === item.type)) categories.push({ key: item.type, label: item.type || "Без типа", color: "var(--muted)" });
+  });
+  return {
+    values, counts, averages, both, groups,
+    close: both.filter((item) => Math.abs(item.ratings.S - item.ratings.L) <= 1).length,
+    exact: both.filter((item) => item.ratings.S === item.ratings.L).length,
+    statuses: Object.fromEntries(STATUSES.map((status) => [status, items.filter((item) => item.status === status).length])),
+    months: computeMonths(items, today),
+    diffs: [...both].sort((a, b) => Math.abs(b.ratings.S - b.ratings.L) - Math.abs(a.ratings.S - a.ratings.L) || newer(a, b)).slice(0, 5),
+    top: [...both].sort((a, b) => (b.ratings.S + b.ratings.L) - (a.ratings.S + a.ratings.L) || newer(a, b)).slice(0, 10),
+    categories: categories.map((type) => ({ ...type, total: items.filter((item) => item.type === type.key).length, watched: items.filter((item) => item.type === type.key && item.status === "watched").length }))
+  };
+}
+
+function statsSvg(tag, attrs, ...children) {
+  const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [key, value] of Object.entries(attrs || {})) node.setAttribute(key, String(value));
+  children.flat().forEach((child) => { if (child != null) node.append(child.nodeType ? child : document.createTextNode(String(child))); });
+  return node;
+}
+
+function statsChart(width, height, label, interactive = false) {
+  return statsSvg("svg", { width: "100%", viewBox: `0 0 ${width} ${height}`, role: interactive ? "group" : "img", "aria-label": label });
+}
+
+function statsWho(person, text = person) {
+  return el("b", { class: `who ${person.toLowerCase()}`, text });
+}
+
+function statsBadge(item) {
+  const type = getTypes().find((t) => t.key === item.type);
+  return el("span", { class: "badge", style: `--c:${type?.color || "var(--muted)"}`, text: type?.label || item.type || "Без типа" });
+}
+
+function statsEmpty(text) {
+  return el("p", { class: "empty", text });
+}
+
+function statsSection(key, title, note) {
+  const body = el("div", { class: "sec-body", id: key });
+  const section = el("section", { class: `card sec-${key}`, "aria-labelledby": `h-${key}` },
+    el("h2", { class: "sec-title", id: `h-${key}`, text: title }),
+    note ? el("p", { class: "sec-note", text: note }) : null, body);
+  return { section, body };
+}
+
+function statsLegend(entries) {
+  return el("div", { class: "legend" }, ...entries.map(([label, color]) => el("span", {}, el("i", { class: "sw", style: `background:${color}`, "aria-hidden": "true" }), label)));
+}
+
+function statsTooltip(tip, node, content) {
+  const hide = () => { tip.hidden = true; };
+  const show = () => {
+    tip.replaceChildren(...content());
+    tip.hidden = false;
+    const bounds = node.getBoundingClientRect(), margin = 8;
+    tip.style.left = `${Math.max(margin, Math.min(window.innerWidth - tip.offsetWidth - margin, bounds.left + bounds.width / 2 - tip.offsetWidth / 2))}px`;
+    const top = bounds.top - tip.offsetHeight - margin;
+    tip.style.top = `${Math.max(margin, Math.min(window.innerHeight - tip.offsetHeight - margin, top < margin ? bounds.bottom + margin : top))}px`;
+  };
+  node.addEventListener("pointerenter", show);
+  node.addEventListener("focus", show);
+  node.addEventListener("pointerleave", hide);
+  node.addEventListener("blur", hide);
+  node.addEventListener("keydown", (event) => { if (event.key === "Escape") hide(); });
+}
+
+function renderStatsHero(items, data) {
+  const card = (name, label, ...children) => el("div", { class: `card hero-${name}` }, el("div", { class: "kpi-label", text: label }), ...children);
+  const statuses = [
+    ["watched", "Просмотрено", "var(--accent)"], ["watching", "Смотрим", "color-mix(in srgb,var(--accent) 50%,transparent)"],
+    ["planned", "В планах", "var(--track)"], ["dropped", "Брошено", "var(--danger)"]
+  ];
+  const watched = card("watched", "Просмотрено", el("div", { class: "kpi" }, data.statuses.watched, el("small", { text: ` из ${items.length}` })));
+  if (items.length) watched.append(el("div", { class: "status-bar", role: "img", "aria-label": statuses.map(([key, label]) => `${label}: ${data.statuses[key]}`).join(", ") },
+    ...statuses.filter(([key]) => data.statuses[key]).map(([key, label, color]) => el("i", { style: `flex:${data.statuses[key]};background:${color}`, title: `${label}: ${data.statuses[key]}` }))),
+    statsLegend(statuses.map(([key, label, color]) => [`${label} ${data.statuses[key]}`, color])));
+  else watched.append(statsEmpty("Список пока пуст"));
+  const average = card("avg", "Средняя оценка");
+  if (data.values.S.length || data.values.L.length) {
+    average.append(el("div", { class: "vs" },
+      el("div", { class: "vs-side s" }, statsWho("S"), el("span", { class: "kpi", text: statsFmt(data.averages.S) })),
+      el("div", { class: "vs-sep", text: "vs" }),
+      el("div", { class: "vs-side l" }, statsWho("L"), el("span", { class: "kpi", text: statsFmt(data.averages.L) }))));
+    average.append(el("div", { class: "avg-bars", "aria-hidden": "true" },
+      ...PEOPLE.map((person) => el("div", { class: `avg-bar ${person.toLowerCase()}` }, el("i", { style: `width:${(data.averages[person] || 0) * 10}%` }))),
+      el("div", { class: "avg-ticks" }, ...[0, 5, 10].map((n) => el("span", { text: n })))));
+    let caption = "Для сравнения нужны оценки S и L";
+    if (data.averages.S != null && data.averages.L != null) {
+      const difference = data.averages.S - data.averages.L;
+      caption = Math.abs(difference) < 0.05 ? "Поровну" : `${difference > 0 ? "S" : "L"} щедрее на ${statsFmt(Math.abs(difference))}`;
+    }
+    average.append(el("div", { class: "kpi-cap", text: caption }));
+  } else average.append(statsEmpty("Пока нет оценок"));
+  average.append(el("div", { class: "kpi-cap", text: `Оценок: S ${data.values.S.length} · L ${data.values.L.length}` }));
+  const match = card("match", "Совпадение вкусов");
+  if (data.both.length) {
+    const percentage = Math.round(data.close / data.both.length * 100), circumference = 2 * Math.PI * 24;
+    const ring = statsSvg("svg", { width: 60, height: 60, viewBox: "0 0 60 60", "aria-hidden": "true" },
+      statsSvg("circle", { cx: 30, cy: 30, r: 24, fill: "none", stroke: "var(--track)", "stroke-width": 8 }),
+      statsSvg("circle", { cx: 30, cy: 30, r: 24, fill: "none", stroke: "var(--accent)", "stroke-width": 8, "stroke-dasharray": `${circumference * data.close / data.both.length} ${circumference}`, transform: "rotate(-90 30 30)" }));
+    match.append(el("div", { class: "match" }, ring, el("div", { class: "kpi-m", text: `${percentage}%` })), el("div", { class: "kpi-cap", text: `${data.close} из ${data.both.length} общих оценок с разницей ≤ 1` }));
+  } else match.append(statsEmpty("Пока нет общих оценок"));
+  const both = card("both", "Оценили оба", el("div", { class: "kpi-m", text: data.both.length }), el("div", { class: "kpi-cap", text: `Совпали точно: ${data.exact}` }));
+  return el("section", { class: "hero", "aria-label": "Главное" }, watched, average, match, both);
+}
+
+function renderStatsHistogram(data, tip) {
+  const mode = (person) => data.counts[person].indexOf(Math.max(...data.counts[person]));
+  const phrases = PEOPLE.filter((person) => data.values[person].length).map((person, i) => `${person}${i ? " —" : " ставит"} ${mode(person)}`);
+  const { section, body } = statsSection("hist", "Распределение оценок", phrases.length ? `Чаще всего ${phrases.join(", ")}` : null);
+  if (!phrases.length) { body.append(statsEmpty("Пока нет оценок")); return section; }
+  const chart = statsChart(440, 220, "Распределение оценок S и L от 1 до 10");
+  const max = Math.max(...data.counts.S, ...data.counts.L), step = max <= 4 ? 1 : Math.ceil(max / 4), ceiling = Math.ceil(max / step) * step;
+  const y = (n) => 182 - n / ceiling * 160;
+  for (let n = 0; n <= ceiling; n += step) chart.append(statsSvg("line", { class: "grid", x1: 26, x2: 438, y1: y(n), y2: y(n) }), statsSvg("text", { class: "ax", x: 18, y: y(n) + 4, "text-anchor": "end" }, n));
+  for (let rating = 1; rating <= 10; rating++) {
+    const cx = 26 + (rating - 0.5) * 41.2;
+    const group = statsSvg("g", { class: "col", tabindex: 0, "aria-label": `Оценка ${rating}: S ${data.counts.S[rating]}, L ${data.counts.L[rating]}` });
+    group.append(statsSvg("rect", { class: "col-bg", x: cx - 19, y: 4, width: 38, height: 198, rx: 6 }));
+    PEOPLE.forEach((person, index) => {
+      const count = data.counts[person][rating], x = cx + (index ? 1 : -15);
+      if (count) group.append(statsSvg("rect", { x, y: y(count), width: 14, height: 182 - y(count), rx: 3, fill: `var(--${person.toLowerCase()})` }), statsSvg("text", { class: "val", x: x + 7, y: y(count) - 5, "text-anchor": "middle", fill: `var(--${person.toLowerCase()})` }, count));
+    });
+    group.append(statsSvg("text", { class: "ax-strong", x: cx, y: 201, "text-anchor": "middle" }, rating));
+    statsTooltip(tip, group, () => [el("div", { class: "tip-h", text: `Оценка ${rating}` }), ...PEOPLE.map((person) => el("div", { class: "tip-row" }, statsWho(person), `${data.counts[person][rating]} тайтлов`))]);
+    chart.append(group);
+  }
+  chart.append(statsSvg("text", { class: "ax", x: 232, y: 218, "text-anchor": "middle" }, "оценка"));
+  body.append(statsLegend([["S", "var(--s)"], ["L", "var(--l)"]]), el("div", { class: "chart" }, chart));
+  return section;
+}
+
+function renderStatsMonths(data, tip) {
+  const total = data.months.reduce((sum, month) => sum + month.count, 0);
+  const best = data.months.reduce((a, b) => b.count > a.count ? b : a);
+  const note = total ? `${total} за 12 месяцев · больше всего — ${MONTH_FULL[best.month]} (${best.count}) · текущий месяц ещё идёт` : "Последние 12 календарных месяцев · текущий месяц ещё идёт";
+  const { section, body } = statsSection("months", "Просмотрено по месяцам", note);
+  if (!total) { body.append(statsEmpty("За последние 12 месяцев ничего не просмотрено")); return section; }
+  const chart = statsChart(440, 220, "Просмотрено за последние 12 календарных месяцев");
+  const max = Math.max(...data.months.map((month) => month.count));
+  chart.append(statsSvg("line", { class: "grid", x1: 2, x2: 438, y1: 192, y2: 192 }));
+  data.months.forEach((month, index) => {
+    const x = 2 + (index + 0.5) * 436 / 12, height = month.count / max * 168;
+    const group = statsSvg("g", { class: "col", tabindex: 0, "aria-label": `${MONTH_FULL[month.month]} ${month.year}: ${month.count}` });
+    group.append(statsSvg("rect", { class: "col-bg", x: x - 17, y: 4, width: 34, height: 214, rx: 6 }),
+      statsSvg("rect", { x: x - 11, y: month.count ? 192 - height : 190, width: 22, height: month.count ? height : 2, rx: 3, fill: month.count ? "var(--accent)" : "var(--track)", "fill-opacity": index === 11 ? 0.55 : 1 }),
+      statsSvg("text", { class: "val", x, y: month.count ? 187 - height : 183, "text-anchor": "middle", fill: "var(--text)" }, month.count),
+      statsSvg("text", { class: index === 11 ? "ax-strong" : "ax", x, y: 212, "text-anchor": "middle" }, MONTH_NAMES[month.month]));
+    statsTooltip(tip, group, () => [el("div", { class: "tip-h", text: `${MONTH_FULL[month.month]} ${month.year}` }), ...(month.items.length ? month.items.map((item) => el("div", { class: "tip-row", text: item.title })) : [el("div", { class: "tip-sub", text: "Ничего не просмотрено" })])]);
+    chart.append(group);
+  });
+  body.append(el("div", { class: "chart" }, chart));
+  return section;
+}
+
+function renderStatsScatter(data, tip) {
+  const { section, body } = statsSection("scatter", "S против L", "Каждая точка — тайтл, оценённый обоими. Нажмите на точку, чтобы увидеть названия.");
+  if (!data.both.length) { body.append(statsEmpty("Пока нет общих оценок")); return section; }
+  const chart = statsChart(440, 440, "Оценка S по горизонтали, оценка L по вертикали. Выберите точку, чтобы увидеть тайтлы", true);
+  const x = (value) => 30 + (value - 0.5) * 40, y = (value) => 404 - (value - 0.5) * 39.4;
+  const band = [[0.5, 1.5], [9.5, 10.5], [10.5, 10.5], [10.5, 9.5], [1.5, 0.5], [0.5, 0.5]];
+  chart.append(statsSvg("polygon", { points: band.map(([s, l]) => `${x(s)},${y(l)}`).join(" "), fill: "var(--accent)", "fill-opacity": 0.1 }));
+  for (let rating = 1; rating <= 10; rating++) chart.append(
+    statsSvg("line", { class: "grid", x1: x(rating), x2: x(rating), y1: 10, y2: 404 }), statsSvg("line", { class: "grid", x1: 30, x2: 430, y1: y(rating), y2: y(rating) }),
+    statsSvg("text", { class: "ax-strong", x: x(rating), y: 420, "text-anchor": "middle" }, rating), statsSvg("text", { class: "ax-strong", x: 22, y: y(rating) + 4, "text-anchor": "end" }, rating));
+  chart.append(statsSvg("line", { x1: x(0.5), x2: x(10.5), y1: y(0.5), y2: y(10.5), stroke: "var(--muted)", "stroke-dasharray": "5 5" }),
+    statsSvg("text", { class: "ax", x: 150, y: 265, transform: "rotate(-45 150 265)", "text-anchor": "middle" }, "согласны · ±1"),
+    statsSvg("text", { x: x(1), y: y(10), fill: "var(--l)", "font-size": 12, "font-weight": 600 }, "L выше"),
+    statsSvg("text", { x: x(10), y: y(1), fill: "var(--s)", "font-size": 12, "font-weight": 600, "text-anchor": "end" }, "S выше"),
+    statsSvg("text", { class: "ax", x: 230, y: 438, "text-anchor": "middle" }, "оценка S →"),
+    statsSvg("text", { class: "ax", transform: "translate(9 207) rotate(-90)", "text-anchor": "middle" }, "оценка L →"));
+  const detail = el("div", { class: "scatter-detail", id: "scatter-detail", hidden: true, role: "region", "aria-label": "Выбранные тайтлы", "aria-live": "polite" });
+  const points = [];
+  [...data.groups.values()].sort((a, b) => b.length - a.length).forEach((items) => {
+    const { S: s, L: l } = items[0].ratings, color = s > l ? "var(--s)" : l > s ? "var(--l)" : "var(--accent)";
+    const point = statsSvg("g", { class: "pt", tabindex: 0, role: "button", "aria-label": `S ${s}, L ${l}: ${items.map((item) => item.title).join(", ")}. Показать тайтлы`, "aria-controls": "scatter-detail", "aria-expanded": "false", "fill-opacity": 0.5 });
+    point.append(statsSvg("circle", { cx: x(s), cy: y(l), r: Math.min(18, 7 + (items.length - 1) * 4), fill: color, stroke: color, "stroke-width": 1.5 }));
+    if (items.length > 1) point.append(statsSvg("text", { x: x(s), y: y(l) + 4, "text-anchor": "middle", "font-size": 11, "font-weight": 700, fill: "var(--text)", "fill-opacity": 1 }, items.length));
+    const select = () => {
+      tip.hidden = true;
+      points.forEach((other) => other.setAttribute("aria-expanded", String(other === point)));
+      detail.replaceChildren(el("div", { class: "scatter-detail-head" }, statsWho("S", `S ${s}`), statsWho("L", `L ${l}`)),
+        el("div", { class: "scatter-detail-list" }, ...items.map((item) => el("div", { class: "scatter-detail-item" }, el("span", { class: "title", text: item.title }), statsBadge(item)))));
+      detail.hidden = false;
+    };
+    point.addEventListener("click", select);
+    point.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } });
+    statsTooltip(tip, point, () => items.map((item) => el("div", { class: "tip-row" }, el("span", { text: item.title }), el("span", { class: "tip-r" }, statsWho("S", `S ${s}`), statsWho("L", `L ${l}`)))));
+    points.push(point); chart.append(point);
+  });
+  body.append(el("div", { class: "chart scatter-box" }, chart), statsLegend([["S выше", "var(--s)"], ["L выше", "var(--l)"], ["поровну", "var(--accent)"]]),
+    el("p", { class: "sec-note", text: "Размер и число — сколько тайтлов" }), detail);
+  return section;
+}
+
+function renderStatsDiffs(data) {
+  const { section, body } = statsSection("diff", "Самые большие расхождения");
+  body.id = "diffs";
+  if (!data.diffs.length) { body.append(statsEmpty("Пока нет общих оценок")); return section; }
+  const position = (value) => (value - 1) / 9 * 100;
+  data.diffs.forEach((item) => {
+    const { S: s, L: l } = item.ratings;
+    const scale = el("div", { class: "scale", "aria-hidden": "true" }, el("div", { class: "scale-track" }));
+    for (let value = 1; value <= 10; value++) scale.append(el("i", { class: "scale-tick", style: `left:${position(value)}%` }));
+    scale.append(el("i", { class: "scale-line", style: `left:${position(Math.min(s, l))}%;width:${Math.abs(s - l) / 9 * 100}%;background:linear-gradient(90deg,var(--${s <= l ? "s" : "l"}),var(--${s <= l ? "l" : "s"}))` }),
+      el("span", { class: "dot s", style: `left:${position(s)}%`, text: "S" }), el("span", { class: "dot l", style: `left:${position(l)}%`, text: "L" }));
+    body.append(el("div", { class: "row" }, el("div", { class: "row-head" }, el("span", { class: "title", text: item.title, title: item.title }),
+      el("span", { class: "pair" }, statsWho("S", `S ${s}`), statsWho("L", `L ${l}`)), el("span", { class: "delta", "aria-label": `разница ${Math.abs(s - l)}`, text: `Δ ${Math.abs(s - l)}` })), scale));
+  });
+  body.append(el("div", { class: "scale-axis", "aria-hidden": "true" }, ...Array.from({ length: 10 }, (_, i) => el("span", { style: `left:${position(i + 1)}%`, text: i + 1 }))));
+  return section;
+}
+
+function renderStatsCategories(items, data) {
+  const { section, body } = statsSection("cats", "По типам", "Длина отрезка — всего в списке, заливка — просмотрено");
+  if (!items.length) { body.append(statsEmpty("Список пока пуст")); return section; }
+  body.append(el("div", { class: "seg", role: "img", "aria-label": data.categories.map((type) => `${type.label}: ${type.watched} из ${type.total}`).join(", ") },
+    ...data.categories.filter((type) => type.total).map((type) => el("div", { class: "seg-part", style: `--c:${type.color || "var(--muted)"};flex:${type.total}`, title: `${type.label}: ${type.watched} из ${type.total}` }, el("i", { style: `width:${type.watched / type.total * 100}%` })))),
+    el("div", { class: "cat-grid" }, ...data.categories.map((type) => el("div", { class: "cat-item" }, el("span", { class: "cat-name" }, el("i", { class: "sw", style: `background:${type.color || "var(--muted)"}` }), type.label), el("span", { class: "cnt" }, type.watched, el("small", { text: ` / ${type.total}` }))))));
+  return section;
+}
+
+function renderStatsTop(data) {
+  const { section, body } = statsSection("top", "Топ по средней оценке", "Только тайтлы, оценённые обоими");
+  if (!data.top.length) { body.append(statsEmpty("Пока нет общих оценок")); return section; }
+  body.style.setProperty("--top-rows", Math.ceil(data.top.length / 2));
+  data.top.forEach((item, index) => body.append(el("div", { class: "top-row" }, el("span", { class: "rank", text: index + 1 }),
+    el("div", { class: "top-main" }, el("span", { class: "title", text: item.title, title: item.title }), statsBadge(item)),
+    el("div", { class: "mini-pair", "aria-label": `S ${item.ratings.S}, L ${item.ratings.L}` }, ...PEOPLE.map((person) => el("div", { class: `mini ${person.toLowerCase()}`, "aria-hidden": "true" }, el("b", { text: person }), el("span", { class: "mini-bar" }, el("i", { style: `width:${item.ratings[person] * 10}%` })), el("span", { text: item.ratings[person] })))),
+    el("span", { class: "avg", "aria-label": `средняя ${statsFmt((item.ratings.S + item.ratings.L) / 2)}`, text: statsFmt((item.ratings.S + item.ratings.L) / 2) }))));
+  return section;
 }
 
 function renderStats() {
   const box = document.getElementById("stats");
   box.textContent = "";
-
   if (state.loading) { box.append(el("div", { class: "state-msg", text: "Загрузка…" })); return; }
   if (state.error) { box.append(el("div", { class: "state-msg error", text: state.error })); return; }
-
-  const items = state.data.items;
-  const countBy = (pred) => items.filter(pred).length;
-
-  const total = items.length;
-  const watched = countBy((i) => i.status === "watched");
-  const watching = countBy((i) => i.status === "watching");
-  const planned = countBy((i) => i.status === "planned");
-  const dropped = countBy((i) => i.status === "dropped");
-  const fmtAvg = (vals) => vals.length ? (vals.reduce((s, r) => s + r, 0) / vals.length).toFixed(1) : "—";
-  const valsOf = (p) => items.map((i) => i.ratings[p]).filter((r) => r != null);
-  const both = items.filter((i) => i.ratings.S != null && i.ratings.L != null);
-  const allVals = [...valsOf("S"), ...valsOf("L")];
-
-  box.append(el("div", { class: "cards" },
-    statCard("Всего", total),
-    statCard("Просмотрено", watched),
-    statCard("Смотрим", watching),
-    statCard("В планах", planned),
-    statCard("Брошено", dropped)
-  ));
-
-  box.append(sectionTitle("Оценки S и L"));
-  box.append(el("div", { class: "cards" },
-    statCard("Средняя S", fmtAvg(valsOf("S")), "person-s"),
-    statCard("Средняя L", fmtAvg(valsOf("L")), "person-l"),
-    statCard("Средняя общая", fmtAvg(allVals)),
-    statCard("Оценок S", valsOf("S").length, "person-s"),
-    statCard("Оценок L", valsOf("L").length, "person-l"),
-    statCard("Оценили оба", both.length),
-    statCard("Совпали", both.filter((i) => i.ratings.S === i.ratings.L).length)
-  ));
-
-  // Rating distribution, 10 stars down to 1, S and L side by side.
-  box.append(sectionTitle("Распределение оценок"));
-  if (allVals.length === 0) {
-    box.append(el("div", { class: "state-msg", text: "Пока нет оценок" }));
-  } else {
-    const dist = el("div", { class: "bars" });
-    const counts = {};
-    let maxCount = 0;
-    for (const p of PEOPLE) {
-      counts[p] = {};
-      for (let s = 1; s <= 10; s++) {
-        counts[p][s] = countBy((i) => i.ratings[p] === s);
-        maxCount = Math.max(maxCount, counts[p][s]);
-      }
-    }
-    for (let s = 10; s >= 1; s--) {
-      for (const p of PEOPLE) {
-        dist.append(barRow(`${s}★ ${p}`, counts[p][s], maxCount, null, `person-${p.toLowerCase()}`));
-      }
-    }
-    box.append(dist);
-  }
-
-  box.append(sectionTitle("Самые большие расхождения"));
-  const diffs = both
-    .filter((i) => i.ratings.S !== i.ratings.L)
-    .sort((a, b) => Math.abs(b.ratings.S - b.ratings.L) - Math.abs(a.ratings.S - a.ratings.L))
-    .slice(0, 10);
-  if (diffs.length === 0) {
-    box.append(el("div", { class: "state-msg", text: both.length ? "Пока во всём согласны" : "Нет фильмов, оценённых обоими" }));
-  } else {
-    const list = el("ol", { class: "top-list" });
-    diffs.forEach((it) => list.append(el("li", {},
-      el("span", { class: "top-title", text: it.title }),
-      ratingPair(it))));
-    box.append(list);
-  }
-
-  // Breakdown by type: watched / total.
-  box.append(sectionTitle("По типам"));
-  const typeBox = el("div", { class: "bars" });
-  for (const t of getTypes()) {
-    const tot = countBy((i) => i.type === t.key);
-    const w = countBy((i) => i.type === t.key && i.status === "watched");
-    const row = barRow(t.label, w, tot, `${w} / ${tot}`);
-    if (t.color) {
-      const fill = row.querySelector(".bar-fill");
-      if (fill) fill.style.backgroundColor = t.color;
-    }
-    typeBox.append(row);
-  }
-  box.append(typeBox);
-
-  // Watched per month by watchedAt.
-  box.append(sectionTitle("Просмотрено по месяцам"));
-  const months = computeMonths(items);
-  if (months.length === 0) {
-    box.append(el("div", { class: "state-msg", text: "Пока нет данных" }));
-  } else {
-    const mBox = el("div", { class: "bars" });
-    const mMax = Math.max(...months.map((m) => m.count), 1);
-    months.forEach((m) => mBox.append(barRow(monthLabel(m.key), m.count, mMax)));
-    box.append(mBox);
-  }
-
-  // Top rated by the average of S and L: up to 10, then watchedAt desc.
-  box.append(sectionTitle("Топ по средней оценке"));
-  const top = items
-    .filter((i) => avgRating(i) != null)
-    .sort((a, b) => (avgRating(b) - avgRating(a)) || (b.watchedAt || "").localeCompare(a.watchedAt || ""))
-    .slice(0, 10);
-  if (top.length === 0) {
-    box.append(el("div", { class: "state-msg", text: "Пока нет оценок" }));
-  } else {
-    const topList = el("ol", { class: "top-list" });
-    top.forEach((it) => topList.append(el("li", {},
-      el("span", { class: "top-title", text: it.title }),
-      ratingPair(it),
-      el("span", { class: "top-rating", text: `${avgRating(it).toFixed(1)}★` }))));
-    box.append(topList);
-  }
-
-  // Who marked items (per updatedBy login, skip empty).
-  box.append(sectionTitle("Кто отметил"));
-  const byUser = {};
-  items.forEach((i) => { if (i.updatedBy) byUser[i.updatedBy] = (byUser[i.updatedBy] || 0) + 1; });
-  const users = Object.entries(byUser).sort((a, b) => b[1] - a[1]);
-  if (users.length === 0) {
-    box.append(el("div", { class: "state-msg", text: "Пока никто не отмечал" }));
-  } else {
-    const uBox = el("div", { class: "bars" });
-    const uMax = Math.max(...users.map((u) => u[1]), 1);
-    users.forEach(([login, count]) => uBox.append(barRow(login, count, uMax)));
-    box.append(uBox);
-  }
+  const items = state.data?.items || [], data = computeStats(items, getTypes());
+  const tip = el("div", { class: "tip", role: "tooltip", hidden: true });
+  const stack = el("div", { class: "stack" }, renderStatsHero(items, data), renderStatsHistogram(data, tip), renderStatsMonths(data, tip), renderStatsScatter(data, tip), renderStatsDiffs(data), renderStatsCategories(items, data), renderStatsTop(data));
+  box.append(el("div", { class: "stats-wrap" }, el("header", { class: "page-head" }, el("h1", { text: "Статистика" }), el("p", { text: `S и L · данные на ${new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}` })), stack), tip);
 }
 
 // ===== Toast =====
