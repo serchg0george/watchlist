@@ -642,7 +642,7 @@
       "status": "dropped",
       "ratings": {
         "S": 5,
-        "L": null
+        "L": 6
       },
       "comments": {
         "S": "",
@@ -651,7 +651,7 @@
       "note": "брошен",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     }
   ]
 }
