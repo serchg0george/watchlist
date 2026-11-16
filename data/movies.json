@@ -20,6 +20,11 @@
       "key": "show",
       "label": "Шоу",
       "color": "#059669"
+    },
+    {
+      "key": "multfilm",
+      "label": "Мультфильм",
+      "color": "#e05638"
     }
   ],
   "items": [
