@@ -24,6 +24,24 @@
   ],
   "items": [
     {
+      "id": "07e791d7-1405-4943-a3dc-716449ae4228",
+      "title": "Дрянь Сезон 2",
+      "type": "movie",
+      "status": "planned",
+      "ratings": {
+        "S": null,
+        "L": null
+      },
+      "comments": {
+        "S": "",
+        "L": ""
+      },
+      "note": "",
+      "addedAt": "2026-11-16",
+      "watchedAt": null,
+      "updatedBy": "serchg0george"
+    },
+    {
       "id": "6fd42c57-b829-456d-90a3-ef35af589ce3",
       "title": "Знакомьтесь, Джо Блэк",
       "type": "movie",
