@@ -328,12 +328,13 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
   align-items: center;
   gap: 4px 16px;
   padding-left: 50px;
+  min-width: 0;
 }
 
-.rating-line { display: flex; align-items: center; gap: 6px; }
-.rating-line .stars { margin-left: 0; }
-.rating-line .star { min-width: 26px; min-height: 36px; font-size: 18px; }
-.rating-line .star.static { min-width: 16px; min-height: 26px; font-size: 14px; }
+.rating-line { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+.rating-line .stars { margin-left: 0; min-width: 0; flex: 1 1 auto; }
+.rating-line .star { flex: 1 1 26px; width: 26px; min-width: 0; min-height: 36px; font-size: 18px; }
+.rating-line .star.static { flex-basis: 16px; width: 16px; min-width: 0; min-height: 26px; font-size: 14px; }
 
 .person-tag {
   display: inline-flex;
@@ -341,17 +342,22 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
   justify-content: center;
   width: 24px;
   height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  line-height: 1;
+  aspect-ratio: 1;
   border-radius: 50%;
   font-size: 12px;
   font-weight: 700;
-  flex-shrink: 0;
+  flex: 0 0 24px;
 }
 .person-s .star.on { color: var(--s); }
 .person-l .star.on { color: var(--l); }
 .person-s .person-tag { background: var(--s); color: #fff; }
 .person-l .person-tag { background: var(--l); color: #fff; }
 
-.rating-value { width: 20px; text-align: right; font-size: 13px; font-weight: 600; color: var(--muted); }
+.rating-value { flex: 0 0 20px; width: 20px; text-align: right; font-size: 13px; font-weight: 600; color: var(--muted); }
 .person-s .rating-value { color: var(--s); }
 .person-l .rating-value { color: var(--l); }
 
@@ -394,8 +400,12 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 .reply-node .comment-line { flex-wrap: wrap; }
 .reply-node .comment-text { flex: 1 1 100px; }
 .reply-date { font-size: 11px; padding-top: 4px; white-space: nowrap; }
-.comment-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 3px 0 3px 30px; }
+.comment-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; padding: 3px 0 3px 30px; }
+.reaction-options { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; max-width: 100%; padding: 4px; }
+.comment-links { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
 .reaction-pill, .comment-action {
+  -webkit-appearance: none;
+  appearance: none;
   border: 1px solid transparent;
   background: transparent;
   color: var(--muted);
@@ -405,13 +415,49 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
   padding: 3px 6px;
   cursor: pointer;
 }
-.reaction-pill { border-color: var(--border); border-radius: 999px; }
+.reaction-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  max-width: 34px;
+  max-height: 34px;
+  padding: 0;
+  line-height: 1;
+  aspect-ratio: 1;
+  border-color: var(--border);
+  border-radius: 50%;
+}
+.reaction-emoji { display: block; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; font-size: 18px; line-height: 1; }
+.reaction-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--text);
+  font: 600 10px/1 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.reaction-pill:focus-visible, .comment-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .reaction-pill:not(:disabled):hover, .comment-action:hover { background: var(--card-hover); color: var(--text); }
 .reaction-pill:disabled { cursor: default; }
 .reaction-pill.person-s[aria-pressed="true"] { color: var(--s); background: var(--s-bg); border-color: var(--s); }
 .reaction-pill.person-l[aria-pressed="true"] { color: var(--l); background: var(--l-bg); border-color: var(--l); }
 @media (max-width: 639px) {
-  .comments { padding-left: 0; }
+  .comments, .ratings { padding-left: 0; }
 }
 .comment-add {
   align-self: flex-start;
