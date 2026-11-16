@@ -452,7 +452,7 @@
       "type": "series",
       "status": "dropped",
       "ratings": {
-        "S": null,
+        "S": 2,
         "L": null
       },
       "comments": {
