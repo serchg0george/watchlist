@@ -47,7 +47,7 @@
       "type": "movie",
       "status": "watched",
       "ratings": {
-        "S": null,
+        "S": 10,
         "L": null
       },
       "comments": {
