@@ -520,7 +520,15 @@
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
       "updatedBy": "serchg0george",
-      "replies": [],
+      "replies": [
+        {
+          "id": "0ebdf9fe-df5f-4f16-b2de-53011d31e506",
+          "to": "L",
+          "by": "S",
+          "text": "100%",
+          "at": "2026-11-16T17:59:59.456Z"
+        }
+      ],
       "reactions": {
         "L": {
           "S": "heart"
