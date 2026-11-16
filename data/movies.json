@@ -46,7 +46,9 @@
       "watchedAt": null,
       "updatedBy": "serchg0george",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "6fd42c57-b829-456d-90a3-ef35af589ce3",
@@ -66,7 +68,9 @@
       "watchedAt": "2026-11-16",
       "updatedBy": "panilubov-bit",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "5285791d-4492-442e-81ac-6d07115da69d",
@@ -86,7 +90,9 @@
       "watchedAt": "2026-11-15",
       "updatedBy": "panilubov-bit",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "chego-hotyat-zhenshchiny",
@@ -106,7 +112,9 @@
       "watchedAt": null,
       "updatedBy": "",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "dryan",
@@ -126,7 +134,9 @@
       "watchedAt": "2026-11-16",
       "updatedBy": "panilubov-bit",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "tipa-krutye-legavye",
@@ -146,7 +156,9 @@
       "watchedAt": null,
       "updatedBy": "",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "karolina",
@@ -166,7 +178,9 @@
       "watchedAt": "2026-11-15",
       "updatedBy": "serchg0george",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "horisty",
@@ -186,7 +200,9 @@
       "watchedAt": null,
       "updatedBy": "",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "chernoe-zerkalo",
@@ -206,7 +222,9 @@
       "watchedAt": null,
       "updatedBy": "",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "odna-bitva",
@@ -226,7 +244,9 @@
       "watchedAt": null,
       "updatedBy": "",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "legkoe-povedenie",
@@ -246,7 +266,9 @@
       "watchedAt": null,
       "updatedBy": "",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "realnaya-lyubov",
@@ -266,7 +288,9 @@
       "watchedAt": null,
       "updatedBy": "",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "menshova-greciya",
@@ -286,7 +310,9 @@
       "watchedAt": null,
       "updatedBy": "",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "forma-golosa",
@@ -306,7 +332,9 @@
       "watchedAt": null,
       "updatedBy": "",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "patema",
@@ -326,7 +354,9 @@
       "watchedAt": null,
       "updatedBy": "",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "garri-i-salli",
@@ -346,7 +376,9 @@
       "watchedAt": null,
       "updatedBy": "",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "hod-korolevy",
@@ -366,7 +398,9 @@
       "watchedAt": null,
       "updatedBy": "",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "hrustalnyy",
@@ -386,7 +420,9 @@
       "watchedAt": null,
       "updatedBy": "",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "trigger",
@@ -406,13 +442,15 @@
       "watchedAt": null,
       "updatedBy": "",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "luchshee-mesto",
       "title": "Лучшее место",
       "type": "series",
-      "status": "planned",
+      "status": "watching",
       "ratings": {
         "S": null,
         "L": null
@@ -424,9 +462,11 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": "",
+      "updatedBy": "serchg0george",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "temnaya-materiya",
@@ -446,7 +486,9 @@
       "watchedAt": "2026-11-15",
       "updatedBy": "panilubov-bit",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "vechnost",
@@ -466,7 +508,9 @@
       "watchedAt": "2026-11-15",
       "updatedBy": "serchg0george",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "otpusk-na-dvoih",
@@ -486,7 +530,9 @@
       "watchedAt": "2026-11-15",
       "updatedBy": "panilubov-bit",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "dusha",
@@ -506,7 +552,9 @@
       "watchedAt": "2026-11-15",
       "updatedBy": "serchg0george",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "tayna-koko",
@@ -538,7 +586,9 @@
         "L": {
           "S": "heart"
         }
-      }
+      },
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "50-pervyh-poceluev",
@@ -558,7 +608,9 @@
       "watchedAt": "2026-11-15",
       "updatedBy": "panilubov-bit",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "den-vyborov",
@@ -578,7 +630,9 @@
       "watchedAt": "2026-11-15",
       "updatedBy": "panilubov-bit",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "semeyka-addams",
@@ -598,7 +652,9 @@
       "watchedAt": "2026-11-15",
       "updatedBy": "panilubov-bit",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "mulan",
@@ -618,7 +674,9 @@
       "watchedAt": "2026-11-15",
       "updatedBy": "panilubov-bit",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "terapiya",
@@ -638,7 +696,9 @@
       "watchedAt": null,
       "updatedBy": "panilubov-bit",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "ty",
@@ -658,7 +718,9 @@
       "watchedAt": "2026-11-15",
       "updatedBy": "panilubov-bit",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "sumerki",
@@ -678,7 +740,9 @@
       "watchedAt": "2026-11-15",
       "updatedBy": "panilubov-bit",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "dyuna-2",
@@ -698,7 +762,9 @@
       "watchedAt": "2026-11-15",
       "updatedBy": "panilubov-bit",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "graf-monte-kristo",
@@ -718,7 +784,9 @@
       "watchedAt": "2026-11-15",
       "updatedBy": "panilubov-bit",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     },
     {
       "id": "karatel",
@@ -738,7 +806,9 @@
       "watchedAt": "2026-11-15",
       "updatedBy": "panilubov-bit",
       "replies": [],
-      "reactions": {}
+      "reactions": {},
+      "genres": [],
+      "droppedAt": null
     }
   ]
 }
