@@ -101,7 +101,6 @@ const state = {
   typeFilter: "all",
   search: "",
   sort: "added-desc",
-  watchedSectionOpen: true,
   editingId: null,
   commentingId: null,
   highlightId: null
@@ -235,18 +234,23 @@ function normalize(raw) {
   const fallbackKey = data.types[0]?.key || "movie";
 
   if (!Array.isArray(data.items)) data.items = [];
-  data.items = data.items.map((it) => ({
-    id: String(it.id ?? ""),
-    title: String(it.title ?? ""),
-    type: typeof it.type === "string" && it.type.trim() ? it.type.trim() : fallbackKey,
-    status: STATUSES.includes(it.status) ? it.status : "planned",
-    ratings: normalizeRatings(it),
-    comments: normalizeComments(it),
-    note: String(it.note ?? ""),
-    addedAt: typeof it.addedAt === "string" && it.addedAt ? it.addedAt : todayStr(),
-    watchedAt: typeof it.watchedAt === "string" && it.watchedAt ? it.watchedAt : null,
-    updatedBy: String(it.updatedBy ?? "")
-  }));
+  // Spread first: fields added by newer app versions (e.g. replies, reactions) must survive a save from this version.
+  data.items = data.items.map((raw0) => {
+    const it = raw0 && typeof raw0 === "object" ? raw0 : {};
+    return {
+      ...it,
+      id: String(it.id ?? ""),
+      title: String(it.title ?? ""),
+      type: typeof it.type === "string" && it.type.trim() ? it.type.trim() : fallbackKey,
+      status: STATUSES.includes(it.status) ? it.status : "planned",
+      ratings: normalizeRatings(it),
+      comments: normalizeComments(it),
+      note: String(it.note ?? ""),
+      addedAt: typeof it.addedAt === "string" && it.addedAt ? it.addedAt : todayStr(),
+      watchedAt: typeof it.watchedAt === "string" && it.watchedAt ? it.watchedAt : null,
+      updatedBy: String(it.updatedBy ?? "")
+    };
+  });
   return data;
 }
 
@@ -632,8 +636,10 @@ function sortItems(items, key) {
 }
 
 function updateChips(base) {
-  const counts = { all: base.length, planned: 0, watching: 0, watched: 0, dropped: 0 };
+  const counts = { all: 0, planned: 0, watching: 0, watched: 0, dropped: 0 };
   base.forEach((it) => { if (counts[it.status] != null) counts[it.status]++; });
+  // "all" chip matches the list view: active items only.
+  counts.all = counts.planned + counts.watching;
   document.querySelectorAll("#chips .chip").forEach((chip) => {
     const key = chip.dataset.key;
     chip.querySelector(".count").textContent = String(counts[key]);
@@ -816,20 +822,8 @@ function renderList() {
   const sorted = sortItems(base, state.sort);
 
   if (state.statusFilter === "all") {
-    // Google Keep style: active items first, then a collapsible finished section.
-    const active = sorted.filter((it) => it.status === "planned" || it.status === "watching");
-    const finished = sorted.filter((it) => it.status === "watched" || it.status === "dropped");
-
-    box.append(buildSection(active));
-
-    const toggleBtn = el("button", { type: "button", class: "section-toggle" },
-      el("span", { class: "chevron", text: state.watchedSectionOpen ? "▾" : "▸" }),
-      `${finished.length} просмотрено`);
-    toggleBtn.addEventListener("click", () => { state.watchedSectionOpen = !state.watchedSectionOpen; render(); });
-
-    const section = el("div", { class: "section finished-section" }, toggleBtn);
-    if (state.watchedSectionOpen) section.append(buildSection(finished));
-    box.append(section);
+    // "all" shows active items only; finished ones are reachable via the status chips.
+    box.append(buildSection(sorted.filter((it) => it.status === "planned" || it.status === "watching")));
   } else {
     box.append(buildSection(sorted.filter((it) => it.status === state.statusFilter)));
   }
