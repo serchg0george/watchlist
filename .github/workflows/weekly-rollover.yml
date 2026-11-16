@@ -1,0 +1,50 @@
+name: Weekly rollover
+
+on:
+  schedule:
+    - cron: '5 21-23 * * 0'
+    - cron: '5 0-3 * * 1'
+  workflow_dispatch:
+    inputs:
+      bootstrap:
+        description: Create the first data branch if none exists
+        type: boolean
+        default: false
+      dry_run:
+        description: Preview actions without pushing
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+  actions: write
+
+concurrency:
+  group: rollover
+  cancel-in-progress: false
+
+jobs:
+  rollover:
+    runs-on: ubuntu-latest
+    outputs:
+      pushed: ${{ steps.rollover.outputs.pushed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+      - name: Roll over weekly data
+        id: rollover
+        env:
+          TZ_NAME: Europe/Sofia
+          BOOTSTRAP: ${{ inputs.bootstrap && '1' || '0' }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+        run: bash scripts/rollover.sh
+  deploy:
+    # Even a late-change conflict can occur after the new branch was published.
+    if: ${{ always() && needs.rollover.outputs.pushed == 'true' }}
+    needs: rollover
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit

@@ -1,0 +1,56 @@
+name: Deploy Pages
+
+on:
+  push:
+    branches: [master, 'data/**']
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+      - name: Overlay current data and prepare site
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch=$(git ls-remote --heads origin 'data/*' | awk '{sub(/^refs\/heads\//, "", $2); print $2}' | LC_ALL=C sort | tail -n 1)
+          if [[ -n "$branch" ]]; then
+            git fetch --no-tags origin "refs/heads/$branch:refs/remotes/origin/$branch"
+            git show "refs/remotes/origin/$branch:data/movies.json" > data/movies.json
+            printf 'Deploying master code with data from %s\n' "$branch"
+          else
+            echo 'No data branch yet; deploying master data.'
+          fi
+          mkdir -p _site
+          rsync -a ./ _site/ \
+            --exclude='_site/' --exclude='.git/' --exclude='.github/' \
+            --exclude='.githooks/' --exclude='scripts/' --exclude='tasks/' \
+            --exclude='design/' --exclude='*.md' --exclude='opencode.jsonc' \
+            --exclude='.idea/' --exclude='.gitignore' --exclude='.claude/'
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -8,9 +8,8 @@
 // ===== Constants =====
 
 const REPO = "serchg0george/watchlist";
-const BRANCH = "master";
 const FILE_PATH = "data/movies.json";
-const API_FILE_URL = `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}?ref=${BRANCH}`;
+const API_CONTENTS_URL = `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`;
 const LS_TOKEN = "watchlist.token";
 const LS_LOGIN = "watchlist.login";
 const LS_PERSON = "watchlist.person";
@@ -104,6 +103,7 @@ const state = {
   login: localStorage.getItem(LS_LOGIN) || "",
   person: personFor(localStorage.getItem(LS_LOGIN) || ""),
   data: null, // { version, items: [...] }
+  dataBranch: null,
   loading: true,
   error: null,
   tab: "list",
@@ -210,7 +210,7 @@ function newId() {
 
 function apiHeaders(token) {
   return {
-    Authorization: `Bearer ${token}`,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28"
   };
@@ -223,11 +223,22 @@ async function fetchTimed(url, options = {}, read = (response) => response) {
   finally { clearTimeout(timer); }
 }
 
-async function fetchFileViaApi(token) {
-  return fetchTimed(API_FILE_URL, { headers: apiHeaders(token), cache: "no-store" }, async (res) => {
-  if (!res.ok) throw Object.assign(new Error(`GitHub API: HTTP ${res.status}`), { status: res.status });
-  const json = await res.json();
-  return { data: JSON.parse(base64ToUtf8(json.content)), sha: json.sha };
+async function resolveDataBranch(token) {
+  return fetchTimed(`https://api.github.com/repos/${REPO}/git/matching-refs/heads/data/`, { headers: apiHeaders(token), cache: "no-store" }, async (res) => {
+    if (res.status === 404) return "master";
+    if (!res.ok) throw Object.assign(new Error(`GitHub API: HTTP ${res.status}`), { status: res.status });
+    const refs = await res.json();
+    if (!Array.isArray(refs)) throw new Error("GitHub вернул неверный список веток данных");
+    const branches = refs.map((entry) => entry?.ref).filter((ref) => typeof ref === "string" && ref.startsWith("refs/heads/data/") && ref.length > "refs/heads/data/".length).sort();
+    return branches.length ? branches[branches.length - 1].slice("refs/heads/".length) : "master";
+  });
+}
+
+async function fetchFileViaApi(token, branch) {
+  return fetchTimed(`${API_CONTENTS_URL}?ref=${encodeURIComponent(branch)}`, { headers: apiHeaders(token), cache: "no-store" }, async (res) => {
+    if (!res.ok) throw Object.assign(new Error(`GitHub API: HTTP ${res.status}`), { status: res.status });
+    const json = await res.json();
+    return { data: JSON.parse(base64ToUtf8(json.content)), sha: json.sha };
   });
 }
 
@@ -356,7 +367,8 @@ async function loadAll() {
   state.error = null;
   render();
   try {
-    const result = state.token ? await fetchFileViaApi(state.token) : await fetchFileLocal();
+    state.dataBranch = state.token ? await resolveDataBranch(state.token) : null;
+    const result = state.token ? await fetchFileViaApi(state.token, state.dataBranch) : await fetchFileLocal();
     state.data = normalize(result.data);
   } catch (e) {
     console.error("load failed", e);
@@ -462,16 +474,24 @@ async function performSave(op, message, token = state.token) {
   if (!token) throw new Error("Нет токена");
   let lastErr = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const fresh = await fetchFileViaApi(token);
+    const branch = await resolveDataBranch(token);
+    state.dataBranch = branch;
+    let fresh;
+    try { fresh = await fetchFileViaApi(token, branch); }
+    catch (error) {
+      if (error.status !== 404) throw error;
+      lastErr = error;
+      continue;
+    }
     fresh.data = normalize(fresh.data);
     op(fresh.data);
     const body = {
       message,
       content: utf8ToBase64(JSON.stringify(fresh.data, null, 2) + "\n"),
       sha: fresh.sha,
-      branch: BRANCH
+      branch
     };
-    const res = await fetchTimed(API_FILE_URL, {
+    const res = await fetchTimed(API_CONTENTS_URL, {
       method: "PUT",
       headers: { ...apiHeaders(token), "Content-Type": "application/json" },
       cache: "no-store",
@@ -479,7 +499,7 @@ async function performSave(op, message, token = state.token) {
     });
     if (res.ok) return normalize(fresh.data);
     lastErr = Object.assign(new Error(`GitHub API: HTTP ${res.status}`), { status: res.status });
-    if (res.status === 409 || res.status === 422) continue;
+    if (res.status === 404 || res.status === 409 || res.status === 422) continue;
     throw lastErr;
   }
   throw lastErr;
@@ -1687,6 +1707,12 @@ function showToast(msg, action) {
 
 function openSettings() {
   const dlg = document.getElementById("settings-dialog");
+  let branchStatus = document.getElementById("data-branch-status");
+  if (!branchStatus) {
+    branchStatus = el("p", { id: "data-branch-status", class: "settings-text", style: "color: var(--muted)" });
+    dlg.querySelector("h2").after(branchStatus);
+  }
+  branchStatus.textContent = `Данные: ${state.dataBranch || "опубликованная версия GitHub Pages"}`;
   document.getElementById("settings-error").textContent = "";
   dlg.showModal();
 }
