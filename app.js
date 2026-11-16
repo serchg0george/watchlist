@@ -18,7 +18,12 @@ const LS_PERSON = "watchlist.person";
 const PEOPLE = ["S", "L"];
 const REACTION_KINDS = [
   { key: "like", emoji: "👍", label: "Нравится" },
+  { key: "fire", emoji: "🔥", label: "Огонь" },
   { key: "heart", emoji: "❤️", label: "Люблю" },
+  { key: "grin", emoji: "😁", label: "Улыбаюсь" },
+  { key: "eyes", emoji: "👀", label: "Интересно" },
+  { key: "laugh", emoji: "🤣", label: "Очень смешно" },
+  { key: "sad", emoji: "😢", label: "Грустно" },
   { key: "dislike", emoji: "👎", label: "Не нравится" }
 ];
 // Exactly two editors: the repo owner is S, the collaborator (any other login with write access) is L.
@@ -810,6 +815,8 @@ function buildCommentEditor(person, text, save, label) {
 
 function buildCommentActions(item, target, author, canEdit, isReply) {
   const actions = el("div", { class: "comment-controls" });
+  const reactions = el("div", { class: "reaction-options", role: "group", "aria-label": "Реакции" });
+  const links = el("div", { class: "comment-links" });
   const mine = canEdit && state.person === author;
   const map = item.reactions[target] || {};
   for (const kind of REACTION_KINDS) {
@@ -818,14 +825,14 @@ function buildCommentActions(item, target, author, canEdit, isReply) {
     const btn = el("button", {
       type: "button",
       class: `reaction-pill${active ? ` person-${state.person.toLowerCase()}` : ""}`,
-      text: `${kind.emoji}${count ? ` ${count}` : ""}`,
       disabled: !canEdit || mine,
       title: mine ? "Нельзя реагировать на свой комментарий" : canEdit ? kind.label : "Войдите, чтобы реагировать",
       "aria-label": `${kind.label}: ${count}`,
       "aria-pressed": String(!!active)
-    });
+    }, el("span", { class: "reaction-emoji", text: kind.emoji, "aria-hidden": "true" }),
+    count ? el("span", { class: "reaction-count", text: count, "aria-hidden": "true" }) : null);
     btn.addEventListener("click", () => reactToComment(item.id, target, kind.key));
-    actions.append(btn);
+    reactions.append(btn);
   }
   if (canEdit) {
     const replyBtn = el("button", { type: "button", class: "comment-action", text: "Ответить" });
@@ -834,15 +841,17 @@ function buildCommentActions(item, target, author, canEdit, isReply) {
       state.replyDraft = { itemId: item.id, to: target };
       render();
     });
-    actions.append(replyBtn);
+    links.append(replyBtn);
   }
   if (isReply && mine) {
     const editBtn = el("button", { type: "button", class: "comment-action", text: "Изменить" });
     editBtn.addEventListener("click", () => { closeEditors(); state.editingReplyId = target; render(); });
     const deleteBtn = el("button", { type: "button", class: "comment-action", text: "Удалить" });
     deleteBtn.addEventListener("click", () => deleteReply(item.id, target));
-    actions.append(editBtn, deleteBtn);
+    links.append(editBtn, deleteBtn);
   }
+  actions.append(reactions);
+  if (links.children.length) actions.append(links);
   return actions;
 }
 
