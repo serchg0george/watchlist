@@ -2,6 +2,8 @@
 
 Трекер фильмов, сериалов и шоу на GitHub Pages: список «посмотреть», отметка просмотренного, оценка 1–5, статистика. Данные — `data/movies.json` в этом репозитории; сайт пишет их через GitHub API токеном пользователя. Редактировать могут только владелец и один коллаборатор (права на запись в репо).
 
+> **Codex:** read `CODEX.md` first; it overrides this file where they differ.
+
 ## 1. Git & GitHub
 
 GitHub user **serchg0george**, repo **serchg0george/watchlist**, branch **master**. GitHub Pages публикует `master` из корня.
