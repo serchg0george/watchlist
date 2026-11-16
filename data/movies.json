@@ -4,7 +4,7 @@
     {
       "key": "movie",
       "label": "Фильм",
-      "color": "#e05638"
+      "color": "#3de173"
     },
     {
       "key": "series",
@@ -24,12 +24,12 @@
   ],
   "items": [
     {
-      "id": "5285791d-4492-442e-81ac-6d07115da69d",
-      "title": "Дюна",
+      "id": "07e791d7-1405-4943-a3dc-716449ae4228",
+      "title": "Дрянь Сезон 2",
       "type": "movie",
-      "status": "watched",
+      "status": "planned",
       "ratings": {
-        "S": 10,
+        "S": null,
         "L": null
       },
       "comments": {
@@ -37,9 +37,45 @@
         "L": ""
       },
       "note": "",
+      "addedAt": "2026-11-16",
+      "watchedAt": null,
+      "updatedBy": "serchg0george"
+    },
+    {
+      "id": "6fd42c57-b829-456d-90a3-ef35af589ce3",
+      "title": "Знакомьтесь, Джо Блэк",
+      "type": "movie",
+      "status": "watched",
+      "ratings": {
+        "S": 10,
+        "L": 8
+      },
+      "comments": {
+        "S": "Топ",
+        "L": "Норм"
+      },
+      "note": "Фильм 10/10, легенда",
+      "addedAt": "2026-11-16",
+      "watchedAt": "2026-11-16",
+      "updatedBy": "panilubov-bit"
+    },
+    {
+      "id": "5285791d-4492-442e-81ac-6d07115da69d",
+      "title": "Дюна",
+      "type": "movie",
+      "status": "watched",
+      "ratings": {
+        "S": 10,
+        "L": 10
+      },
+      "comments": {
+        "S": "А-БА-ЛДЕТЬ БЛЯТЬ",
+        "L": "топовое кино"
+      },
+      "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "chego-hotyat-zhenshchiny",
@@ -61,21 +97,21 @@
     },
     {
       "id": "dryan",
-      "title": "Дрянь",
+      "title": "Дрянь Сезон 1",
       "type": "series",
-      "status": "watching",
+      "status": "watched",
       "ratings": {
-        "S": null,
-        "L": null
+        "S": 8,
+        "L": 8
       },
       "comments": {
-        "S": "",
+        "S": "Кринжа ужасно много, показывает как человек за несколько шагов до того как сойти с ума себя ведёт и как важно не замыкаться в себе в моменты отчаянья. А ещё как важно исповедаться хотя бы самому себе и вслух признать, что всё очень плохо для того, чтобы отсюда начать исправление. А ещё, что не нужно доводить до дна чтобы попросить о помощи",
         "L": ""
       },
       "note": "",
       "addedAt": "2026-11-15",
-      "watchedAt": null,
-      "updatedBy": "serchg0george"
+      "watchedAt": "2026-11-16",
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "tipa-krutye-legavye",
@@ -99,19 +135,19 @@
       "id": "karolina",
       "title": "Коралина в стране кошмаров",
       "type": "movie",
-      "status": "planned",
+      "status": "dropped",
       "ratings": {
-        "S": null,
-        "L": null
+        "S": 7,
+        "L": 3
       },
       "comments": {
-        "S": "",
-        "L": ""
+        "S": "Мультик неплохой, но уже слишком долго разгоняется динамики нет. Хотя пластилиновые фигурки и анимация — топ(мне)",
+        "L": "не зацепило , анимация странная"
       },
       "note": "",
       "addedAt": "2026-11-15",
-      "watchedAt": null,
-      "updatedBy": ""
+      "watchedAt": "2026-11-15",
+      "updatedBy": "serchg0george"
     },
     {
       "id": "horisty",
@@ -354,16 +390,16 @@
       "status": "dropped",
       "ratings": {
         "S": 3,
-        "L": null
+        "L": 10
       },
       "comments": {
         "S": "Рик и Морти на минималках",
-        "L": ""
+        "L": "мне очень понравился"
       },
       "note": "скип",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "vechnost",
@@ -372,16 +408,16 @@
       "status": "watched",
       "ratings": {
         "S": 8,
-        "L": null
+        "L": 9
       },
       "comments": {
         "S": "",
-        "L": ""
+        "L": "Очень романтично и про цену выбора"
       },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "otpusk-na-dvoih",
@@ -390,16 +426,16 @@
       "status": "dropped",
       "ratings": {
         "S": 1,
-        "L": null
+        "L": 3
       },
       "comments": {
         "S": "Невероятно скучно и уныло, не понимаешь зачем смотришь",
-        "L": ""
+        "L": "за актера 3 звезды"
       },
       "note": "скип",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "dusha",
@@ -408,7 +444,7 @@
       "status": "watched",
       "ratings": {
         "S": 7,
-        "L": null
+        "L": 7
       },
       "comments": {
         "S": "",
@@ -417,7 +453,7 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "tayna-koko",
@@ -426,16 +462,16 @@
       "status": "watched",
       "ratings": {
         "S": 10,
-        "L": null
+        "L": 10
       },
       "comments": {
         "S": "",
-        "L": ""
+        "L": "Лучший добрый мультик  про семью"
       },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "50-pervyh-poceluev",
@@ -444,16 +480,16 @@
       "status": "watched",
       "ratings": {
         "S": 10,
-        "L": null
+        "L": 10
       },
       "comments": {
         "S": "",
-        "L": ""
+        "L": "Пересматриваю регулярно , очень романтично"
       },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "den-vyborov",
@@ -462,16 +498,16 @@
       "status": "watched",
       "ratings": {
         "S": 4,
-        "L": null
+        "L": 8
       },
       "comments": {
         "S": "",
-        "L": ""
+        "L": "мне смешно"
       },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "semeyka-addams",
@@ -480,7 +516,7 @@
       "status": "watched",
       "ratings": {
         "S": 7,
-        "L": null
+        "L": 7
       },
       "comments": {
         "S": "",
@@ -489,7 +525,7 @@
       "note": "офлайн",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "mulan",
@@ -498,7 +534,7 @@
       "status": "watched",
       "ratings": {
         "S": 10,
-        "L": null
+        "L": 9
       },
       "comments": {
         "S": "",
@@ -507,7 +543,7 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "terapiya",
@@ -516,16 +552,16 @@
       "status": "dropped",
       "ratings": {
         "S": null,
-        "L": null
+        "L": 6
       },
       "comments": {
         "S": "Очень скучный, посмотрел 3 серии — посмотрел сериал",
-        "L": ""
+        "L": "первый сезон - хороший"
       },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "ty",
@@ -534,16 +570,16 @@
       "status": "watched",
       "ratings": {
         "S": 10,
-        "L": null
+        "L": 10
       },
       "comments": {
         "S": "Отличный, но только первые три сезона",
-        "L": ""
+        "L": "Согласна  про первые 3 сезона"
       },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "sumerki",
@@ -552,16 +588,16 @@
       "status": "watched",
       "ratings": {
         "S": 1,
-        "L": null
+        "L": 8
       },
       "comments": {
         "S": "0/10",
-        "L": ""
+        "L": "ты мой личный сорт героина ... Лев влюбился в овечку"
       },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "dyuna-2",
@@ -570,16 +606,16 @@
       "status": "watched",
       "ratings": {
         "S": 10,
-        "L": null
+        "L": 10
       },
       "comments": {
-        "S": "",
+        "S": "А-БА-ЛДЕТЬ БЛЯТЬ 2",
         "L": ""
       },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "graf-monte-kristo",
@@ -588,16 +624,16 @@
       "status": "watched",
       "ratings": {
         "S": 10,
-        "L": null
+        "L": 7
       },
       "comments": {
         "S": "",
-        "L": ""
+        "L": "ну норм"
       },
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     },
     {
       "id": "karatel",
@@ -606,16 +642,16 @@
       "status": "dropped",
       "ratings": {
         "S": 5,
-        "L": null
+        "L": 6
       },
       "comments": {
         "S": "",
-        "L": ""
+        "L": "все звезды Билли Руссо"
       },
       "note": "брошен",
       "addedAt": "2026-11-15",
       "watchedAt": "2026-11-15",
-      "updatedBy": "serchg0george"
+      "updatedBy": "panilubov-bit"
     }
   ]
 }
