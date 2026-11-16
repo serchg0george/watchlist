@@ -450,7 +450,7 @@
       "id": "luchshee-mesto",
       "title": "Лучшее место",
       "type": "series",
-      "status": "planned",
+      "status": "dropped",
       "ratings": {
         "S": null,
         "L": null
@@ -466,7 +466,7 @@
       "replies": [],
       "reactions": {},
       "genres": [],
-      "droppedAt": null
+      "droppedAt": "2026-11-16"
     },
     {
       "id": "temnaya-materiya",
