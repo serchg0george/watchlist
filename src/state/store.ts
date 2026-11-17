@@ -86,8 +86,8 @@ export const state: AppState = {
   highlightId: null
 };
 
-// Per-card user overrides: expanded comments (XOR with the status default) and clamped overviews.
-export const openComments = new Set<string>();
+// Per-card user choices: comments shown/hidden (overrides the status default) and expanded overviews.
+export const openComments = new Map<string, boolean>();
 export const expandedOverviews = new Set<string>();
 
 export function readLocal(key: string): unknown {

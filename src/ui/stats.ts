@@ -203,8 +203,7 @@ function statsItemButton(item: Item): HTMLElement {
     state.search = "";
     byId<HTMLInputElement>("search").value = "";
     state.highlightId = item.id;
-    // Make the card's comments expanded: flip the status default via openComments (XOR).
-    if (item.status === "watched" || item.status === "dropped") openComments.delete(item.id); else openComments.add(item.id);
+    openComments.set(item.id, true);
     render();
     const row = document.querySelector<HTMLElement>(`.item-row[data-id="${CSS.escape(item.id)}"]`);
     if (row) { row.setAttribute("tabindex", "-1"); row.focus({ preventScroll: true }); row.scrollIntoView({ behavior: "smooth", block: "center" }); }

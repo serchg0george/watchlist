@@ -79,14 +79,14 @@ export function buildItemRow(item: Item): HTMLElement {
     body.append(ratings);
   }
 
-  // Comments are expanded by default for finished items; openComments flips that per card.
+  // Comments are expanded by default for finished items unless the user chose otherwise.
   const commentCount = PEOPLE.filter((p) => item.comments[p]).length + item.replies.length;
   const activeEditing = state.commentingId === item.id || state.replyDraft?.itemId === item.id || item.replies.some((r) => r.id === state.editingReplyId);
-  const commentsExpanded = (isFinished !== openComments.has(item.id)) || activeEditing;
-  if (commentCount > 0 || canEdit) {
+  const commentsExpanded = (openComments.get(item.id) ?? isFinished) || activeEditing;
+  if (!activeEditing && (commentCount > 0 || canEdit)) {
     const toggleText = commentsExpanded ? "Скрыть комментарии" : commentCount === 0 ? "💬 Комментировать" : `💬 Комментарии (${commentCount})`;
     const commentsToggle = el("button", { type: "button", class: "link-btn comments-toggle", "aria-expanded": String(commentsExpanded), text: toggleText });
-    commentsToggle.addEventListener("click", () => { if (openComments.has(item.id)) openComments.delete(item.id); else openComments.add(item.id); render(); });
+    commentsToggle.addEventListener("click", () => { openComments.set(item.id, !commentsExpanded); render(); });
     body.append(commentsToggle);
   }
   if (commentsExpanded) {
