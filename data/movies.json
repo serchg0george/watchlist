@@ -799,7 +799,7 @@
       "type": "series",
       "status": "dropped",
       "ratings": {
-        "S": null,
+        "S": 5,
         "L": 6
       },
       "comments": {
@@ -809,7 +809,7 @@
       "note": "",
       "addedAt": "2026-11-15",
       "watchedAt": null,
-      "updatedBy": "panilubov-bit",
+      "updatedBy": "serchg0george",
       "replies": [],
       "reactions": {},
       "genres": [
