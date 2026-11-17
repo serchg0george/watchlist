@@ -565,31 +565,6 @@
       "droppedAt": null
     },
     {
-      "id": "hod-korolevy",
-      "title": "Ход королевы",
-      "type": "series",
-      "status": "planned",
-      "ratings": {
-        "S": null,
-        "L": null
-      },
-      "comments": {
-        "S": "",
-        "L": ""
-      },
-      "note": "про шахматы",
-      "addedAt": "2026-11-15",
-      "watchedAt": null,
-      "updatedBy": "",
-      "replies": [],
-      "reactions": {},
-      "genres": [
-        "драма",
-        "спорт"
-      ],
-      "droppedAt": null
-    },
-    {
       "id": "hrustalnyy",
       "title": "Хрустальный",
       "type": "movie",
