@@ -14,11 +14,16 @@ import { newId } from "./util/id.js";
 
 let lastPickId: string | null = null;
 
-export let highlightTimer: ReturnType<typeof setTimeout> | undefined;
+// The highlight is dropped without a re-render, so nothing in progress gets rebuilt.
+let highlightTimer: ReturnType<typeof setTimeout> | undefined;
 
-// main.ts writes through this setter, since import bindings are read-only.
-export function setHighlightTimer(timer: ReturnType<typeof setTimeout> | undefined): void {
-  highlightTimer = timer;
+export function highlightItem(id: string): void {
+  state.highlightId = id;
+  clearTimeout(highlightTimer);
+  highlightTimer = setTimeout(() => {
+    state.highlightId = null;
+    document.querySelectorAll(".item-row.highlight").forEach((r) => r.classList.remove("highlight"));
+  }, 3000);
 }
 
 // ===== Actions (each builds a serializable Op and hands it to applyAndSave) =====
@@ -248,15 +253,9 @@ export function pickRandom(): void {
   state.statusFilter = "all";
   state.search = "";
   byId<HTMLInputElement>("search").value = "";
-  state.highlightId = pick.id;
+  highlightItem(pick.id);
   render();
   showToast(`🎲 ${pick.title}`);
   const row = document.querySelector(`.item-row[data-id="${CSS.escape(pick.id)}"]`);
   if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
-  // Drop the highlight without a re-render, so nothing in progress gets rebuilt.
-  clearTimeout(highlightTimer);
-  highlightTimer = setTimeout(() => {
-    state.highlightId = null;
-    document.querySelectorAll(".item-row.highlight").forEach((r) => r.classList.remove("highlight"));
-  }, 3000);
 }

@@ -1,4 +1,4 @@
-import { closeEditors, highlightTimer, setHighlightTimer } from "../actions.js";
+import { closeEditors, highlightItem } from "../actions.js";
 import { PEOPLE } from "../config.js";
 import { MONTH_FULL, computeStats } from "../domain/stats.js";
 import type { Stats } from "../domain/stats.js";
@@ -202,16 +202,11 @@ function statsItemButton(item: Item): HTMLElement {
     state.typeFilter = "all";
     state.search = "";
     byId<HTMLInputElement>("search").value = "";
-    state.highlightId = item.id;
+    highlightItem(item.id);
     openComments.set(item.id, true);
     render();
     const row = document.querySelector<HTMLElement>(`.item-row[data-id="${CSS.escape(item.id)}"]`);
     if (row) { row.setAttribute("tabindex", "-1"); row.focus({ preventScroll: true }); row.scrollIntoView({ behavior: "smooth", block: "center" }); }
-    clearTimeout(highlightTimer);
-    setHighlightTimer(setTimeout(() => {
-      state.highlightId = null;
-      document.querySelectorAll(".item-row.highlight").forEach((node) => node.classList.remove("highlight"));
-    }, 3000));
   });
   return button;
 }

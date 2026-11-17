@@ -44,7 +44,8 @@ function updateChips(base: Item[]): void {
     chip.classList.toggle("active", state.statusFilter === key);
   });
   document.querySelectorAll<HTMLElement>(".tab-btn .count").forEach((span) => {
-    span.textContent = String(counts[span.parentElement?.dataset.tab ?? ""]);
+    const key = span.parentElement?.dataset.tab ?? "";
+    if (key in counts) span.textContent = String(counts[key]);
   });
 }
 

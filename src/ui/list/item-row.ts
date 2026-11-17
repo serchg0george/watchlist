@@ -39,14 +39,13 @@ export function buildItemRow(item: Item): HTMLElement {
       info.append(image);
     }
     const overviewText = meta.overview || "Описание пока отсутствует.";
-    const isClamped = overviewText.length > 220;
     const isExpanded = expandedOverviews.has(item.id);
-    const descriptionChildren: HTMLElement[] = [el("p", { class: `catalog-overview${isClamped ? " clamp" : ""}${isClamped && isExpanded ? " expanded" : ""}`, text: overviewText })];
-    if (isClamped) {
-      const toggle = el("button", { type: "button", class: "link-btn overview-toggle", text: isExpanded ? "Свернуть" : "Ещё" });
-      toggle.addEventListener("click", () => { if (expandedOverviews.has(item.id)) expandedOverviews.delete(item.id); else expandedOverviews.add(item.id); render(); });
-      descriptionChildren.push(toggle);
-    }
+    // The clamp class is always on; the toggle appears only when the text is actually cut off.
+    const overview = el("p", { class: `catalog-overview clamp${isExpanded ? " expanded" : ""}`, text: overviewText });
+    const toggle = el("button", { type: "button", class: "link-btn overview-toggle", hidden: !isExpanded, text: isExpanded ? "Свернуть" : "Ещё" });
+    toggle.addEventListener("click", () => { if (expandedOverviews.has(item.id)) expandedOverviews.delete(item.id); else expandedOverviews.add(item.id); render(); });
+    if (!isExpanded) requestAnimationFrame(() => { if (overview.isConnected && overview.scrollHeight > overview.clientHeight + 1) toggle.hidden = false; });
+    const descriptionChildren: HTMLElement[] = [overview, toggle];
     info.append(el("div", { class: "catalog-description" }, ...descriptionChildren,
       el("a", { class: "catalog-source", href: `https://www.themoviedb.org/${meta.mediaType}/${meta.id}`, target: "_blank", rel: "noopener noreferrer", text: "Открыть в TMDB" })));
     body.append(info);

@@ -1150,8 +1150,8 @@ dialog h2 { margin: 0 0 10px; font-size: 20px; }
 .item-body > .item-note + .item-genres { margin-top: 4px; }
 .item-body .item-genres { padding-left: 0; }
 .item-body > .ratings, .item-body > .comments { padding-left: 0; margin-top: 10px; }
-.catalog-overview.clamp { margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
-.catalog-overview.clamp.expanded { display: block; -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
+.catalog-overview { margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
+.catalog-overview.expanded { display: block; -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
 .link-btn { background: none; border: 0; padding: 4px 0; color: var(--accent); font: inherit; font-size: 13px; cursor: pointer; }
 .link-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .comments-toggle { display: block; margin-top: 10px; color: var(--muted); }
