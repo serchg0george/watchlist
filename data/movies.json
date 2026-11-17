@@ -181,31 +181,6 @@
       "droppedAt": null
     },
     {
-      "id": "chego-hotyat-zhenshchiny",
-      "title": "Чего хотят женщины",
-      "type": "movie",
-      "status": "planned",
-      "ratings": {
-        "S": null,
-        "L": null
-      },
-      "comments": {
-        "S": "",
-        "L": ""
-      },
-      "note": "",
-      "addedAt": "2026-11-15",
-      "watchedAt": null,
-      "updatedBy": "",
-      "replies": [],
-      "reactions": {},
-      "genres": [
-        "комедия",
-        "мелодрама"
-      ],
-      "droppedAt": null
-    },
-    {
       "id": "tipa-krutye-legavye",
       "title": "Типа крутые легавые",
       "type": "movie",
