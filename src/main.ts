@@ -6,10 +6,13 @@
 import { DEFAULT_TYPES, LS_LOGIN, LS_PERSON, LS_TOKEN, PALETTE_PRESETS, PEOPLE, REACTION_KINDS, STATUS_LABELS, UNDO_MS, personFor } from "./config.js";
 import { GitHubRepository, apiHeaders, friendlyError, httpError } from "./data/github.js";
 import { SaveQueue } from "./data/save-queue.js";
+import type { SaveEntry } from "./data/save-queue.js";
 import { todayStr } from "./domain/dates.js";
 import { asRecord, isPerson, isReactionKind, isStatus } from "./domain/guards.js";
-import { avgRating } from "./domain/items.js";
+import { avgRating, commentAuthor } from "./domain/items.js";
 import { normalizeGenres } from "./domain/normalize.js";
+import { applyOp, describeOp, isOp } from "./domain/ops.js";
+import type { Op } from "./domain/ops.js";
 import { MONTH_FULL, computeStats } from "./domain/stats.js";
 import type { Stats } from "./domain/stats.js";
 import { transliterate } from "./domain/text.js";
@@ -84,8 +87,6 @@ interface AppState {
   highlightId: string | null;
 }
 
-type DataOp = (data: WatchlistData) => void;
-
 const state: AppState = {
   token: localStorage.getItem(LS_TOKEN) || "",
   login: localStorage.getItem(LS_LOGIN) || "",
@@ -111,6 +112,8 @@ const openItems = new Set<string>();
 const draftMemory = new Map<string, unknown>();
 const draftCleanups = new Map<string, unknown>();
 let catalogSavePending = false;
+// Per login, so a queue left by one account is never overwritten by another.
+const pendingKey = (login: string): string => `watchlist.pendingSaves.${login}`;
 
 function readLocal(key: string): unknown {
   try { return JSON.parse(localStorage.getItem(key) ?? "null") ?? null; } catch { return null; }
@@ -162,13 +165,16 @@ async function loadAll(): Promise<void> {
 
 // ===== Saving: retained optimistic queue with conflict retry =====
 
-const saves = new SaveQueue<DataOp>({
+const saves = new SaveQueue<Op>({
   async save(entry) {
-    const saved = await repo.save(entry.token, entry.op, entry.message);
+    const saved = await repo.save(entry.token, (data) => applyOp(data, entry.op, entry.login), entry.message);
     state.dataBranch = saved.branch;
     return saved.data;
   },
-  apply: (data, op) => op(data),
+  apply: (data, entry) => applyOp(data, entry.op, entry.login),
+  // Tokens are never stored: after a reload the entries get the current token back.
+  // The queue only flushes under its own login, so state.login owns every entry.
+  persist: (entries) => writeLocal(pendingKey(state.login), entries.length ? entries.map(({ op, message, login }) => ({ op, message, login })) : null),
   currentLogin: () => state.login,
   onSaved(data) {
     state.data = data;
@@ -190,7 +196,7 @@ const saves = new SaveQueue<DataOp>({
   }
 });
 
-function applyAndSave(op: DataOp, message: string): boolean {
+function applyAndSave(op: Op): boolean {
   if (!state.token || !state.data) {
     showToast("Войдите через ⚙, чтобы редактировать список");
     return false;
@@ -199,10 +205,27 @@ function applyAndSave(op: DataOp, message: string): boolean {
     showToast("Сначала сохраните изменения предыдущего пользователя");
     return false;
   }
-  op(state.data);
+  const message = describeOp(op, state.data);
+  applyOp(state.data, op, state.login);
   render();
   saves.enqueue({ op, message, token: state.token, login: state.login });
   return true;
+}
+
+// Edits that were queued but not committed when the page closed are replayed after the first load.
+function restorePendingSaves(): void {
+  const stored = readLocal(pendingKey(state.login));
+  if (!Array.isArray(stored) || !state.data) return;
+  const entries: SaveEntry<Op>[] = [];
+  for (const raw of stored) {
+    const rec = asRecord(raw);
+    if (!rec || !isOp(rec.op) || typeof rec.message !== "string" || rec.login !== state.login) continue;
+    entries.push({ op: rec.op, message: rec.message, token: state.token, login: state.login });
+  }
+  if (!state.token || !entries.length) return;
+  for (const entry of entries) applyOp(state.data, entry.op, entry.login);
+  render();
+  saves.restore(entries);
 }
 
 
@@ -235,7 +258,7 @@ function updateSaveIndicator(): void {
   }
 }
 
-// ===== Operations (each is an absolute mutation applied to a data object) =====
+// ===== Actions (each builds a serializable Op and hands it to applyAndSave) =====
 
 function addItem(title: string, type: string, metadata: TmdbItemMetadata = {}): boolean {
   const item: Item = {
@@ -255,11 +278,7 @@ function addItem(title: string, type: string, metadata: TmdbItemMetadata = {}): 
     updatedBy: state.login
   };
   if (metadata.tmdb) item.tmdb = { ...metadata.tmdb };
-  const op: DataOp = (data) => {
-    if (data.items.some((entry) => entry.id === item.id || (item.tmdb && entry.tmdb?.id === item.tmdb.id && entry.tmdb?.mediaType === item.tmdb.mediaType))) return;
-    data.items.unshift(JSON.parse(JSON.stringify(item)));
-  };
-  return applyAndSave(op, `Add "${title}"`);
+  return applyAndSave({ kind: "addItem", item });
 }
 
 // Undo restores the item exactly as it was before the change (re-inserting it if it was deleted).
@@ -274,13 +293,7 @@ function offerUndo(msg: string, snap: ItemSnapshot): void {
 }
 
 function restoreItem(snap: ItemSnapshot): void {
-  const op: DataOp = (data) => {
-    const restored = JSON.parse(JSON.stringify(snap.item)) as Item; // fresh copy: op runs on local and server data
-    const i = data.items.findIndex((x) => x.id === restored.id);
-    if (i >= 0) data.items[i] = restored;
-    else data.items.splice(Math.min(Math.max(snap.index, 0), data.items.length), 0, restored);
-  };
-  applyAndSave(op, `Undo change of "${snap.item.title}"`);
+  applyAndSave({ kind: "restoreItem", item: snap.item, index: snap.index });
 }
 
 function findItem(id: string): Item | undefined {
@@ -292,16 +305,8 @@ function toggleWatched(id: string): void {
   if (!item) return;
   const snap = snapshotOf(item);
   const toWatched = !(item.status === "watched" || item.status === "dropped");
-  const date = todayStr(), login = state.login;
-  const op: DataOp = (data) => {
-    const it = data.items.find((i) => i.id === id);
-    if (!it) return;
-    if (toWatched) { it.status = "watched"; it.watchedAt = date; }
-    else { it.status = "planned"; it.watchedAt = null; it.droppedAt = null; }
-    it.updatedBy = login;
-  };
-  const message = toWatched ? `Mark "${item.title}" watched` : `Edit "${item.title}"`;
-  if (applyAndSave(op, message)) {
+  const op: Op = toWatched ? { kind: "markWatched", itemId: id, date: todayStr() } : { kind: "unmarkWatched", itemId: id };
+  if (applyAndSave(op)) {
     offerUndo(toWatched ? `«${item.title}» — просмотрено` : `«${item.title}» снова в списке`, snap);
   }
 }
@@ -311,16 +316,7 @@ function rateItem(id: string, person: Person, star: number): void {
   if (!item) return;
   // Clicking the current rating again clears it.
   const newRating = item.ratings[person] === star ? null : star;
-  const op: DataOp = (data) => {
-    const it = data.items.find((i) => i.id === id);
-    if (!it) return;
-    it.ratings[person] = newRating;
-    it.updatedBy = state.login;
-  };
-  const message = newRating == null
-    ? `Clear ${person} rating of "${item.title}"`
-    : `Rate "${item.title}" ${person} ${newRating}/10`;
-  applyAndSave(op, message);
+  applyAndSave({ kind: "rate", itemId: id, person, rating: newRating });
 }
 
 function setComment(id: string, person: Person, text: string): void {
@@ -328,16 +324,7 @@ function setComment(id: string, person: Person, text: string): void {
   if (!item) return;
   closeEditors();
   if ((item.comments[person] || "") === text) { render(); return; }
-  const login = state.login;
-  const op: DataOp = (data) => {
-    const it = data.items.find((i) => i.id === id);
-    if (!it) return;
-    it.comments[person] = text;
-    if (!text) delete it.reactions[person];
-    it.updatedBy = login;
-  };
-  const message = text ? `Comment "${item.title}" as ${person}` : `Clear ${person} comment of "${item.title}"`;
-  applyAndSave(op, message);
+  applyAndSave({ kind: "setComment", itemId: id, person, text });
 }
 
 function closeEditors(): void {
@@ -345,11 +332,6 @@ function closeEditors(): void {
   state.commentingId = null;
   state.replyDraft = null;
   state.editingReplyId = null;
-}
-
-function commentAuthor(item: Item, target: string): Person | null {
-  if (isPerson(target)) return item.comments[target] ? target : null;
-  return item.replies.find((r) => r.id === target)?.by || null;
 }
 
 function addReply(id: string, to: string, text: string): void {
@@ -360,15 +342,7 @@ function addReply(id: string, to: string, text: string): void {
   const trimmed = text.trim();
   if (!trimmed || !commentAuthor(item, to)) { render(); return; }
   const reply: Reply = { id: newId(), to, by, text: trimmed, at: new Date().toISOString() };
-  const login = state.login;
-  const op: DataOp = (data) => {
-    const it = data.items.find((i) => i.id === id);
-    if (!it || !commentAuthor(it, to) || it.replies.some((r) => r.id === reply.id)) return;
-    it.replies.push({ ...reply });
-    it.updatedBy = login;
-  };
-  const target = isPerson(to) ? `${to} comment` : "reply";
-  applyAndSave(op, `Reply to ${target} on "${item.title}" as ${by}`);
+  applyAndSave({ kind: "addReply", itemId: id, reply });
 }
 
 function editReply(id: string, replyId: string, text: string): void {
@@ -380,16 +354,7 @@ function editReply(id: string, replyId: string, text: string): void {
   const trimmed = text.trim();
   if (!trimmed || trimmed === reply.text) { render(); return; }
   const editedAt = new Date().toISOString();
-  const login = state.login;
-  const op: DataOp = (data) => {
-    const it = data.items.find((i) => i.id === id);
-    const r = it?.replies.find((r) => r.id === replyId);
-    if (!it || !r || r.by !== by) return;
-    r.text = trimmed;
-    r.editedAt = editedAt;
-    it.updatedBy = login;
-  };
-  applyAndSave(op, `Edit reply on "${item?.title}"`);
+  applyAndSave({ kind: "editReply", itemId: id, replyId, by, text: trimmed, editedAt });
 }
 
 function deleteReply(id: string, replyId: string): void {
@@ -398,19 +363,7 @@ function deleteReply(id: string, replyId: string): void {
   const reply = item?.replies.find((r) => r.id === replyId);
   if (!state.token || !reply || reply.by !== by || !confirm("Удалить ответ?")) return;
   closeEditors();
-  const login = state.login;
-  const op: DataOp = (data) => {
-    const it = data.items.find((i) => i.id === id);
-    const r = it?.replies.find((r) => r.id === replyId);
-    if (!it || !r || r.by !== by) return;
-    for (const child of it.replies) {
-      if (child.to === replyId) child.to = r.to;
-    }
-    it.replies = it.replies.filter((r) => r.id !== replyId);
-    delete it.reactions[replyId];
-    it.updatedBy = login;
-  };
-  applyAndSave(op, `Delete reply on "${item?.title}"`);
+  applyAndSave({ kind: "deleteReply", itemId: id, replyId, by });
 }
 
 function reactToComment(id: string, target: string, kind: ReactionKind): void {
@@ -420,28 +373,7 @@ function reactToComment(id: string, target: string, kind: ReactionKind): void {
   const author = commentAuthor(item, target);
   if (!author || author === by) return;
   const adding = !item.reactions[target]?.[by]?.includes(kind);
-  const login = state.login;
-  const op: DataOp = (data) => {
-    const it = data.items.find((i) => i.id === id);
-    if (!it) return;
-    const currentAuthor = commentAuthor(it, target);
-    if (!currentAuthor || currentAuthor === by) return;
-    const map = { ...it.reactions[target] };
-    const given = new Set<ReactionKind>(map[by]);
-    if (adding) given.add(kind);
-    else given.delete(kind);
-    const kinds = REACTION_KINDS.map((r) => r.key).filter((k) => given.has(k));
-    if (kinds.length) map[by] = kinds;
-    else delete map[by];
-    if (Object.keys(map).length) it.reactions = { ...it.reactions, [target]: map };
-    else delete it.reactions[target];
-    it.updatedBy = login;
-  };
-  const label = isPerson(target) ? `${target} comment` : "reply";
-  const message = adding
-    ? `Add ${kind} reaction to ${label} on "${item.title}" as ${by}`
-    : `Remove ${kind} reaction from ${label} on "${item.title}" as ${by}`;
-  applyAndSave(op, message);
+  applyAndSave({ kind: "react", itemId: id, target, by, reaction: kind, add: adding });
 }
 
 interface EditFields {
@@ -460,21 +392,14 @@ function commitEdit(id: string, fields: EditFields): void {
   const dateKey = fields.status === "watched" ? "watchedAt" : fields.status === "dropped" ? "droppedAt" : null;
   const transitioned = fields.status !== item.status;
   const date = fields.finishedAt || todayStr();
-  const login = state.login;
   state.editingId = null; // close the editor on save
-  const op: DataOp = (data) => {
-    const it = data.items.find((i) => i.id === id);
-    if (!it) return;
-    it.title = fields.title;
-    it.type = fields.type;
-    it.status = fields.status;
-    it.note = fields.note;
-    it.genres = normalizeGenres(fields.genres);
-    // Capture the intended date once, including across conflict retries.
-    if (dateKey && (transitioned || fields.dateEdited)) it[dateKey] = date;
-    it.updatedBy = login;
-  };
-  applyAndSave(op, `Edit "${fields.title}"`);
+  // The date is decided once here, so conflict retries and replays reuse the same value.
+  applyAndSave({
+    kind: "editItem",
+    itemId: id,
+    fields: { title: fields.title, type: fields.type, status: fields.status, note: fields.note, genres: fields.genres },
+    date: dateKey && (transitioned || fields.dateEdited) ? { field: dateKey, value: date } : null
+  });
 }
 
 function deleteItem(id: string): void {
@@ -482,8 +407,7 @@ function deleteItem(id: string): void {
   if (!item) return;
   state.editingId = null;
   const snap = snapshotOf(item);
-  const op: DataOp = (data) => { data.items = data.items.filter((i) => i.id !== id); };
-  if (applyAndSave(op, `Delete "${item.title}"`)) offerUndo(`«${item.title}» удалено`, snap);
+  if (applyAndSave({ kind: "deleteItem", itemId: id })) offerUndo(`«${item.title}» удалено`, snap);
 }
 
 function addCategory(label: string, color: string | null): void {
@@ -502,11 +426,7 @@ function addCategory(label: string, color: string | null): void {
   const chosenColor = color && /^#[0-9a-fA-F]{3,8}$/.test(color.trim())
     ? color.trim()
     : PALETTE_PRESETS[types.length % PALETTE_PRESETS.length] ?? "#5b6b53";
-  const op: DataOp = (data) => {
-    if (!Array.isArray(data.types)) data.types = DEFAULT_TYPES.map((t) => ({ ...t }));
-    data.types.push({ key, label: trimmed, color: chosenColor });
-  };
-  if (applyAndSave(op, `Add category "${trimmed}"`)) {
+  if (applyAndSave({ kind: "addCategory", category: { key, label: trimmed, color: chosenColor } })) {
     showToast(`Категория «${trimmed}» добавлена`);
     renderCategoriesDialog();
   }
@@ -517,12 +437,7 @@ function updateCategoryColor(key: string, newColor: string): void {
   if (!/^#[0-9a-fA-F]{3,8}$/.test(trimmed)) return;
   const current = getTypes().find((t) => t.key === key);
   if (!current || current.color === trimmed) return;
-  const op: DataOp = (data) => {
-    if (!Array.isArray(data.types)) data.types = DEFAULT_TYPES.map((t) => ({ ...t }));
-    const t = data.types.find((item) => item.key === key);
-    if (t) t.color = trimmed;
-  };
-  if (applyAndSave(op, `Change color for category "${current.label}"`)) {
+  if (applyAndSave({ kind: "setCategoryColor", key, color: trimmed })) {
     renderCategoriesDialog();
   }
 }
@@ -536,12 +451,7 @@ function updateCategory(key: string, newLabel: string): void {
   }
   const current = getTypes().find((t) => t.key === key);
   if (!current || current.label === trimmed) return;
-  const op: DataOp = (data) => {
-    if (!Array.isArray(data.types)) data.types = DEFAULT_TYPES.map((t) => ({ ...t }));
-    const t = data.types.find((item) => item.key === key);
-    if (t) t.label = trimmed;
-  };
-  if (applyAndSave(op, `Rename category to "${trimmed}"`)) {
+  if (applyAndSave({ kind: "renameCategory", key, label: trimmed })) {
     showToast(`Категория переименована в «${trimmed}»`);
     renderCategoriesDialog();
   }
@@ -561,11 +471,7 @@ function deleteCategory(key: string): void {
     : `Удалить категорию «${target.label}»?`;
   if (!confirm(confirmMsg)) return;
 
-  const op: DataOp = (data) => {
-    if (!Array.isArray(data.types)) data.types = DEFAULT_TYPES.map((t) => ({ ...t }));
-    data.types = data.types.filter((item) => item.key !== key);
-  };
-  if (applyAndSave(op, `Delete category "${target.label}"`)) {
+  if (applyAndSave({ kind: "deleteCategory", key })) {
     showToast(`Категория «${target.label}» удалена`);
     renderCategoriesDialog();
   }
@@ -1688,6 +1594,7 @@ function init(): void {
 
   render();
   void loadAll().then(() => {
+    restorePendingSaves();
     initCatalog();
     const y = savedScroll.y;
     if (savedScroll.tab === state.tab && typeof y === "number" && Number.isFinite(y)) window.scrollTo(0, y);

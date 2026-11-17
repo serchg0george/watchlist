@@ -7,8 +7,10 @@ export interface SaveEntry<T> { op: T; message: string; token: string; login: st
 export interface SaveQueueDeps<T> {
   /** Persist one entry, return the saved normalized data. */
   save(entry: SaveEntry<T>): Promise<WatchlistData>;
-  /** Replay a pending op on fresh data. */
-  apply(data: WatchlistData, op: T): void;
+  /** Replay a pending entry on fresh data (with the entry's own login). */
+  apply(data: WatchlistData, entry: SaveEntry<T>): void;
+  /** Queue contents changed (enqueue, restore, entry saved): store them for reload recovery. */
+  persist(entries: readonly SaveEntry<T>[]): void;
   currentLogin(): string;
   /** After each saved entry: data with the remaining pending ops re-applied. */
   onSaved(data: WatchlistData): void;
@@ -42,6 +44,16 @@ export class SaveQueue<T> {
 
   enqueue(entry: SaveEntry<T>): void {
     this.queue.push(entry);
+    this.deps.persist(this.queue);
+    this.deps.onChange();
+    void this.flush();
+  }
+
+  /** Appends entries recovered from storage (already persisted) and starts flushing. */
+  restore(entries: SaveEntry<T>[]): void {
+    if (!entries.length) return;
+    this.queue.push(...entries);
+    this.deps.persist(this.queue);
     this.deps.onChange();
     void this.flush();
   }
@@ -82,8 +94,9 @@ export class SaveQueue<T> {
         if (this.deps.currentLogin() !== entry.login) throw new Error("Войдите под автором несохранённых изменений");
         const saved = await this.deps.save(entry);
         this.queue.shift();
+        this.deps.persist(this.queue);
         // Keep subsequent optimistic edits visible while each operation is committed.
-        for (const pending of this.queue) this.deps.apply(saved, pending.op);
+        for (const pending of this.queue) this.deps.apply(saved, pending);
         this.deps.onSaved(saved);
         this.deps.onChange();
       }
