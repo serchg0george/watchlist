@@ -30,6 +30,7 @@ const SHELL = [
   "js/state/store.js",
   "js/tmdb.js",
   "js/ui/dom.js",
+  "js/ui/stats.js",
   "js/ui/toast.js",
   "js/util/id.js",
   "manifest.json",
