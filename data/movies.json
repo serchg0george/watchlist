@@ -34,6 +34,42 @@
   ],
   "items": [
     {
+      "id": "06c659f3-5284-4c65-b394-5281b54e35e3",
+      "title": "Когда Гарри встретил Салли",
+      "type": "movie",
+      "status": "planned",
+      "ratings": {
+        "S": null,
+        "L": null
+      },
+      "comments": {
+        "S": "",
+        "L": ""
+      },
+      "replies": [],
+      "reactions": {},
+      "genres": [
+        "комедия",
+        "мелодрама",
+        "драма"
+      ],
+      "note": "",
+      "addedAt": "2026-11-18",
+      "watchedAt": null,
+      "droppedAt": null,
+      "updatedBy": "serchg0george",
+      "tmdb": {
+        "id": 639,
+        "mediaType": "movie",
+        "originalTitle": "When Harry Met Sally...",
+        "year": 1989,
+        "overview": "Может ли секс разрушить идеальную дружбу между мужчиной и женщиной? Именно этот вопрос случайные попутчики Гарри и Салли обсуждают по дороге из Чикаго в Нью-Йорк. Спустя одиннадцать лет они никак не приблизятся к ответу на него.",
+        "posterPath": "/d85fjfxxNYlbN8iZm3RUWfunK7X.jpg",
+        "runtime": 95,
+        "imdbId": "tt0098635"
+      }
+    },
+    {
       "id": "e3cc8909-d4da-4f6c-a797-291338dedc2b",
       "title": "Патэма наоборот",
       "type": "movie",
