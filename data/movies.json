@@ -25,6 +25,11 @@
       "key": "multfilm",
       "label": "Мультфильм",
       "color": "#46ddda"
+    },
+    {
+      "key": "youtube",
+      "label": "YouTube",
+      "color": "#e11d48"
     }
   ],
   "items": [
