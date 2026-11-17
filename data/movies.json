@@ -216,31 +216,6 @@
       "droppedAt": null
     },
     {
-      "id": "tipa-krutye-legavye",
-      "title": "Типа крутые легавые",
-      "type": "movie",
-      "status": "planned",
-      "ratings": {
-        "S": null,
-        "L": null
-      },
-      "comments": {
-        "S": "",
-        "L": ""
-      },
-      "note": "",
-      "addedAt": "2026-11-15",
-      "watchedAt": null,
-      "updatedBy": "",
-      "replies": [],
-      "reactions": {},
-      "genres": [
-        "комедия",
-        "криминал"
-      ],
-      "droppedAt": null
-    },
-    {
       "id": "karolina",
       "title": "Коралина в стране кошмаров",
       "type": "movie",
