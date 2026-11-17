@@ -1,9 +1,10 @@
 /* Watchlist: personal film/series tracker.
- * TypeScript compiled to a classic script, no modules, no libraries.
+ * Strict TypeScript compiled by tsc to native ES modules, no libraries.
  * Data lives in data/movies.json; edits are committed to the repo
  * through the GitHub Contents API with a user-provided fine-grained token. */
 
-"use strict";
+import type { CategoryType, Comments, Item, Person, Ratings, ReactionKind, ReactionKindInfo, Reactions, Reply, Status, TmdbItemMetadata, WatchlistData } from "./domain/types.js";
+import { WatchlistTMDB } from "./tmdb.js";
 
 // ===== Constants =====
 
@@ -480,7 +481,7 @@ function settleSaveWaiters(error?: unknown): void {
     draftCleanups.clear();
     if (catalogSavePending) {
       catalogSavePending = false;
-      window.WatchlistTMDB?.acknowledgeSave();
+      WatchlistTMDB.acknowledgeSave();
     }
   }
   const waiters = saveWaiters.splice(0);
@@ -929,17 +930,6 @@ function deleteCategory(key: string): void {
     showToast(`Категория «${target.label}» удалена`);
     renderCategoriesDialog();
   }
-}
-
-// Duplicate check: case-, "ё"- and punctuation-insensitive title match.
-function titleKey(s: string): string {
-  return s.toLowerCase().replace(/ё/g, "е").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-}
-
-function findDuplicate(title: string): Item | null {
-  if (!state.data) return null;
-  const key = titleKey(title);
-  return state.data.items.find((it) => titleKey(it.title) === key) || null;
 }
 
 // Random pick from "planned", respecting the type filter; avoids repeating the previous pick.

@@ -1,11 +1,12 @@
 /* Service worker: makes the site installable and usable offline.
  * Network-first for same-origin GET requests, so updates show up immediately;
- * the cached copy is used only when the network fails. GitHub API calls are not touched. */
+ * the cached copy is used only when the network fails. Only the entry module is precached;
+ * imported modules are cached on their first successful fetch. GitHub API calls are not touched. */
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
-const CACHE = "watchlist-v11";
-const SHELL = ["./", "index.html", "style.css", "tmdb.js", "app.js", "manifest.json", "data/movies.json", "icons/icon-192.png", "icons/tmdb.svg"];
+const CACHE = "watchlist-v12";
+const SHELL = ["./", "index.html", "style.css", "js/main.js", "manifest.json", "data/movies.json", "icons/icon-192.png", "icons/tmdb.svg"];
 
 sw.addEventListener("install", (e: ExtendableEvent) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => sw.skipWaiting()));

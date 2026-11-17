@@ -3,7 +3,10 @@
     "target": "ES2022",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "rootDir": "src",
-    "outDir": ".",
+    "outDir": "js",
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "verbatimModuleSyntax": true,
     "strict": true,
     "noImplicitAny": true,
     "noUnusedLocals": true,
@@ -13,9 +16,6 @@
     "noEmitOnError": true,
     "skipLibCheck": true
   },
-  "files": [
-    "src/types.d.ts",
-    "src/tmdb.ts",
-    "src/app.ts"
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/sw.ts"]
 }
