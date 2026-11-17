@@ -14,7 +14,7 @@
 
 ## Данные
 
-Список лежит в `data/movies.json`, сайт записывает его через GitHub API токеном пользователя. Каждый элемент содержит `title`, `type`, `status` (`planned`, `watching`, `watched`, `dropped`), `ratings` `{S, L}`, `comments`, `replies`, `reactions`, необязательные метаданные `tmdb` и даты `addedAt`, `watchedAt`, `droppedAt`.
+Список лежит в `data/movies.json`, сайт записывает его через GitHub API токеном пользователя. Каждый элемент содержит `title`, `type`, `status` (`planned`, `watching`, `watched`, `dropped`), `ratings` `{S, L}`, `comments`, `replies`, `reactions` (`{цель: {S: [виды], L: [виды]}}`), необязательные метаданные `tmdb` и даты `addedAt`, `watchedAt`, `droppedAt`.
 
 Код живёт в `master`, данные — в недельных ветках `data/YYYY-MM-DD_YYYY-MM-DD`; `Deploy Pages` берёт `data/movies.json` из текущей ветки `data/*`. `Weekly rollover` в понедельник около 00:05 по `Europe/Sofia` сводит прошедшую неделю одним коммитом в `master` и открывает новую ветку. При конфликте нужные изменения переносятся вручную в ветку текущей недели; старые ветки не переписываются.
 

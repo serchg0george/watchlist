@@ -278,8 +278,13 @@ function normalizeReactions(it) {
   if (!it.reactions || typeof it.reactions !== "object" || Array.isArray(it.reactions)) return {};
   return Object.fromEntries(Object.entries(it.reactions).flatMap(([target, map]) => {
     if (!map || typeof map !== "object" || Array.isArray(map)) return [];
-    const entries = Object.entries(map).filter(([person, kind]) =>
-      PEOPLE.includes(person) && REACTION_KINDS.some((r) => r.key === kind));
+    const entries = Object.entries(map).flatMap(([person, value]) => {
+      if (!PEOPLE.includes(person)) return [];
+      // Legacy format stored a single kind string per person.
+      const given = Array.isArray(value) ? value : [value];
+      const kinds = REACTION_KINDS.map((r) => r.key).filter((k) => given.includes(k));
+      return kinds.length ? [[person, kinds]] : [];
+    });
     return entries.length ? [[target, Object.fromEntries(entries)]] : [];
   }));
 }
@@ -712,7 +717,7 @@ function reactToComment(id, target, kind) {
       !REACTION_KINDS.some((r) => r.key === kind)) return;
   const author = commentAuthor(item, target);
   if (!author || author === by) return;
-  const selected = item.reactions[target]?.[by] === kind ? null : kind;
+  const adding = !item.reactions[target]?.[by]?.includes(kind);
   const login = state.login;
   const op = (data) => {
     const it = data.items.find((i) => i.id === id);
@@ -720,16 +725,20 @@ function reactToComment(id, target, kind) {
     const currentAuthor = commentAuthor(it, target);
     if (!currentAuthor || currentAuthor === by) return;
     const map = { ...it.reactions[target] };
-    if (selected) map[by] = selected;
+    const given = new Set(map[by]);
+    if (adding) given.add(kind);
+    else given.delete(kind);
+    const kinds = REACTION_KINDS.map((r) => r.key).filter((k) => given.has(k));
+    if (kinds.length) map[by] = kinds;
     else delete map[by];
     if (Object.keys(map).length) it.reactions = { ...it.reactions, [target]: map };
     else delete it.reactions[target];
     it.updatedBy = login;
   };
   const label = PEOPLE.includes(target) ? `${target} comment` : "reply";
-  const message = selected
-    ? `React ${selected} to ${label} on "${item.title}" as ${by}`
-    : `Remove reaction on "${item.title}"`;
+  const message = adding
+    ? `Add ${kind} reaction to ${label} on "${item.title}" as ${by}`
+    : `Remove ${kind} reaction from ${label} on "${item.title}" as ${by}`;
   applyAndSave(op, message);
 }
 
@@ -986,8 +995,8 @@ function buildCommentActions(item, target, author, canEdit, isReply) {
   const mine = canEdit && state.person === author;
   const map = item.reactions[target] || {};
   for (const kind of REACTION_KINDS) {
-    const count = PEOPLE.filter((p) => map[p] === kind.key).length;
-    const active = canEdit && map[state.person] === kind.key;
+    const count = PEOPLE.filter((p) => map[p]?.includes(kind.key)).length;
+    const active = canEdit && map[state.person]?.includes(kind.key);
     const btn = el("button", {
       type: "button",
       class: `reaction-pill${active ? ` person-${state.person.toLowerCase()}` : ""}`,
