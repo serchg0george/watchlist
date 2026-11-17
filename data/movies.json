@@ -563,31 +563,6 @@
       "droppedAt": null
     },
     {
-      "id": "forma-golosa",
-      "title": "Форма голоса",
-      "type": "anime",
-      "status": "planned",
-      "ratings": {
-        "S": null,
-        "L": null
-      },
-      "comments": {
-        "S": "",
-        "L": ""
-      },
-      "note": "",
-      "addedAt": "2026-11-15",
-      "watchedAt": null,
-      "updatedBy": "",
-      "replies": [],
-      "reactions": {},
-      "genres": [
-        "драма",
-        "мелодрама"
-      ],
-      "droppedAt": null
-    },
-    {
       "id": "garri-i-salli",
       "title": "Когда Гарри встретил Салли",
       "type": "movie",
