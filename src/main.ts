@@ -3,518 +3,26 @@
  * Data lives in data/movies.json; edits are committed to the repo
  * through the GitHub Contents API with a user-provided fine-grained token. */
 
-import { DEFAULT_TYPES, LS_LOGIN, LS_PERSON, LS_TOKEN, PALETTE_PRESETS, PEOPLE, REACTION_KINDS, STATUS_LABELS, UNDO_MS, personFor } from "./config.js";
-import { GitHubRepository, apiHeaders, friendlyError, httpError } from "./data/github.js";
-import { SaveQueue } from "./data/save-queue.js";
-import type { SaveEntry } from "./data/save-queue.js";
+import { addCategory, addItem, addReply, closeEditors, commitEdit, deleteCategory, deleteItem, deleteReply, editReply, highlightTimer, pickRandom, rateItem, reactToComment, setComment, setHighlightTimer, toggleWatched, updateCategory, updateCategoryColor } from "./actions.js";
+import { LS_LOGIN, LS_PERSON, LS_TOKEN, PALETTE_PRESETS, PEOPLE, REACTION_KINDS, STATUS_LABELS, personFor } from "./config.js";
+import { apiHeaders, friendlyError, httpError } from "./data/github.js";
 import { todayStr } from "./domain/dates.js";
-import { asRecord, isPerson, isReactionKind, isStatus } from "./domain/guards.js";
-import { avgRating, commentAuthor } from "./domain/items.js";
-import { normalizeGenres } from "./domain/normalize.js";
-import { applyOp, describeOp, isOp } from "./domain/ops.js";
-import type { Op } from "./domain/ops.js";
+import { asRecord, isPerson, isStatus } from "./domain/guards.js";
+import { avgRating } from "./domain/items.js";
 import { MONTH_FULL, computeStats } from "./domain/stats.js";
 import type { Stats } from "./domain/stats.js";
-import { transliterate } from "./domain/text.js";
-import type { CategoryType, Item, Person, ReactionKind, Reply, Status, TmdbItemMetadata, WatchlistData } from "./domain/types.js";
+import type { Item, Person, Reply, Status } from "./domain/types.js";
+import { clearDraftAfterSave, draftKey, loadAll, markCatalogSave, readDraft, restorePendingSaves, saves, writeDraft } from "./state/saving.js";
+import { CHIPS, SORTS, getTypes, getTypeColor, getTypeLabel, isListTab, openItems, readLocal, render, setRenderer, state, writeLocal } from "./state/store.js";
+import type { SortKey, Tab } from "./state/store.js";
 import { WatchlistTMDB } from "./tmdb.js";
 import type { ElChild } from "./ui/dom.js";
 import { byId, el, statsSvg } from "./ui/dom.js";
-import { newId } from "./util/id.js";
-
-// ===== Constants =====
-
-
-const isListTab = (value: unknown): value is ListTab => LIST_TABS.includes(value as ListTab);
-
-function getTypes(): CategoryType[] {
-  if (state.data && Array.isArray(state.data.types) && state.data.types.length > 0) {
-    return state.data.types;
-  }
-  return DEFAULT_TYPES;
-}
-
-function getTypeLabel(key: string): string {
-  const t = getTypes().find((item) => item.key === key);
-  return t ? t.label : key;
-}
-
-function getTypeColor(key: string): string {
-  const t = getTypes().find((item) => item.key === key);
-  return t && t.color ? t.color : "#5b6b53";
-}
-
-type ChipKey = "all" | "watching";
-type ListTab = "list" | "watched" | "dropped";
-type Tab = ListTab | "stats";
-type SortKey = "added-desc" | "watched-desc" | "rating-desc" | "title-asc";
-
-const CHIPS: readonly { key: ChipKey; label: string }[] = [
-  { key: "all", label: "Все" },
-  { key: "watching", label: "Смотрим" }
-];
-// Tabs that show the item list; "list" is filtered by CHIPS, the others by their own status.
-const LIST_TABS: readonly ListTab[] = ["list", "watched", "dropped"];
-
-const SORTS: readonly { key: SortKey; label: string }[] = [
-  { key: "added-desc", label: "Недавно добавленные" },
-  { key: "watched-desc", label: "Недавно просмотренные" },
-  { key: "rating-desc", label: "По оценке" },
-  { key: "title-asc", label: "По названию" }
-];
-
-// ===== State =====
-
-interface ReplyDraft { itemId: string; to: string }
-
-interface AppState {
-  token: string;
-  login: string;
-  person: Person | "";
-  data: WatchlistData | null;
-  dataBranch: string | null;
-  loading: boolean;
-  error: string | null;
-  tab: Tab;
-  statusFilter: ChipKey;
-  typeFilter: string;
-  search: string;
-  sort: SortKey;
-  editingId: string | null;
-  commentingId: string | null;
-  replyDraft: ReplyDraft | null;
-  editingReplyId: string | null;
-  highlightId: string | null;
-}
-
-const state: AppState = {
-  token: localStorage.getItem(LS_TOKEN) || "",
-  login: localStorage.getItem(LS_LOGIN) || "",
-  person: personFor(localStorage.getItem(LS_LOGIN) || ""),
-  data: null,
-  dataBranch: null,
-  loading: true,
-  error: null,
-  tab: "list",
-  statusFilter: "all",
-  typeFilter: "all",
-  search: "",
-  sort: "added-desc",
-  editingId: null,
-  commentingId: null,
-  replyDraft: null,
-  editingReplyId: null,
-  highlightId: null
-};
-
-let lastPickId: string | null = null;
-const openItems = new Set<string>();
-const draftMemory = new Map<string, unknown>();
-const draftCleanups = new Map<string, unknown>();
-let catalogSavePending = false;
-// Per login, so a queue left by one account is never overwritten by another.
-const pendingKey = (login: string): string => `watchlist.pendingSaves.${login}`;
-
-function readLocal(key: string): unknown {
-  try { return JSON.parse(localStorage.getItem(key) ?? "null") ?? null; } catch { return null; }
-}
-
-function writeLocal(key: string, value: unknown): void {
-  try { if (value == null) localStorage.removeItem(key); else localStorage.setItem(key, JSON.stringify(value)); } catch { /* Keep in-memory drafts when storage is unavailable. */ }
-}
-
-function draftKey(kind: string, id: string): string { return `watchlist.draft.${state.login}.${kind}.${id}`; }
-function readDraft(key: string): Record<string, unknown> | null { return asRecord(draftMemory.get(key) ?? readLocal(key)); }
-function writeDraft(key: string, value: unknown): void {
-  if (value == null) draftMemory.delete(key); else draftMemory.set(key, value);
-  writeLocal(key, value);
-}
-
-function clearDraftAfterSave(key: string, snapshot: unknown): void {
-  draftCleanups.set(key, snapshot);
-  saves.wait().then(() => {
-    if (JSON.stringify(readDraft(key)) === JSON.stringify(snapshot)) writeDraft(key, null);
-    draftCleanups.delete(key);
-  }).catch(() => {});
-}
-let highlightTimer: ReturnType<typeof setTimeout> | undefined;
-let toastTimer: ReturnType<typeof setTimeout> | undefined;
-let saveHideTimer: ReturnType<typeof setTimeout> | undefined;
-
-// ===== Data loading =====
-
-const repo = new GitHubRepository();
-
-async function loadAll(): Promise<void> {
-  if (saves.hasUnsaved()) return;
-  state.loading = true;
-  state.error = null;
-  render();
-  try {
-    const loaded = await repo.load(state.token);
-    state.dataBranch = loaded.branch;
-    state.data = loaded.data;
-  } catch (e) {
-    console.error("load failed", e);
-    state.error = friendlyError(e);
-  } finally {
-    state.loading = false;
-    render();
-  }
-}
-
-// ===== Saving: retained optimistic queue with conflict retry =====
-
-const saves = new SaveQueue<Op>({
-  async save(entry) {
-    const saved = await repo.save(entry.token, (data) => applyOp(data, entry.op, entry.login), entry.message);
-    state.dataBranch = saved.branch;
-    return saved.data;
-  },
-  apply: (data, entry) => applyOp(data, entry.op, entry.login),
-  // Tokens are never stored: after a reload the entries get the current token back.
-  // The queue only flushes under its own login, so state.login owns every entry.
-  persist: (entries) => writeLocal(pendingKey(state.login), entries.length ? entries.map(({ op, message, login }) => ({ op, message, login })) : null),
-  currentLogin: () => state.login,
-  onSaved(data) {
-    state.data = data;
-    render();
-  },
-  onChange: updateSaveIndicator,
-  onFlushed() {
-    for (const [key, snapshot] of draftCleanups) {
-      if (JSON.stringify(readDraft(key)) === JSON.stringify(snapshot)) writeDraft(key, null);
-    }
-    draftCleanups.clear();
-    if (catalogSavePending) {
-      catalogSavePending = false;
-      WatchlistTMDB.acknowledgeSave();
-    }
-  },
-  onError() {
-    showToast("Не удалось сохранить. Изменения остались здесь — нажмите «Повторить сохранение».");
-  }
-});
-
-function applyAndSave(op: Op): boolean {
-  if (!state.token || !state.data) {
-    showToast("Войдите через ⚙, чтобы редактировать список");
-    return false;
-  }
-  if (saves.hasEntriesFromOther(state.login)) {
-    showToast("Сначала сохраните изменения предыдущего пользователя");
-    return false;
-  }
-  const message = describeOp(op, state.data);
-  applyOp(state.data, op, state.login);
-  render();
-  saves.enqueue({ op, message, token: state.token, login: state.login });
-  return true;
-}
-
-// Edits that were queued but not committed when the page closed are replayed after the first load.
-function restorePendingSaves(): void {
-  // A live queue already holds (and persists) everything stored for this login.
-  if (saves.hasUnsaved()) return;
-  const stored = readLocal(pendingKey(state.login));
-  if (!Array.isArray(stored) || !state.data) return;
-  const entries: SaveEntry<Op>[] = [];
-  for (const raw of stored) {
-    const rec = asRecord(raw);
-    if (!rec || !isOp(rec.op) || typeof rec.message !== "string" || rec.login !== state.login) continue;
-    entries.push({ op: rec.op, message: rec.message, token: state.token, login: state.login });
-  }
-  if (!state.token || !entries.length) return;
-  // isOp checks only the kind; an op that fails to apply locally is dropped instead of wedging the queue.
-  const data = state.data;
-  const applied = entries.filter((entry) => {
-    try { applyOp(data, entry.op, entry.login); return true; }
-    catch (error) { console.warn("dropped unreadable pending save", entry.op, error); return false; }
-  });
-  render();
-  saves.restore(applied);
-}
-
-
-function updateSaveIndicator(): void {
-  const ind = document.getElementById("save-indicator");
-  if (!ind) return;
-  clearTimeout(saveHideTimer);
-  ind.setAttribute("role", "status");
-  let retry = document.getElementById("retry-save-btn") as HTMLButtonElement | null;
-  if (!retry) {
-    retry = el("button", { id: "retry-save-btn", type: "button", class: "btn retry-save-btn", text: "Повторить сохранение" });
-    retry.addEventListener("click", () => saves.retry());
-    ind.after(retry);
-  }
-  retry.hidden = !saves.error;
-  retry.disabled = saves.running;
-  ind.classList.toggle("save-error", !!saves.error);
-  if (saves.error) {
-    ind.textContent = `Не сохранено: ${saves.size}. Не закрывайте страницу.`;
-    ind.classList.add("visible");
-    ind.classList.remove("busy");
-  } else if (saves.size > 0) {
-    ind.textContent = `Сохраняется: ${saves.size}…`;
-    ind.classList.add("visible", "busy");
-  } else {
-    ind.textContent = "Сохранено";
-    ind.classList.add("visible");
-    ind.classList.remove("busy");
-    saveHideTimer = setTimeout(() => ind.classList.remove("visible"), 1600);
-  }
-}
-
-// ===== Actions (each builds a serializable Op and hands it to applyAndSave) =====
-
-function addItem(title: string, type: string, metadata: TmdbItemMetadata = {}): boolean {
-  const item: Item = {
-    id: newId(),
-    title,
-    type,
-    status: "planned",
-    ratings: { S: null, L: null },
-    comments: { S: "", L: "" },
-    replies: [],
-    reactions: {},
-    genres: normalizeGenres(metadata.genres),
-    note: "",
-    addedAt: todayStr(),
-    watchedAt: null,
-    droppedAt: null,
-    updatedBy: state.login
-  };
-  if (metadata.tmdb) item.tmdb = { ...metadata.tmdb };
-  return applyAndSave({ kind: "addItem", item });
-}
-
-// Undo restores the item exactly as it was before the change (re-inserting it if it was deleted).
-interface ItemSnapshot { item: Item; index: number }
-
-function snapshotOf(item: Item): ItemSnapshot {
-  return { item: JSON.parse(JSON.stringify(item)) as Item, index: state.data?.items.indexOf(item) ?? -1 };
-}
-
-function offerUndo(msg: string, snap: ItemSnapshot): void {
-  showToast(msg, { label: "Отменить", run: () => restoreItem(snap) });
-}
-
-function restoreItem(snap: ItemSnapshot): void {
-  applyAndSave({ kind: "restoreItem", item: snap.item, index: snap.index });
-}
-
-function findItem(id: string): Item | undefined {
-  return state.data?.items.find((i) => i.id === id);
-}
-
-function toggleWatched(id: string): void {
-  const item = findItem(id);
-  if (!item) return;
-  const snap = snapshotOf(item);
-  const toWatched = !(item.status === "watched" || item.status === "dropped");
-  const op: Op = toWatched ? { kind: "markWatched", itemId: id, date: todayStr() } : { kind: "unmarkWatched", itemId: id };
-  if (applyAndSave(op)) {
-    offerUndo(toWatched ? `«${item.title}» — просмотрено` : `«${item.title}» снова в списке`, snap);
-  }
-}
-
-function rateItem(id: string, person: Person, star: number): void {
-  const item = findItem(id);
-  if (!item) return;
-  // Clicking the current rating again clears it.
-  const newRating = item.ratings[person] === star ? null : star;
-  applyAndSave({ kind: "rate", itemId: id, person, rating: newRating });
-}
-
-function setComment(id: string, person: Person, text: string): void {
-  const item = findItem(id);
-  if (!item) return;
-  closeEditors();
-  if ((item.comments[person] || "") === text) { render(); return; }
-  applyAndSave({ kind: "setComment", itemId: id, person, text });
-}
-
-function closeEditors(): void {
-  state.editingId = null;
-  state.commentingId = null;
-  state.replyDraft = null;
-  state.editingReplyId = null;
-}
-
-function addReply(id: string, to: string, text: string): void {
-  const item = findItem(id);
-  const by = state.person;
-  if (!state.token || !isPerson(by) || !item) return;
-  closeEditors();
-  const trimmed = text.trim();
-  if (!trimmed || !commentAuthor(item, to)) { render(); return; }
-  const reply: Reply = { id: newId(), to, by, text: trimmed, at: new Date().toISOString() };
-  applyAndSave({ kind: "addReply", itemId: id, reply });
-}
-
-function editReply(id: string, replyId: string, text: string): void {
-  const item = findItem(id);
-  const by = state.person;
-  const reply = item?.replies.find((r) => r.id === replyId);
-  if (!state.token || !reply || reply.by !== by) return;
-  closeEditors();
-  const trimmed = text.trim();
-  if (!trimmed || trimmed === reply.text) { render(); return; }
-  const editedAt = new Date().toISOString();
-  applyAndSave({ kind: "editReply", itemId: id, replyId, by, text: trimmed, editedAt });
-}
-
-function deleteReply(id: string, replyId: string): void {
-  const item = findItem(id);
-  const by = state.person;
-  const reply = item?.replies.find((r) => r.id === replyId);
-  if (!state.token || !reply || reply.by !== by || !confirm("Удалить ответ?")) return;
-  closeEditors();
-  applyAndSave({ kind: "deleteReply", itemId: id, replyId, by });
-}
-
-function reactToComment(id: string, target: string, kind: ReactionKind): void {
-  const item = findItem(id);
-  const by = state.person;
-  if (!state.token || !isPerson(by) || !item || !isReactionKind(kind)) return;
-  const author = commentAuthor(item, target);
-  if (!author || author === by) return;
-  const adding = !item.reactions[target]?.[by]?.includes(kind);
-  applyAndSave({ kind: "react", itemId: id, target, by, reaction: kind, add: adding });
-}
-
-interface EditFields {
-  title: string;
-  type: string;
-  status: Status;
-  note: string;
-  genres: string[];
-  finishedAt: string | null;
-  dateEdited: boolean;
-}
-
-function commitEdit(id: string, fields: EditFields): void {
-  const item = findItem(id);
-  if (!item) return;
-  const dateKey = fields.status === "watched" ? "watchedAt" : fields.status === "dropped" ? "droppedAt" : null;
-  const transitioned = fields.status !== item.status;
-  const date = fields.finishedAt || todayStr();
-  state.editingId = null; // close the editor on save
-  // The date is decided once here, so conflict retries and replays reuse the same value.
-  applyAndSave({
-    kind: "editItem",
-    itemId: id,
-    fields: { title: fields.title, type: fields.type, status: fields.status, note: fields.note, genres: fields.genres },
-    date: dateKey && (transitioned || fields.dateEdited) ? { field: dateKey, value: date } : null
-  });
-}
-
-function deleteItem(id: string): void {
-  const item = findItem(id);
-  if (!item) return;
-  state.editingId = null;
-  const snap = snapshotOf(item);
-  if (applyAndSave({ kind: "deleteItem", itemId: id })) offerUndo(`«${item.title}» удалено`, snap);
-}
-
-function addCategory(label: string, color: string | null): void {
-  const trimmed = label.trim();
-  if (!trimmed) return;
-  const types = getTypes();
-  if (types.some((t) => t.label.toLowerCase() === trimmed.toLowerCase())) {
-    showToast(`Категория «${trimmed}» уже существует`);
-    return;
-  }
-  const baseSlug = transliterate(trimmed).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  let key = baseSlug || `type-${Date.now().toString(36)}`;
-  if (types.some((t) => t.key === key)) {
-    key = `${key}-${Date.now().toString(36).slice(-4)}`;
-  }
-  const chosenColor = color && /^#[0-9a-fA-F]{3,8}$/.test(color.trim())
-    ? color.trim()
-    : PALETTE_PRESETS[types.length % PALETTE_PRESETS.length] ?? "#5b6b53";
-  if (applyAndSave({ kind: "addCategory", category: { key, label: trimmed, color: chosenColor } })) {
-    showToast(`Категория «${trimmed}» добавлена`);
-    renderCategoriesDialog();
-  }
-}
-
-function updateCategoryColor(key: string, newColor: string): void {
-  const trimmed = newColor.trim();
-  if (!/^#[0-9a-fA-F]{3,8}$/.test(trimmed)) return;
-  const current = getTypes().find((t) => t.key === key);
-  if (!current || current.color === trimmed) return;
-  if (applyAndSave({ kind: "setCategoryColor", key, color: trimmed })) {
-    renderCategoriesDialog();
-  }
-}
-
-function updateCategory(key: string, newLabel: string): void {
-  const trimmed = newLabel.trim();
-  if (!trimmed) {
-    showToast("Название категории не может быть пустым");
-    renderCategoriesDialog();
-    return;
-  }
-  const current = getTypes().find((t) => t.key === key);
-  if (!current || current.label === trimmed) return;
-  if (applyAndSave({ kind: "renameCategory", key, label: trimmed })) {
-    showToast(`Категория переименована в «${trimmed}»`);
-    renderCategoriesDialog();
-  }
-}
-
-function deleteCategory(key: string): void {
-  const types = getTypes();
-  if (types.length <= 1) {
-    showToast("Нельзя удалить последнюю категорию");
-    return;
-  }
-  const target = types.find((t) => t.key === key);
-  if (!target) return;
-  const count = state.data ? state.data.items.filter((i) => i.type === key).length : 0;
-  const confirmMsg = count > 0
-    ? `В категории «${target.label}» есть ${count} элементов. При удалении категории они сохранятся. Удалить категорию?`
-    : `Удалить категорию «${target.label}»?`;
-  if (!confirm(confirmMsg)) return;
-
-  if (applyAndSave({ kind: "deleteCategory", key })) {
-    showToast(`Категория «${target.label}» удалена`);
-    renderCategoriesDialog();
-  }
-}
-
-// Random pick from "planned", respecting the type filter; avoids repeating the previous pick.
-function pickRandom(): void {
-  if (!state.data) return;
-  const pool = state.data.items.filter((it) => it.status === "planned" && (state.typeFilter === "all" || it.type === state.typeFilter));
-  if (pool.length === 0) { showToast("В списке «Все» пусто"); return; }
-  const candidates = pool.length > 1 ? pool.filter((it) => it.id !== lastPickId) : pool;
-  const pick = candidates[Math.floor(Math.random() * candidates.length)];
-  if (!pick) return;
-  lastPickId = pick.id;
-  // Make sure the picked row is visible.
-  state.tab = "list";
-  state.statusFilter = "all";
-  state.search = "";
-  byId<HTMLInputElement>("search").value = "";
-  state.highlightId = pick.id;
-  render();
-  showToast(`🎲 ${pick.title}`);
-  const row = document.querySelector(`.item-row[data-id="${CSS.escape(pick.id)}"]`);
-  if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
-  // Drop the highlight without a re-render, so nothing in progress gets rebuilt.
-  clearTimeout(highlightTimer);
-  highlightTimer = setTimeout(() => {
-    state.highlightId = null;
-    document.querySelectorAll(".item-row.highlight").forEach((r) => r.classList.remove("highlight"));
-  }, 3000);
-}
+import { showToast } from "./ui/toast.js";
 
 // ===== Rendering =====
 
-function render(): void {
-  persistView();
+function renderAll(): void {
   renderHeader();
   updateTypeSelects();
   document.querySelectorAll<HTMLElement>(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === state.tab));
@@ -1137,10 +645,10 @@ function statsItemButton(item: Item): HTMLElement {
     const row = document.querySelector<HTMLElement>(`.item-row[data-id="${CSS.escape(item.id)}"]`);
     if (row) { row.setAttribute("tabindex", "-1"); row.focus({ preventScroll: true }); row.scrollIntoView({ behavior: "smooth", block: "center" }); }
     clearTimeout(highlightTimer);
-    highlightTimer = setTimeout(() => {
+    setHighlightTimer(setTimeout(() => {
       state.highlightId = null;
       document.querySelectorAll(".item-row.highlight").forEach((node) => node.classList.remove("highlight"));
-    }, 3000);
+    }, 3000));
   });
   return button;
 }
@@ -1227,30 +735,6 @@ function renderStats(): void {
   box.append(el("div", { class: "stats-wrap" }, el("header", { class: "page-head" }, el("h1", { text: "Статистика" }), el("p", { text: `S и L · данные на ${new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}` })), stack), tip);
 }
 
-// ===== Toast =====
-
-interface ToastAction { label: string; run: () => void }
-
-// action: optional { label, run } rendered as a button inside the toast (e.g. undo).
-function showToast(msg: string, action?: ToastAction): void {
-  const t = byId("toast");
-  t.textContent = "";
-  t.append(el("span", { class: "toast-text", text: msg }));
-  if (action) {
-    const btn = el("button", { type: "button", class: "toast-action", text: action.label });
-    btn.addEventListener("click", () => {
-      clearTimeout(toastTimer);
-      t.classList.remove("visible");
-      action.run();
-    });
-    t.append(btn);
-  }
-  t.classList.toggle("has-action", !!action);
-  t.classList.add("visible");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove("visible"), action ? UNDO_MS : 2600);
-}
-
 // ===== Settings dialog =====
 
 function openSettings(): void {
@@ -1330,6 +814,7 @@ function renderPaletteSwatches(): void {
     btn.addEventListener("click", () => {
       if (selectedCategoryKey) {
         updateCategoryColor(selectedCategoryKey, hex);
+        renderCategoriesDialog();
       }
       const newColorInput = document.getElementById("new-category-color") as HTMLInputElement | null;
       if (newColorInput) newColorInput.value = hex;
@@ -1378,6 +863,7 @@ function renderCategoriesDialog(): void {
     colorInput.addEventListener("change", () => {
       selectedCategoryKey = t.key;
       updateCategoryColor(t.key, colorInput.value);
+      renderCategoriesDialog();
     });
 
     const input = el("input", {
@@ -1403,6 +889,7 @@ function renderCategoriesDialog(): void {
       const val = input.value.trim();
       if (val && val !== t.label) {
         updateCategory(t.key, val);
+        renderCategoriesDialog();
       } else {
         input.value = t.label;
         saveBtn.disabled = true;
@@ -1435,7 +922,10 @@ function renderCategoriesDialog(): void {
       "aria-label": `Удалить категорию ${t.label}`,
       disabled: !canEdit || types.length <= 1
     });
-    delBtn.addEventListener("click", () => deleteCategory(t.key));
+    delBtn.addEventListener("click", () => {
+      deleteCategory(t.key);
+      renderCategoriesDialog();
+    });
 
     const row = el("div", { class: "category-row" }, colorInput, input, saveBtn, countSpan, delBtn);
     list.append(row);
@@ -1476,12 +966,8 @@ function updateTypeSelects(): void {
 
 // ===== Init =====
 
-function persistView(): void {
-  if (state.loading) return;
-  writeLocal("watchlist.view", { tab: state.tab, statusFilter: state.statusFilter, typeFilter: state.typeFilter, search: state.search, sort: state.sort });
-}
-
 function init(): void {
+  setRenderer(renderAll);
   const savedScroll = asRecord(readLocal("watchlist.scroll")) ?? {};
   const tabScroll: Record<Tab, number> = { list: 0, watched: 0, dropped: 0, stats: 0 };
   window.addEventListener("beforeunload", (event) => {
@@ -1540,7 +1026,7 @@ function init(): void {
         throw new Error("Этот тайтл уже есть в списке.");
       }
       if (!addItem(title, type, metadata)) return false;
-      catalogSavePending = true;
+      markCatalogSave();
       await saves.wait();
       return true;
     }
@@ -1595,6 +1081,7 @@ function init(): void {
     if (!val) return;
     const color = newCategoryColor ? newCategoryColor.value : null;
     addCategory(val, color);
+    renderCategoriesDialog();
     newCategoryInput.value = "";
     if (newCategoryColor) {
       newCategoryColor.value = PALETTE_PRESETS[getTypes().length % PALETTE_PRESETS.length] ?? newCategoryColor.value;
