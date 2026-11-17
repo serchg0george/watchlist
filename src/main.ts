@@ -223,9 +223,14 @@ function restorePendingSaves(): void {
     entries.push({ op: rec.op, message: rec.message, token: state.token, login: state.login });
   }
   if (!state.token || !entries.length) return;
-  for (const entry of entries) applyOp(state.data, entry.op, entry.login);
+  // isOp checks only the kind; an op that fails to apply locally is dropped instead of wedging the queue.
+  const data = state.data;
+  const applied = entries.filter((entry) => {
+    try { applyOp(data, entry.op, entry.login); return true; }
+    catch (error) { console.warn("dropped unreadable pending save", entry.op, error); return false; }
+  });
   render();
-  saves.restore(entries);
+  saves.restore(applied);
 }
 
 
