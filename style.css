@@ -1,4 +1,4 @@
-/* ===== Watchlist: mobile-first, light theme with soft green accent ===== */
+/* ===== Watchlist: mobile-first; light theme with soft green accent, dark theme blue-black with cyan accent ===== */
 
 :root {
   --bg: #fbfcf9;
@@ -19,22 +19,23 @@
 }
 
 @media (prefers-color-scheme: dark) {
+  /* Neutral blue-black with a cyan accent (no green tint). */
   :root {
-    --bg: #12160f;
-    --card: #1e2a17;
-    --card-hover: #25341d;
-    --text: #e8efe2;
-    --muted: #9fb093;
-    --accent: #6fbf63;
-    --on-accent: #0e150b;
-    --border: rgba(255, 255, 255, 0.12);
-    --chip-bg: #22301c;
-    --chip-active-bg: #35502a;
+    --bg: #0e1215;
+    --card: #171d22;
+    --card-hover: #1e262c;
+    --text: #e9edf0;
+    --muted: #8d979f;
+    --accent: #2ab0e4;
+    --on-accent: #06141b;
+    --border: rgba(255, 255, 255, 0.08);
+    --chip-bg: #1c2329;
+    --chip-active-bg: #1f3d4c;
     --danger: #e07b6f;
     --star-on: #e8b93c;
-    --star-off: #4d5c45;
-    --track: rgba(255, 255, 255, 0.1);
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --star-off: #3a444c;
+    --track: rgba(255, 255, 255, 0.08);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -1121,7 +1122,7 @@ dialog h2 { margin: 0 0 10px; font-size: 20px; }
   cursor: pointer;
 }
 .tmdb-result:hover { background: var(--card-hover); border-color: var(--accent); }
-.tmdb-result:focus-visible, .item-details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tmdb-result:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tmdb-result-copy { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
 .tmdb-result-copy small { color: var(--muted); }
 .tmdb-poster { display: block; width: 52px; height: 78px; flex: 0 0 52px; object-fit: cover; border-radius: 6px; background: var(--track); }
@@ -1144,13 +1145,17 @@ dialog h2 { margin: 0 0 10px; font-size: 20px; }
 .item-row { scroll-margin-top: 110px; }
 .item-row > .item-title { flex: 1 1 120px; }
 .item-meta { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
-.item-details { order: 20; flex: 1 1 100%; min-width: 0; width: 100%; }
-.item-details > summary { padding: 8px 0; min-height: 40px; color: var(--muted); cursor: pointer; font-size: 13px; }
-.item-details[open] > summary { margin-bottom: 8px; border-bottom: 1px solid var(--border); }
-.item-details > .ratings, .item-details > .comments { padding-left: 0; margin-top: 10px; }
-.item-details > .item-note, .item-details > .item-genres { display: block; }
-.item-details > .item-note + .item-genres { margin-top: 4px; }
-.item-details .item-genres { padding-left: 0; }
+.item-body { order: 20; flex: 1 1 100%; min-width: 0; width: 100%; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
+.item-body > .item-note, .item-body > .item-genres { display: block; }
+.item-body > .item-note + .item-genres { margin-top: 4px; }
+.item-body .item-genres { padding-left: 0; }
+.item-body > .ratings, .item-body > .comments { padding-left: 0; margin-top: 10px; }
+.catalog-overview.clamp { margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
+.catalog-overview.clamp.expanded { display: block; -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
+.link-btn { background: none; border: 0; padding: 4px 0; color: var(--accent); font: inherit; font-size: 13px; cursor: pointer; }
+.link-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.comments-toggle { display: block; margin-top: 10px; color: var(--muted); }
+.comments-toggle[aria-expanded="true"] { color: var(--accent); }
 .catalog-info { display: flex; align-items: flex-start; gap: 12px; min-width: 0; margin-bottom: 12px; }
 .catalog-poster { display: block; width: 92px; height: 138px; object-fit: cover; flex: 0 0 92px; border-radius: 8px; background: var(--track); }
 .catalog-description { min-width: 0; font-size: 14px; white-space: pre-line; overflow-wrap: anywhere; }
@@ -1180,7 +1185,6 @@ dialog { max-height: 90vh; max-height: 90dvh; overflow-y: auto; overscroll-behav
   .tmdb-preview-main { flex-basis: 160px; }
   .tmdb-preview-actions .btn { flex: 1 1 100%; }
   .item-date { padding-left: 0; }
-  .item-details > summary { min-height: 44px; }
   .catalog-poster { width: 64px; height: 96px; flex-basis: 64px; }
   .filter-row > select, .filter-row > input { flex: 1 1 140px; min-width: 0; }
   main { padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }

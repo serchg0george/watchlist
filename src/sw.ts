@@ -5,11 +5,12 @@
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
-const CACHE = "watchlist-v14";
+const CACHE = "watchlist-v18";
 const SHELL = [
   "./",
   "index.html",
   "style.css",
+  "js/actions.js",
   "js/config.js",
   "js/data/encoding.js",
   "js/data/github.js",
@@ -25,8 +26,18 @@ const SHELL = [
   "js/domain/types.js",
   "js/domain/validate.js",
   "js/main.js",
+  "js/state/saving.js",
+  "js/state/store.js",
   "js/tmdb.js",
+  "js/ui/dialogs/categories.js",
+  "js/ui/dialogs/settings.js",
   "js/ui/dom.js",
+  "js/ui/list/comments.js",
+  "js/ui/list/editor.js",
+  "js/ui/list/item-row.js",
+  "js/ui/list/list.js",
+  "js/ui/stats.js",
+  "js/ui/toast.js",
   "js/util/id.js",
   "manifest.json",
   "data/movies.json",
