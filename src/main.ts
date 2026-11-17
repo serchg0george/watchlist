@@ -1221,7 +1221,9 @@ function renderStats(): void {
   if (state.error) { box.append(el("div", { class: "state-msg error", text: state.error })); return; }
   const items = state.data?.items || [], data = computeStats(items, getTypes());
   const tip = el("div", { class: "tip", role: "tooltip", hidden: true });
-  const stack = el("div", { class: "stack" }, renderStatsHero(items, data), renderStatsFavorite(data), renderStatsDiffs(data), renderStatsGenres(data), renderStatsHistogram(data, tip), renderStatsMonths(data, tip), renderStatsScatter(data, tip), renderStatsCategories(items, data), renderStatsTop(data));
+  const stack = el("div", { class: "stack" }, renderStatsHero(items, data), renderStatsHistogram(data, tip), renderStatsMonths(data, tip), renderStatsScatter(data, tip), renderStatsCategories(items, data), renderStatsTop(data),
+    // Long lists go last so the compact charts stay on top; favorite and diffs share a row on wide screens.
+    renderStatsFavorite(data), renderStatsDiffs(data), renderStatsGenres(data));
   box.append(el("div", { class: "stats-wrap" }, el("header", { class: "page-head" }, el("h1", { text: "Статистика" }), el("p", { text: `S и L · данные на ${new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}` })), stack), tip);
 }
 
