@@ -29,7 +29,7 @@ git remote remove origin 2>/dev/null
 git add -A >/dev/null && git -c user.name=x -c user.email=x@x -c core.hooksPath=/dev/null commit -qm base --allow-empty
 
 preamble="You are the DEVELOPER for this repo (a static GitHub Pages site). Do exactly what TASK describes, nothing else.
-Rules: create or edit files in place; plain HTML/CSS/JavaScript, no build step, no npm, no frameworks;
+Rules: create or edit files in place; HTML/CSS and strict TypeScript in src/*.ts (never edit the compiled root app.js/tmdb.js/sw.js), no frameworks, no new npm dependencies;
 Russian for UI text and documentation, English for code identifiers and code comments;
 do not run git, do not commit; do not create files TASK does not ask for.
 Finish with a one-line summary of the files you changed."

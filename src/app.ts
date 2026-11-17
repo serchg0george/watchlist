@@ -1,5 +1,5 @@
 /* Watchlist: personal film/series tracker.
- * Plain ES2020, no modules, no libraries.
+ * TypeScript compiled to a classic script, no modules, no libraries.
  * Data lives in data/movies.json; edits are committed to the repo
  * through the GitHub Contents API with a user-provided fine-grained token. */
 
@@ -14,8 +14,8 @@ const LS_TOKEN = "watchlist.token";
 const LS_LOGIN = "watchlist.login";
 const LS_PERSON = "watchlist.person";
 
-const PEOPLE = ["S", "L"];
-const REACTION_KINDS = [
+const PEOPLE: readonly Person[] = ["S", "L"];
+const REACTION_KINDS: readonly ReactionKindInfo[] = [
   { key: "like", emoji: "👍", label: "Нравится" },
   { key: "fire", emoji: "🔥", label: "Огонь" },
   { key: "heart", emoji: "❤️", label: "Люблю" },
@@ -29,11 +29,11 @@ const REACTION_KINDS = [
 const OWNER_LOGIN = "serchg0george";
 const UNDO_MS = 5000;
 
-function personFor(login) {
+function personFor(login: string): Person | "" {
   if (!login) return "";
   return login.toLowerCase() === OWNER_LOGIN ? "S" : "L";
 }
-const DEFAULT_TYPES = [
+const DEFAULT_TYPES: CategoryType[] = [
   { key: "movie", label: "Фильм", color: "#e05638" },
   { key: "series", label: "Сериал", color: "#2563eb" },
   { key: "anime", label: "Аниме", color: "#7c3aed" },
@@ -48,28 +48,41 @@ const PALETTE_PRESETS = [
   "#e11d48", "#475569"
 ];
 
-const STATUSES = ["planned", "watching", "watched", "dropped"];
-const STATUS_LABELS = { planned: "Хочу посмотреть", watching: "Смотрим", watched: "Просмотрено", dropped: "Брошено" };
+const STATUSES: readonly Status[] = ["planned", "watching", "watched", "dropped"];
+const STATUS_LABELS: Record<Status, string> = { planned: "Хочу посмотреть", watching: "Смотрим", watched: "Просмотрено", dropped: "Брошено" };
 
-function getTypes() {
+const isPerson = (value: unknown): value is Person => PEOPLE.includes(value as Person);
+const isStatus = (value: unknown): value is Status => STATUSES.includes(value as Status);
+const isReactionKind = (value: unknown): value is ReactionKind => REACTION_KINDS.some((r) => r.key === value);
+const isListTab = (value: unknown): value is ListTab => LIST_TABS.includes(value as ListTab);
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+
+function byId<T extends HTMLElement = HTMLElement>(id: string): T {
+  const element = document.getElementById(id);
+  if (!element) throw new Error(`Missing element: #${id}`);
+  return element as T;
+}
+
+function getTypes(): CategoryType[] {
   if (state.data && Array.isArray(state.data.types) && state.data.types.length > 0) {
     return state.data.types;
   }
   return DEFAULT_TYPES;
 }
 
-function getTypeLabel(key) {
+function getTypeLabel(key: string): string {
   const t = getTypes().find((item) => item.key === key);
   return t ? t.label : key;
 }
 
-function getTypeColor(key) {
+function getTypeColor(key: string): string {
   const t = getTypes().find((item) => item.key === key);
   return t && t.color ? t.color : "#5b6b53";
 }
 
-function transliterate(str) {
-  const ru = {
+function transliterate(str: string): string {
+  const ru: Record<string, string> = {
     а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "yo", ж: "zh",
     з: "z", и: "i", й: "y", к: "k", л: "l", м: "m", н: "n", о: "o",
     п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f", х: "kh", ц: "ts",
@@ -81,14 +94,19 @@ function transliterate(str) {
   }).join("");
 }
 
-const CHIPS = [
+type ChipKey = "all" | "watching";
+type ListTab = "list" | "watched" | "dropped";
+type Tab = ListTab | "stats";
+type SortKey = "added-desc" | "watched-desc" | "rating-desc" | "title-asc";
+
+const CHIPS: readonly { key: ChipKey; label: string }[] = [
   { key: "all", label: "Все" },
   { key: "watching", label: "Смотрим" }
 ];
 // Tabs that show the item list; "list" is filtered by CHIPS, the others by their own status.
-const LIST_TABS = ["list", "watched", "dropped"];
+const LIST_TABS: readonly ListTab[] = ["list", "watched", "dropped"];
 
-const SORTS = [
+const SORTS: readonly { key: SortKey; label: string }[] = [
   { key: "added-desc", label: "Недавно добавленные" },
   { key: "watched-desc", label: "Недавно просмотренные" },
   { key: "rating-desc", label: "По оценке" },
@@ -97,11 +115,36 @@ const SORTS = [
 
 // ===== State =====
 
-const state = {
+interface ReplyDraft { itemId: string; to: string }
+
+interface AppState {
+  token: string;
+  login: string;
+  person: Person | "";
+  data: WatchlistData | null;
+  dataBranch: string | null;
+  loading: boolean;
+  error: string | null;
+  tab: Tab;
+  statusFilter: ChipKey;
+  typeFilter: string;
+  search: string;
+  sort: SortKey;
+  editingId: string | null;
+  commentingId: string | null;
+  replyDraft: ReplyDraft | null;
+  editingReplyId: string | null;
+  highlightId: string | null;
+}
+
+type DataOp = (data: WatchlistData) => void;
+interface PendingSave { op: DataOp; message: string; token: string; login: string }
+
+const state: AppState = {
   token: localStorage.getItem(LS_TOKEN) || "",
   login: localStorage.getItem(LS_LOGIN) || "",
   person: personFor(localStorage.getItem(LS_LOGIN) || ""),
-  data: null, // { version, items: [...] }
+  data: null,
   dataBranch: null,
   loading: true,
   error: null,
@@ -117,89 +160,92 @@ const state = {
   highlightId: null
 };
 
-let lastPickId = null;
-const openItems = new Set();
-const draftMemory = new Map();
-const draftCleanups = new Map();
+let lastPickId: string | null = null;
+const openItems = new Set<string>();
+const draftMemory = new Map<string, unknown>();
+const draftCleanups = new Map<string, unknown>();
 let catalogSavePending = false;
 
-function readLocal(key, fallback = null) {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
+function readLocal(key: string): unknown {
+  try { return JSON.parse(localStorage.getItem(key) ?? "null") ?? null; } catch { return null; }
 }
 
-function writeLocal(key, value) {
+function writeLocal(key: string, value: unknown): void {
   try { if (value == null) localStorage.removeItem(key); else localStorage.setItem(key, JSON.stringify(value)); } catch { /* Keep in-memory drafts when storage is unavailable. */ }
 }
 
-function draftKey(kind, id) { return `watchlist.draft.${state.login}.${kind}.${id}`; }
-function readDraft(key) { return draftMemory.get(key) ?? readLocal(key); }
-function writeDraft(key, value) {
+function draftKey(kind: string, id: string): string { return `watchlist.draft.${state.login}.${kind}.${id}`; }
+function readDraft(key: string): Record<string, unknown> | null { return asRecord(draftMemory.get(key) ?? readLocal(key)); }
+function writeDraft(key: string, value: unknown): void {
   if (value == null) draftMemory.delete(key); else draftMemory.set(key, value);
   writeLocal(key, value);
 }
 
-function clearDraftAfterSave(key, snapshot) {
+function clearDraftAfterSave(key: string, snapshot: unknown): void {
   draftCleanups.set(key, snapshot);
   waitForSaves().then(() => {
     if (JSON.stringify(readDraft(key)) === JSON.stringify(snapshot)) writeDraft(key, null);
     draftCleanups.delete(key);
   }).catch(() => {});
 }
-let highlightTimer = null;
+let highlightTimer: ReturnType<typeof setTimeout> | undefined;
 let pendingSaves = 0;
-const saveQueue = [];
-const saveWaiters = [];
+const saveQueue: PendingSave[] = [];
+const saveWaiters: { resolve: () => void; reject: (error: unknown) => void }[] = [];
 let saveRunning = false;
-let saveError = null;
-let toastTimer = null;
-let saveHideTimer = null;
+let saveError: unknown = null;
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+let saveHideTimer: ReturnType<typeof setTimeout> | undefined;
 
 // ===== Small DOM helper (no innerHTML with user data) =====
 
-function el(tag, attrs, ...children) {
+type ElAttrValue = string | number | boolean | null | undefined | EventListener;
+type ElChild = Node | string | number | null | undefined | false;
+
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs?: Record<string, ElAttrValue> | null, ...children: (ElChild | ElChild[])[]): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
   if (attrs) {
     for (const [k, v] of Object.entries(attrs)) {
       if (v == null || v === false) continue;
-      if (k === "class") node.className = v;
-      else if (k === "text") node.textContent = v;
-      else if (k.startsWith("on")) node.addEventListener(k.slice(2).toLowerCase(), v);
+      if (typeof v === "function") node.addEventListener(k.slice(2).toLowerCase(), v);
+      else if (k === "class") node.className = String(v);
+      else if (k === "text") node.textContent = String(v);
       else if (v === true) node.setAttribute(k, "");
       else node.setAttribute(k, String(v));
     }
   }
   for (const c of children.flat()) {
     if (c == null || c === false) continue;
-    node.append(c.nodeType ? c : document.createTextNode(String(c)));
+    node.append(c instanceof Node ? c : document.createTextNode(String(c)));
   }
   return node;
 }
 
 // ===== Encoding helpers: base64 <-> UTF-8 (safe for Cyrillic and large files) =====
 
-function base64ToUtf8(b64) {
+function base64ToUtf8(b64: string): string {
   const bin = atob(b64); // one char per byte
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return new TextDecoder("utf-8").decode(bytes);
 }
 
-function utf8ToBase64(str) {
+function utf8ToBase64(str: string): string {
   const bytes = new TextEncoder().encode(str);
   let bin = "";
   // Chunked to avoid call-stack limits on large strings.
   for (let i = 0; i < bytes.length; i += 0x8000) {
-    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   }
   return btoa(bin);
 }
 
-function todayStr() {
+function todayStr(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function newId() {
+function newId(): string {
   if (crypto && typeof crypto.randomUUID === "function") return crypto.randomUUID();
   // Fallback for non-secure contexts.
   return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -207,7 +253,14 @@ function newId() {
 
 // ===== Data loading =====
 
-function apiHeaders(token) {
+type HttpError = Error & { status?: number };
+interface FetchedFile { data: unknown; sha: string | null }
+
+function httpError(message: string, status: number): HttpError {
+  return Object.assign(new Error(message), { status });
+}
+
+function apiHeaders(token: string): Record<string, string> {
   return {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     Accept: "application/vnd.github+json",
@@ -215,73 +268,77 @@ function apiHeaders(token) {
   };
 }
 
-async function fetchTimed(url, options = {}, read = (response) => response) {
+async function fetchTimed<T>(url: string, options: RequestInit, read: (response: Response) => Promise<T> | T): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try { return await read(await fetch(url, { ...options, signal: controller.signal })); }
   finally { clearTimeout(timer); }
 }
 
-async function resolveDataBranch(token) {
+async function resolveDataBranch(token: string): Promise<string> {
   return fetchTimed(`https://api.github.com/repos/${REPO}/git/matching-refs/heads/data/`, { headers: apiHeaders(token), cache: "no-store" }, async (res) => {
     if (res.status === 404) return "master";
-    if (!res.ok) throw Object.assign(new Error(`GitHub API: HTTP ${res.status}`), { status: res.status });
-    const refs = await res.json();
+    if (!res.ok) throw httpError(`GitHub API: HTTP ${res.status}`, res.status);
+    const refs: unknown = await res.json();
     if (!Array.isArray(refs)) throw new Error("GitHub вернул неверный список веток данных");
-    const branches = refs.map((entry) => entry?.ref).filter((ref) => typeof ref === "string" && ref.startsWith("refs/heads/data/") && ref.length > "refs/heads/data/".length).sort();
-    return branches.length ? branches[branches.length - 1].slice("refs/heads/".length) : "master";
+    const branches = refs.map((entry: unknown) => asRecord(entry)?.ref).filter((ref): ref is string => typeof ref === "string" && ref.startsWith("refs/heads/data/") && ref.length > "refs/heads/data/".length).sort();
+    const last = branches[branches.length - 1];
+    return last ? last.slice("refs/heads/".length) : "master";
   });
 }
 
-async function fetchFileViaApi(token, branch) {
+async function fetchFileViaApi(token: string, branch: string): Promise<FetchedFile> {
   return fetchTimed(`${API_CONTENTS_URL}?ref=${encodeURIComponent(branch)}`, { headers: apiHeaders(token), cache: "no-store" }, async (res) => {
-    if (!res.ok) throw Object.assign(new Error(`GitHub API: HTTP ${res.status}`), { status: res.status });
-    const json = await res.json();
-    return { data: JSON.parse(base64ToUtf8(json.content)), sha: json.sha };
+    if (!res.ok) throw httpError(`GitHub API: HTTP ${res.status}`, res.status);
+    const json = asRecord(await res.json()) ?? {};
+    return { data: JSON.parse(base64ToUtf8(String(json.content ?? ""))) as unknown, sha: typeof json.sha === "string" ? json.sha : null };
   });
 }
 
-async function fetchFileLocal() {
+async function fetchFileLocal(): Promise<FetchedFile> {
   const res = await fetch("data/movies.json", { cache: "no-store" });
-  if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status });
-  return { data: await res.json(), sha: null };
+  if (!res.ok) throw httpError(`HTTP ${res.status}`, res.status);
+  return { data: await res.json() as unknown, sha: null };
 }
 
-function validRating(r) {
-  return Number.isInteger(r) && r >= 1 && r <= 10 ? r : null;
+function validRating(r: unknown): number | null {
+  return typeof r === "number" && Number.isInteger(r) && r >= 1 && r <= 10 ? r : null;
 }
 
-function normalizeRatings(it) {
-  const src = it.ratings && typeof it.ratings === "object" ? it.ratings : { S: it.rating };
+function normalizeRatings(it: Record<string, unknown>): Ratings {
+  const src = asRecord(it.ratings) ?? { S: it.rating };
   return { S: validRating(src.S), L: validRating(src.L) };
 }
 
-function normalizeComments(it) {
-  const src = it.comments && typeof it.comments === "object" ? it.comments : {};
+function normalizeComments(it: Record<string, unknown>): Comments {
+  const src = asRecord(it.comments) ?? {};
   return { S: String(src.S ?? ""), L: String(src.L ?? "") };
 }
 
-function normalizeReplies(it) {
+function normalizeReplies(it: Record<string, unknown>): Reply[] {
   if (!Array.isArray(it.replies)) return [];
-  return it.replies.filter((r) => r && typeof r === "object" &&
-    typeof r.id === "string" && PEOPLE.includes(r.by) &&
-    typeof r.text === "string" && r.text.trim() &&
-    typeof r.to === "string" && typeof r.at === "string")
-    .map((r) => {
-      const reply = { ...r, text: r.text.trim() };
-      if (typeof reply.editedAt !== "string") delete reply.editedAt;
-      return reply;
-    });
+  return it.replies.flatMap((raw: unknown): Reply[] => {
+    const r = asRecord(raw);
+    if (!r || typeof r.id !== "string" || !isPerson(r.by) ||
+      typeof r.text !== "string" || !r.text.trim() ||
+      typeof r.to !== "string" || typeof r.at !== "string") return [];
+    const reply: Reply = { ...r, id: r.id, by: r.by, to: r.to, at: r.at, text: r.text.trim() };
+    if (typeof r.editedAt === "string") reply.editedAt = r.editedAt;
+    else delete reply.editedAt;
+    return [reply];
+  });
 }
 
-function normalizeReactions(it) {
-  if (!it.reactions || typeof it.reactions !== "object" || Array.isArray(it.reactions)) return {};
-  return Object.fromEntries(Object.entries(it.reactions).flatMap(([target, map]) => {
-    if (!map || typeof map !== "object" || Array.isArray(map)) return [];
-    const entries = Object.entries(map).flatMap(([person, value]) => {
-      if (!PEOPLE.includes(person)) return [];
+function normalizeReactions(it: Record<string, unknown>): Reactions {
+  const reactions = asRecord(it.reactions);
+  if (!reactions) return {};
+  return Object.fromEntries(Object.entries(reactions).flatMap(([target, raw]) => {
+    const map = asRecord(raw);
+    if (!map) return [];
+    const entries = Object.entries(map).flatMap(([person, value]): [Person, ReactionKind[]][] => {
+      if (!isPerson(person)) return [];
       // Legacy format stored a single kind string per person.
-      const given = Array.isArray(value) ? value : [value];
+      const given: unknown[] = Array.isArray(value) ? value : [value];
       const kinds = REACTION_KINDS.map((r) => r.key).filter((k) => given.includes(k));
       return kinds.length ? [[person, kinds]] : [];
     });
@@ -289,17 +346,17 @@ function normalizeReactions(it) {
   }));
 }
 
-function avgRating(it) {
-  const vals = PEOPLE.map((p) => it.ratings[p]).filter((r) => r != null);
+function avgRating(it: Item): number | null {
+  const vals = PEOPLE.map((p) => it.ratings[p]).filter((r): r is number => r != null);
   return vals.length ? vals.reduce((s, r) => s + r, 0) / vals.length : null;
 }
 
-function normalizeTypes(rawTypes) {
+function normalizeTypes(rawTypes: unknown): CategoryType[] {
   if (Array.isArray(rawTypes) && rawTypes.length > 0) {
-    const seen = new Set();
-    const result = [];
+    const seen = new Set<string>();
+    const result: CategoryType[] = [];
     for (let i = 0; i < rawTypes.length; i++) {
-      const t = rawTypes[i];
+      const t = asRecord(rawTypes[i]);
       if (!t) continue;
       const key = String(t.key ?? "").trim();
       const label = String(t.label ?? key).trim();
@@ -307,7 +364,7 @@ function normalizeTypes(rawTypes) {
       seen.add(key);
       const color = typeof t.color === "string" && /^#[0-9a-fA-F]{3,8}$/.test(t.color.trim())
         ? t.color.trim()
-        : PALETTE_PRESETS[i % PALETTE_PRESETS.length];
+        : PALETTE_PRESETS[i % PALETTE_PRESETS.length] ?? "#5b6b53";
       result.push({ key, label, color });
     }
     if (result.length > 0) return result;
@@ -315,9 +372,9 @@ function normalizeTypes(rawTypes) {
   return DEFAULT_TYPES.map((t) => ({ ...t }));
 }
 
-function normalizeGenres(value) {
-  const seen = new Set();
-  return (Array.isArray(value) ? value : []).filter((genre) => {
+function normalizeGenres(value: unknown): string[] {
+  const seen = new Set<string>();
+  return (Array.isArray(value) ? value : []).filter((genre): genre is string => {
     if (typeof genre !== "string" || !genre.trim()) return false;
     const key = genre.trim().toLocaleLowerCase("ru-RU");
     if (seen.has(key)) return false;
@@ -326,22 +383,20 @@ function normalizeGenres(value) {
   }).map((genre) => genre.trim());
 }
 
-function normalize(raw) {
-  const data = raw && typeof raw === "object" ? raw : {};
-  data.version = Number.isInteger(data.version) ? data.version : 1;
-  data.types = normalizeTypes(data.types);
-  const fallbackKey = data.types[0]?.key || "movie";
-
-  if (!Array.isArray(data.items)) data.items = [];
+function normalize(raw: unknown): WatchlistData {
+  const data = asRecord(raw) ?? {};
+  const types = normalizeTypes(data.types);
+  const fallbackKey = types[0]?.key || "movie";
+  const rawItems: unknown[] = Array.isArray(data.items) ? data.items : [];
   // Spread first: fields added by newer app versions (e.g. replies, reactions) must survive a save from this version.
-  data.items = data.items.map((raw0) => {
-    const it = raw0 && typeof raw0 === "object" ? raw0 : {};
+  const items = rawItems.map((raw0): Item => {
+    const it = asRecord(raw0) ?? {};
     return {
       ...it,
       id: String(it.id ?? ""),
       title: String(it.title ?? ""),
       type: typeof it.type === "string" && it.type.trim() ? it.type.trim() : fallbackKey,
-      status: STATUSES.includes(it.status) ? it.status : "planned",
+      status: isStatus(it.status) ? it.status : "planned",
       ratings: normalizeRatings(it),
       comments: normalizeComments(it),
       replies: normalizeReplies(it),
@@ -354,25 +409,25 @@ function normalize(raw) {
       updatedBy: String(it.updatedBy ?? "")
     };
   });
-  return data;
+  return Object.assign(data, { version: Number.isInteger(data.version) ? Number(data.version) : 1, types, items });
 }
 
-function friendlyError(e) {
-  const status = e && e.status;
+function friendlyError(e: unknown): string {
+  const status = asRecord(e)?.status;
   if (status === 401 || status === 403) return "Токен недействителен или нет доступа к репозиторию.";
   if (status === 404) return "Файл data/movies.json не найден в репозитории.";
   if (e instanceof TypeError) return "Нет соединения. Проверьте интернет и попробуйте снова.";
-  return `Не удалось загрузить данные: ${e && e.message ? e.message : "неизвестная ошибка"}`;
+  return `Не удалось загрузить данные: ${e instanceof Error && e.message ? e.message : "неизвестная ошибка"}`;
 }
 
-async function loadAll() {
+async function loadAll(): Promise<void> {
   if (hasUnsavedChanges()) return;
   state.loading = true;
   state.error = null;
   render();
   try {
     state.dataBranch = state.token ? await resolveDataBranch(state.token) : null;
-    const result = state.token ? await fetchFileViaApi(state.token, state.dataBranch) : await fetchFileLocal();
+    const result = state.token && state.dataBranch ? await fetchFileViaApi(state.token, state.dataBranch) : await fetchFileLocal();
     state.data = normalize(result.data);
   } catch (e) {
     console.error("load failed", e);
@@ -385,12 +440,12 @@ async function loadAll() {
 
 // ===== Saving: retained optimistic queue with conflict retry =====
 
-function hasUnsavedChanges() {
+function hasUnsavedChanges(): boolean {
   return saveQueue.length > 0;
 }
 
-function applyAndSave(op, message) {
-  if (!state.token) {
+function applyAndSave(op: DataOp, message: string): boolean {
+  if (!state.token || !state.data) {
     showToast("Войдите через ⚙, чтобы редактировать список");
     return false;
   }
@@ -404,20 +459,20 @@ function applyAndSave(op, message) {
   return true;
 }
 
-function enqueueSave(op, message) {
+function enqueueSave(op: DataOp, message: string): void {
   saveQueue.push({ op, message, token: state.token, login: state.login });
   pendingSaves = saveQueue.length;
   updateSaveIndicator();
   void flushSaves();
 }
 
-function waitForSaves() {
+function waitForSaves(): Promise<void> {
   if (saveError) return Promise.reject(saveError);
   if (!saveQueue.length) return Promise.resolve();
   return new Promise((resolve, reject) => saveWaiters.push({ resolve, reject }));
 }
 
-function settleSaveWaiters(error) {
+function settleSaveWaiters(error?: unknown): void {
   if (!error) {
     for (const [key, snapshot] of draftCleanups) {
       if (JSON.stringify(readDraft(key)) === JSON.stringify(snapshot)) writeDraft(key, null);
@@ -429,28 +484,30 @@ function settleSaveWaiters(error) {
     }
   }
   const waiters = saveWaiters.splice(0);
-  for (const waiter of waiters) error ? waiter.reject(error) : waiter.resolve();
+  for (const waiter of waiters) {
+    if (error) waiter.reject(error);
+    else waiter.resolve();
+  }
 }
 
-function rebindPendingSaves(token, login) {
+function rebindPendingSaves(token: string, login: string): boolean {
   if (saveQueue.some((entry) => entry.login !== login)) return false;
   for (const entry of saveQueue) entry.token = token;
   return true;
 }
 
-function retryFailedSaves() {
+function retryFailedSaves(): void {
   if (saveRunning || !saveQueue.length) return;
   saveError = null;
   updateSaveIndicator();
   void flushSaves();
 }
 
-async function flushSaves() {
+async function flushSaves(): Promise<void> {
   if (saveRunning || saveError || !saveQueue.length) return;
   saveRunning = true;
   try {
-    while (saveQueue.length) {
-      const entry = saveQueue[0];
+    for (let entry = saveQueue[0]; entry; entry = saveQueue[0]) {
       if (state.login !== entry.login) throw new Error("Войдите под автором несохранённых изменений");
       const saved = await performSave(entry.op, entry.message, entry.token);
       saveQueue.shift();
@@ -474,25 +531,25 @@ async function flushSaves() {
   }
 }
 
-async function performSave(op, message, token = state.token) {
+async function performSave(op: DataOp, message: string, token: string = state.token): Promise<WatchlistData> {
   if (!token) throw new Error("Нет токена");
-  let lastErr = null;
+  let lastErr: unknown = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
     const branch = await resolveDataBranch(token);
     state.dataBranch = branch;
-    let fresh;
+    let fresh: FetchedFile;
     try { fresh = await fetchFileViaApi(token, branch); }
     catch (error) {
-      if (error.status !== 404) throw error;
+      if (asRecord(error)?.status !== 404) throw error;
       lastErr = error;
       continue;
     }
-    fresh.data = normalize(fresh.data);
-    op(fresh.data);
+    const freshData = normalize(fresh.data);
+    op(freshData);
     const body = {
       message,
-      content: utf8ToBase64(JSON.stringify(fresh.data, null, 2) + "\n"),
-      sha: fresh.sha,
+      content: utf8ToBase64(JSON.stringify(freshData, null, 2) + "\n"),
+      ...(fresh.sha ? { sha: fresh.sha } : {}),
       branch
     };
     const res = await fetchTimed(API_CONTENTS_URL, {
@@ -500,21 +557,21 @@ async function performSave(op, message, token = state.token) {
       headers: { ...apiHeaders(token), "Content-Type": "application/json" },
       cache: "no-store",
       body: JSON.stringify(body)
-    });
-    if (res.ok) return normalize(fresh.data);
-    lastErr = Object.assign(new Error(`GitHub API: HTTP ${res.status}`), { status: res.status });
+    }, (response) => response);
+    if (res.ok) return normalize(freshData);
+    lastErr = httpError(`GitHub API: HTTP ${res.status}`, res.status);
     if (res.status === 404 || res.status === 409 || res.status === 422) continue;
     throw lastErr;
   }
   throw lastErr;
 }
 
-function updateSaveIndicator() {
+function updateSaveIndicator(): void {
   const ind = document.getElementById("save-indicator");
   if (!ind) return;
   clearTimeout(saveHideTimer);
   ind.setAttribute("role", "status");
-  let retry = document.getElementById("retry-save-btn");
+  let retry = document.getElementById("retry-save-btn") as HTMLButtonElement | null;
   if (!retry) {
     retry = el("button", { id: "retry-save-btn", type: "button", class: "btn retry-save-btn", text: "Повторить сохранение" });
     retry.addEventListener("click", retryFailedSaves);
@@ -540,8 +597,8 @@ function updateSaveIndicator() {
 
 // ===== Operations (each is an absolute mutation applied to a data object) =====
 
-function addItem(title, type, metadata = {}) {
-  const item = {
+function addItem(title: string, type: string, metadata: TmdbItemMetadata = {}): boolean {
+  const item: Item = {
     id: newId(),
     title,
     type,
@@ -558,7 +615,7 @@ function addItem(title, type, metadata = {}) {
     updatedBy: state.login
   };
   if (metadata.tmdb) item.tmdb = { ...metadata.tmdb };
-  const op = (data) => {
+  const op: DataOp = (data) => {
     if (data.items.some((entry) => entry.id === item.id || (item.tmdb && entry.tmdb?.id === item.tmdb.id && entry.tmdb?.mediaType === item.tmdb.mediaType))) return;
     data.items.unshift(JSON.parse(JSON.stringify(item)));
   };
@@ -566,17 +623,19 @@ function addItem(title, type, metadata = {}) {
 }
 
 // Undo restores the item exactly as it was before the change (re-inserting it if it was deleted).
-function snapshotOf(item) {
-  return { item: JSON.parse(JSON.stringify(item)), index: state.data.items.indexOf(item) };
+interface ItemSnapshot { item: Item; index: number }
+
+function snapshotOf(item: Item): ItemSnapshot {
+  return { item: JSON.parse(JSON.stringify(item)) as Item, index: state.data?.items.indexOf(item) ?? -1 };
 }
 
-function offerUndo(msg, snap) {
+function offerUndo(msg: string, snap: ItemSnapshot): void {
   showToast(msg, { label: "Отменить", run: () => restoreItem(snap) });
 }
 
-function restoreItem(snap) {
-  const op = (data) => {
-    const restored = JSON.parse(JSON.stringify(snap.item)); // fresh copy: op runs on local and server data
+function restoreItem(snap: ItemSnapshot): void {
+  const op: DataOp = (data) => {
+    const restored = JSON.parse(JSON.stringify(snap.item)) as Item; // fresh copy: op runs on local and server data
     const i = data.items.findIndex((x) => x.id === restored.id);
     if (i >= 0) data.items[i] = restored;
     else data.items.splice(Math.min(Math.max(snap.index, 0), data.items.length), 0, restored);
@@ -584,13 +643,17 @@ function restoreItem(snap) {
   applyAndSave(op, `Undo change of "${snap.item.title}"`);
 }
 
-function toggleWatched(id) {
-  const item = state.data.items.find((i) => i.id === id);
+function findItem(id: string): Item | undefined {
+  return state.data?.items.find((i) => i.id === id);
+}
+
+function toggleWatched(id: string): void {
+  const item = findItem(id);
   if (!item) return;
   const snap = snapshotOf(item);
   const toWatched = !(item.status === "watched" || item.status === "dropped");
   const date = todayStr(), login = state.login;
-  const op = (data) => {
+  const op: DataOp = (data) => {
     const it = data.items.find((i) => i.id === id);
     if (!it) return;
     if (toWatched) { it.status = "watched"; it.watchedAt = date; }
@@ -603,12 +666,12 @@ function toggleWatched(id) {
   }
 }
 
-function rateItem(id, person, star) {
-  const item = state.data.items.find((i) => i.id === id);
+function rateItem(id: string, person: Person, star: number): void {
+  const item = findItem(id);
   if (!item) return;
   // Clicking the current rating again clears it.
   const newRating = item.ratings[person] === star ? null : star;
-  const op = (data) => {
+  const op: DataOp = (data) => {
     const it = data.items.find((i) => i.id === id);
     if (!it) return;
     it.ratings[person] = newRating;
@@ -620,13 +683,13 @@ function rateItem(id, person, star) {
   applyAndSave(op, message);
 }
 
-function setComment(id, person, text) {
-  const item = state.data.items.find((i) => i.id === id);
+function setComment(id: string, person: Person, text: string): void {
+  const item = findItem(id);
   if (!item) return;
   closeEditors();
   if ((item.comments[person] || "") === text) { render(); return; }
   const login = state.login;
-  const op = (data) => {
+  const op: DataOp = (data) => {
     const it = data.items.find((i) => i.id === id);
     if (!it) return;
     it.comments[person] = text;
@@ -637,39 +700,39 @@ function setComment(id, person, text) {
   applyAndSave(op, message);
 }
 
-function closeEditors() {
+function closeEditors(): void {
   state.editingId = null;
   state.commentingId = null;
   state.replyDraft = null;
   state.editingReplyId = null;
 }
 
-function commentAuthor(item, target) {
-  if (PEOPLE.includes(target)) return item.comments[target] ? target : null;
+function commentAuthor(item: Item, target: string): Person | null {
+  if (isPerson(target)) return item.comments[target] ? target : null;
   return item.replies.find((r) => r.id === target)?.by || null;
 }
 
-function addReply(id, to, text) {
-  const item = state.data.items.find((i) => i.id === id);
+function addReply(id: string, to: string, text: string): void {
+  const item = findItem(id);
   const by = state.person;
-  if (!state.token || !PEOPLE.includes(by) || !item) return;
+  if (!state.token || !isPerson(by) || !item) return;
   closeEditors();
   const trimmed = text.trim();
   if (!trimmed || !commentAuthor(item, to)) { render(); return; }
-  const reply = { id: newId(), to, by, text: trimmed, at: new Date().toISOString() };
+  const reply: Reply = { id: newId(), to, by, text: trimmed, at: new Date().toISOString() };
   const login = state.login;
-  const op = (data) => {
+  const op: DataOp = (data) => {
     const it = data.items.find((i) => i.id === id);
     if (!it || !commentAuthor(it, to) || it.replies.some((r) => r.id === reply.id)) return;
     it.replies.push({ ...reply });
     it.updatedBy = login;
   };
-  const target = PEOPLE.includes(to) ? `${to} comment` : "reply";
+  const target = isPerson(to) ? `${to} comment` : "reply";
   applyAndSave(op, `Reply to ${target} on "${item.title}" as ${by}`);
 }
 
-function editReply(id, replyId, text) {
-  const item = state.data.items.find((i) => i.id === id);
+function editReply(id: string, replyId: string, text: string): void {
+  const item = findItem(id);
   const by = state.person;
   const reply = item?.replies.find((r) => r.id === replyId);
   if (!state.token || !reply || reply.by !== by) return;
@@ -678,28 +741,28 @@ function editReply(id, replyId, text) {
   if (!trimmed || trimmed === reply.text) { render(); return; }
   const editedAt = new Date().toISOString();
   const login = state.login;
-  const op = (data) => {
+  const op: DataOp = (data) => {
     const it = data.items.find((i) => i.id === id);
     const r = it?.replies.find((r) => r.id === replyId);
-    if (!r || r.by !== by) return;
+    if (!it || !r || r.by !== by) return;
     r.text = trimmed;
     r.editedAt = editedAt;
     it.updatedBy = login;
   };
-  applyAndSave(op, `Edit reply on "${item.title}"`);
+  applyAndSave(op, `Edit reply on "${item?.title}"`);
 }
 
-function deleteReply(id, replyId) {
-  const item = state.data.items.find((i) => i.id === id);
+function deleteReply(id: string, replyId: string): void {
+  const item = findItem(id);
   const by = state.person;
   const reply = item?.replies.find((r) => r.id === replyId);
   if (!state.token || !reply || reply.by !== by || !confirm("Удалить ответ?")) return;
   closeEditors();
   const login = state.login;
-  const op = (data) => {
+  const op: DataOp = (data) => {
     const it = data.items.find((i) => i.id === id);
     const r = it?.replies.find((r) => r.id === replyId);
-    if (!r || r.by !== by) return;
+    if (!it || !r || r.by !== by) return;
     for (const child of it.replies) {
       if (child.to === replyId) child.to = r.to;
     }
@@ -707,25 +770,24 @@ function deleteReply(id, replyId) {
     delete it.reactions[replyId];
     it.updatedBy = login;
   };
-  applyAndSave(op, `Delete reply on "${item.title}"`);
+  applyAndSave(op, `Delete reply on "${item?.title}"`);
 }
 
-function reactToComment(id, target, kind) {
-  const item = state.data.items.find((i) => i.id === id);
+function reactToComment(id: string, target: string, kind: ReactionKind): void {
+  const item = findItem(id);
   const by = state.person;
-  if (!state.token || !PEOPLE.includes(by) || !item ||
-      !REACTION_KINDS.some((r) => r.key === kind)) return;
+  if (!state.token || !isPerson(by) || !item || !isReactionKind(kind)) return;
   const author = commentAuthor(item, target);
   if (!author || author === by) return;
   const adding = !item.reactions[target]?.[by]?.includes(kind);
   const login = state.login;
-  const op = (data) => {
+  const op: DataOp = (data) => {
     const it = data.items.find((i) => i.id === id);
     if (!it) return;
     const currentAuthor = commentAuthor(it, target);
     if (!currentAuthor || currentAuthor === by) return;
     const map = { ...it.reactions[target] };
-    const given = new Set(map[by]);
+    const given = new Set<ReactionKind>(map[by]);
     if (adding) given.add(kind);
     else given.delete(kind);
     const kinds = REACTION_KINDS.map((r) => r.key).filter((k) => given.has(k));
@@ -735,22 +797,32 @@ function reactToComment(id, target, kind) {
     else delete it.reactions[target];
     it.updatedBy = login;
   };
-  const label = PEOPLE.includes(target) ? `${target} comment` : "reply";
+  const label = isPerson(target) ? `${target} comment` : "reply";
   const message = adding
     ? `Add ${kind} reaction to ${label} on "${item.title}" as ${by}`
     : `Remove ${kind} reaction from ${label} on "${item.title}" as ${by}`;
   applyAndSave(op, message);
 }
 
-function commitEdit(id, fields) {
-  const item = state.data.items.find((i) => i.id === id);
+interface EditFields {
+  title: string;
+  type: string;
+  status: Status;
+  note: string;
+  genres: string[];
+  finishedAt: string | null;
+  dateEdited: boolean;
+}
+
+function commitEdit(id: string, fields: EditFields): void {
+  const item = findItem(id);
   if (!item) return;
   const dateKey = fields.status === "watched" ? "watchedAt" : fields.status === "dropped" ? "droppedAt" : null;
   const transitioned = fields.status !== item.status;
   const date = fields.finishedAt || todayStr();
   const login = state.login;
   state.editingId = null; // close the editor on save
-  const op = (data) => {
+  const op: DataOp = (data) => {
     const it = data.items.find((i) => i.id === id);
     if (!it) return;
     it.title = fields.title;
@@ -765,16 +837,16 @@ function commitEdit(id, fields) {
   applyAndSave(op, `Edit "${fields.title}"`);
 }
 
-function deleteItem(id) {
-  const item = state.data.items.find((i) => i.id === id);
+function deleteItem(id: string): void {
+  const item = findItem(id);
   if (!item) return;
   state.editingId = null;
   const snap = snapshotOf(item);
-  const op = (data) => { data.items = data.items.filter((i) => i.id !== id); };
+  const op: DataOp = (data) => { data.items = data.items.filter((i) => i.id !== id); };
   if (applyAndSave(op, `Delete "${item.title}"`)) offerUndo(`«${item.title}» удалено`, snap);
 }
 
-function addCategory(label, color) {
+function addCategory(label: string, color: string | null): void {
   const trimmed = label.trim();
   if (!trimmed) return;
   const types = getTypes();
@@ -789,8 +861,8 @@ function addCategory(label, color) {
   }
   const chosenColor = color && /^#[0-9a-fA-F]{3,8}$/.test(color.trim())
     ? color.trim()
-    : PALETTE_PRESETS[types.length % PALETTE_PRESETS.length];
-  const op = (data) => {
+    : PALETTE_PRESETS[types.length % PALETTE_PRESETS.length] ?? "#5b6b53";
+  const op: DataOp = (data) => {
     if (!Array.isArray(data.types)) data.types = DEFAULT_TYPES.map((t) => ({ ...t }));
     data.types.push({ key, label: trimmed, color: chosenColor });
   };
@@ -800,12 +872,12 @@ function addCategory(label, color) {
   }
 }
 
-function updateCategoryColor(key, newColor) {
+function updateCategoryColor(key: string, newColor: string): void {
   const trimmed = newColor.trim();
   if (!/^#[0-9a-fA-F]{3,8}$/.test(trimmed)) return;
   const current = getTypes().find((t) => t.key === key);
   if (!current || current.color === trimmed) return;
-  const op = (data) => {
+  const op: DataOp = (data) => {
     if (!Array.isArray(data.types)) data.types = DEFAULT_TYPES.map((t) => ({ ...t }));
     const t = data.types.find((item) => item.key === key);
     if (t) t.color = trimmed;
@@ -815,7 +887,7 @@ function updateCategoryColor(key, newColor) {
   }
 }
 
-function updateCategory(key, newLabel) {
+function updateCategory(key: string, newLabel: string): void {
   const trimmed = newLabel.trim();
   if (!trimmed) {
     showToast("Название категории не может быть пустым");
@@ -824,7 +896,7 @@ function updateCategory(key, newLabel) {
   }
   const current = getTypes().find((t) => t.key === key);
   if (!current || current.label === trimmed) return;
-  const op = (data) => {
+  const op: DataOp = (data) => {
     if (!Array.isArray(data.types)) data.types = DEFAULT_TYPES.map((t) => ({ ...t }));
     const t = data.types.find((item) => item.key === key);
     if (t) t.label = trimmed;
@@ -835,7 +907,7 @@ function updateCategory(key, newLabel) {
   }
 }
 
-function deleteCategory(key) {
+function deleteCategory(key: string): void {
   const types = getTypes();
   if (types.length <= 1) {
     showToast("Нельзя удалить последнюю категорию");
@@ -849,7 +921,7 @@ function deleteCategory(key) {
     : `Удалить категорию «${target.label}»?`;
   if (!confirm(confirmMsg)) return;
 
-  const op = (data) => {
+  const op: DataOp = (data) => {
     if (!Array.isArray(data.types)) data.types = DEFAULT_TYPES.map((t) => ({ ...t }));
     data.types = data.types.filter((item) => item.key !== key);
   };
@@ -860,29 +932,30 @@ function deleteCategory(key) {
 }
 
 // Duplicate check: case-, "ё"- and punctuation-insensitive title match.
-function titleKey(s) {
+function titleKey(s: string): string {
   return s.toLowerCase().replace(/ё/g, "е").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }
 
-function findDuplicate(title) {
+function findDuplicate(title: string): Item | null {
   if (!state.data) return null;
   const key = titleKey(title);
   return state.data.items.find((it) => titleKey(it.title) === key) || null;
 }
 
 // Random pick from "planned", respecting the type filter; avoids repeating the previous pick.
-function pickRandom() {
+function pickRandom(): void {
   if (!state.data) return;
   const pool = state.data.items.filter((it) => it.status === "planned" && (state.typeFilter === "all" || it.type === state.typeFilter));
   if (pool.length === 0) { showToast("В списке «Все» пусто"); return; }
   const candidates = pool.length > 1 ? pool.filter((it) => it.id !== lastPickId) : pool;
   const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  if (!pick) return;
   lastPickId = pick.id;
   // Make sure the picked row is visible.
   state.tab = "list";
   state.statusFilter = "all";
   state.search = "";
-  document.getElementById("search").value = "";
+  byId<HTMLInputElement>("search").value = "";
   state.highlightId = pick.id;
   render();
   showToast(`🎲 ${pick.title}`);
@@ -898,30 +971,30 @@ function pickRandom() {
 
 // ===== Rendering =====
 
-function render() {
+function render(): void {
   persistView();
   renderHeader();
   updateTypeSelects();
-  document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === state.tab));
-  const isList = LIST_TABS.includes(state.tab);
-  document.getElementById("list-tab").hidden = !isList;
-  document.getElementById("stats-tab").hidden = state.tab !== "stats";
-  document.getElementById("add-form").hidden = !state.token || state.tab !== "list";
-  document.getElementById("mobile-add-btn").hidden = !state.token || state.tab !== "list";
-  document.getElementById("chips").hidden = state.tab !== "list";
-  document.getElementById("random-btn").hidden = state.tab !== "list";
+  document.querySelectorAll<HTMLElement>(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === state.tab));
+  const isList = isListTab(state.tab);
+  byId("list-tab").hidden = !isList;
+  byId("stats-tab").hidden = state.tab !== "stats";
+  byId("add-form").hidden = !state.token || state.tab !== "list";
+  byId("mobile-add-btn").hidden = !state.token || state.tab !== "list";
+  byId("chips").hidden = state.tab !== "list";
+  byId("random-btn").hidden = state.tab !== "list";
   if (isList) renderList();
   else renderStats();
 }
 
-function renderHeader() {
-  const line = document.getElementById("auth-status");
+function renderHeader(): void {
+  const line = byId("auth-status");
   line.textContent = state.token && state.login
     ? `Редактирует: ${state.login}${state.person ? ` (${state.person})` : ""}`
     : "Только просмотр";
 }
 
-function sortItems(items, key) {
+function sortItems(items: Item[], key: SortKey): Item[] {
   const arr = items.slice();
   switch (key) {
     case "watched-desc":
@@ -941,25 +1014,27 @@ function sortItems(items, key) {
   return arr;
 }
 
-function updateChips(base) {
-  const counts = { all: 0, planned: 0, watching: 0, watched: 0, dropped: 0 };
-  base.forEach((it) => { if (counts[it.status] != null) counts[it.status]++; });
-  counts.all = counts.planned;
-  document.querySelectorAll("#chips .chip").forEach((chip) => {
-    const key = chip.dataset.key;
-    chip.querySelector(".count").textContent = String(counts[key]);
+function updateChips(base: Item[]): void {
+  const counts: Record<string, number> = { all: 0, planned: 0, watching: 0, watched: 0, dropped: 0 };
+  base.forEach((it) => { counts[it.status] = (counts[it.status] ?? 0) + 1; });
+  counts.all = counts.planned ?? 0;
+  document.querySelectorAll<HTMLElement>("#chips .chip").forEach((chip) => {
+    const key = chip.dataset.key ?? "";
+    const count = chip.querySelector(".count");
+    if (count) count.textContent = String(counts[key]);
     chip.classList.toggle("active", state.statusFilter === key);
   });
-  document.querySelectorAll(".tab-btn .count").forEach((span) => {
-    span.textContent = String(counts[span.parentElement.dataset.tab]);
+  document.querySelectorAll<HTMLElement>(".tab-btn .count").forEach((span) => {
+    span.textContent = String(counts[span.parentElement?.dataset.tab ?? ""]);
   });
 }
 
-function buildCommentEditor(person, text, save, label) {
+function buildCommentEditor(person: Person | "", text: string, save: (text: string) => void, label: string): HTMLElement {
   const identity = state.editingReplyId ? `edit-${state.editingReplyId}` : state.replyDraft ? `reply-${state.replyDraft.itemId}-${state.replyDraft.to}` : `comment-${state.commentingId}-${person}`;
   const key = draftKey("comment", identity);
   const ta = el("textarea", { class: "comment-input", rows: 2, placeholder: label, "aria-label": label });
-  ta.value = readDraft(key)?.text ?? text;
+  const draftText = readDraft(key)?.text;
+  ta.value = typeof draftText === "string" ? draftText : text;
   ta.addEventListener("input", () => writeDraft(key, { text: ta.value }));
   const submit = () => {
     const snapshot = { text: ta.value };
@@ -988,7 +1063,7 @@ function buildCommentEditor(person, text, save, label) {
   return editor;
 }
 
-function buildCommentActions(item, target, author, canEdit, isReply) {
+function buildCommentActions(item: Item, target: string, author: Person, canEdit: boolean, isReply: boolean): HTMLElement {
   const actions = el("div", { class: "comment-controls" });
   const reactions = el("div", { class: "reaction-options", role: "group", "aria-label": "Реакции" });
   const links = el("div", { class: "comment-links" });
@@ -996,7 +1071,7 @@ function buildCommentActions(item, target, author, canEdit, isReply) {
   const map = item.reactions[target] || {};
   for (const kind of REACTION_KINDS) {
     const count = PEOPLE.filter((p) => map[p]?.includes(kind.key)).length;
-    const active = canEdit && map[state.person]?.includes(kind.key);
+    const active = canEdit && isPerson(state.person) && map[state.person]?.includes(kind.key);
     const btn = el("button", {
       type: "button",
       class: `reaction-pill${active ? ` person-${state.person.toLowerCase()}` : ""}`,
@@ -1030,34 +1105,35 @@ function buildCommentActions(item, target, author, canEdit, isReply) {
   return actions;
 }
 
-function replyDate(value) {
+function replyDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  const pad = (n) => String(n).padStart(2, "0");
+  const pad = (n: number): string => String(n).padStart(2, "0");
   return `${pad(date.getDate())}.${pad(date.getMonth() + 1)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-function buildComments(item, canEdit) {
+function buildComments(item: Item, canEdit: boolean): HTMLElement {
   const comments = el("div", { class: "comments" });
   const sorted = item.replies.slice().sort((a, b) => a.at.localeCompare(b.at));
-  const children = new Map();
+  const children = new Map<string, Reply[]>();
   const ids = new Set(item.replies.map((r) => r.id));
   for (const reply of sorted) {
-    if (!children.has(reply.to)) children.set(reply.to, []);
-    children.get(reply.to).push(reply);
+    const list = children.get(reply.to) ?? [];
+    list.push(reply);
+    children.set(reply.to, list);
   }
-  const appendDraft = (node, target) => {
+  const appendDraft = (node: HTMLElement, target: string): void => {
     if (canEdit && state.replyDraft?.itemId === item.id && state.replyDraft.to === target) {
       node.append(buildCommentEditor(state.person, "", (text) => addReply(item.id, target, text), "Ваш ответ…"));
     }
   };
   // Flatten the tree so the visual indent can stop growing after level three.
   // Track reply objects to render malformed cycles/duplicate ids without looping or losing text.
-  const visited = new Set();
-  const appendReplies = (replies, depth) => {
+  const visited = new Set<Reply>();
+  const appendReplies = (replies: Reply[], depth: number): void => {
     const stack = replies.slice().reverse().map((reply) => ({ reply, depth }));
-    while (stack.length) {
-      const { reply, depth } = stack.pop();
+    for (let next = stack.pop(); next; next = stack.pop()) {
+      const { reply, depth } = next;
       if (visited.has(reply)) continue;
       visited.add(reply);
       const node = el("div", {
@@ -1077,7 +1153,7 @@ function buildComments(item, canEdit) {
       appendDraft(node, reply.id);
       comments.append(node);
       const nested = children.get(reply.id) || [];
-      for (let i = nested.length - 1; i >= 0; i--) stack.push({ reply: nested[i], depth: depth + 1 });
+      for (const child of nested.slice().reverse()) stack.push({ reply: child, depth: depth + 1 });
     }
   };
   for (const p of PEOPLE) {
@@ -1115,12 +1191,12 @@ function buildComments(item, canEdit) {
     appendReplies(rootReplies, 1);
   }
   // Orphans follow both roots. Cycles have no root, so start any remaining component here as well.
-  appendReplies(sorted.filter((r) => !PEOPLE.includes(r.to) && !ids.has(r.to)), 1);
+  appendReplies(sorted.filter((r) => !isPerson(r.to) && !ids.has(r.to)), 1);
   for (const reply of sorted) if (!visited.has(reply)) appendReplies([reply], 1);
   return comments;
 }
 
-function buildItemRow(item) {
+function buildItemRow(item: Item): HTMLElement {
   if (state.editingId === item.id && state.token) return buildEditor(item);
 
   const isFinished = item.status === "watched" || item.status === "dropped";
@@ -1132,7 +1208,7 @@ function buildItemRow(item) {
   if (!canEdit) cb.disabled = true;
   cb.addEventListener("change", () => toggleWatched(item.id));
 
-  const children = [el("label", { class: "check-wrap" }, cb)];
+  const children: HTMLElement[] = [el("label", { class: "check-wrap" }, cb)];
   children.push(el("span", { class: "item-title", text: item.title }));
   const typeColor = getTypeColor(item.type);
   children.push(el("span", { class: "badge badge-type", style: `--cat-color: ${typeColor}`, text: getTypeLabel(item.type) }));
@@ -1147,7 +1223,7 @@ function buildItemRow(item) {
   if (item.genres?.length) details.append(el("span", { class: "item-genres", text: item.genres.join(" · ") }));
   if (item.tmdb && ["movie", "tv"].includes(item.tmdb.mediaType) && Number.isSafeInteger(item.tmdb.id) && item.tmdb.id > 0) {
     const meta = item.tmdb;
-    children.push(el("span", { class: "item-meta", text: [meta.year, meta.runtime > 0 ? `${meta.runtime} мин${meta.mediaType === "tv" ? " / серия" : ""}` : ""].filter(Boolean).join(" · ") }));
+    children.push(el("span", { class: "item-meta", text: [meta.year, meta.runtime != null && meta.runtime > 0 ? `${meta.runtime} мин${meta.mediaType === "tv" ? " / серия" : ""}` : ""].filter(Boolean).join(" · ") }));
     const info = el("div", { class: "catalog-info" });
     if (typeof meta.posterPath === "string" && /^\/[a-zA-Z0-9_-]+\.(jpg|png|webp)$/.test(meta.posterPath)) {
       const image = el("img", { class: "catalog-poster", src: `https://image.tmdb.org/t/p/w185${meta.posterPath}`, alt: `Постер: ${item.title}`, loading: "lazy", width: 92, height: 138 });
@@ -1199,15 +1275,16 @@ function buildItemRow(item) {
   return el("div", { class: `item-row${state.highlightId === item.id ? " highlight" : ""}`, "data-id": item.id }, ...children);
 }
 
-function buildEditor(item) {
+function buildEditor(item: Item): HTMLElement {
   const key = draftKey("item", item.id);
   const draft = readDraft(key);
   const titleInput = el("input", { type: "text", class: "edit-title", value: item.title, "aria-label": "Название" });
   const typeSelect = el("select", { class: "edit-type", "aria-label": "Тип" },
     ...getTypes().map((t) => el("option", { value: t.key, text: t.label })));
   typeSelect.value = item.type;
-  if (!typeSelect.value && getTypes().length > 0) {
-    typeSelect.value = getTypes()[0].key;
+  const firstType = getTypes()[0];
+  if (!typeSelect.value && firstType) {
+    typeSelect.value = firstType.key;
   }
 
   const statusSelect = el("select", { class: "edit-status", "aria-label": "Статус" },
@@ -1222,9 +1299,9 @@ function buildEditor(item) {
   const dateField = el("label", { class: "edit-date-field" }, dateLabel, dateInput,
     el("small", { text: "При смене статуса дата ставится автоматически. Можно исправить вручную." }));
   let dateEdited = false;
-  const updateDateField = () => {
+  const updateDateField = (): void => {
     const status = statusSelect.value;
-    const key = status === "watched" ? "watchedAt" : status === "dropped" ? "droppedAt" : null;
+    const key: "watchedAt" | "droppedAt" | null = status === "watched" ? "watchedAt" : status === "dropped" ? "droppedAt" : null;
     dateField.hidden = !key;
     dateLabel.textContent = status === "dropped" ? "Дата отказа от просмотра" : "Дата просмотра";
     dateInput.setAttribute("aria-label", dateLabel.textContent);
@@ -1234,14 +1311,15 @@ function buildEditor(item) {
   updateDateField();
   statusSelect.addEventListener("change", updateDateField);
   dateInput.addEventListener("input", () => { dateEdited = true; });
-  if (draft && typeof draft === "object") {
-    titleInput.value = draft.title ?? item.title;
-    typeSelect.value = getTypes().some((t) => t.key === draft.type) ? draft.type : item.type;
-    statusSelect.value = STATUSES.includes(draft.status) ? draft.status : item.status;
-    noteInput.value = draft.note ?? item.note;
-    genresInput.value = draft.genres ?? (item.genres || []).join(", ");
+  if (draft) {
+    const text = (value: unknown, fallback: string): string => typeof value === "string" ? value : fallback;
+    titleInput.value = text(draft.title, item.title);
+    typeSelect.value = typeof draft.type === "string" && getTypes().some((t) => t.key === draft.type) ? draft.type : item.type;
+    statusSelect.value = isStatus(draft.status) ? draft.status : item.status;
+    noteInput.value = text(draft.note, item.note);
+    genresInput.value = text(draft.genres, (item.genres || []).join(", "));
     updateDateField();
-    dateInput.value = draft.date ?? dateInput.value;
+    dateInput.value = text(draft.date, dateInput.value);
     dateEdited = !!draft.dateEdited;
   }
   const snapshot = () => ({ title: titleInput.value, type: typeSelect.value, status: statusSelect.value, note: noteInput.value, genres: genresInput.value, date: dateInput.value, dateEdited });
@@ -1263,7 +1341,7 @@ function buildEditor(item) {
     commitEdit(item.id, {
       title: t,
       type: typeSelect.value,
-      status: statusSelect.value,
+      status: isStatus(statusSelect.value) ? statusSelect.value : item.status,
       note: noteInput.value.trim(),
       genres: genresInput.value.split(","),
       finishedAt: dateInput.value || null,
@@ -1282,15 +1360,15 @@ function buildEditor(item) {
   );
 }
 
-function buildSection(items) {
+function buildSection(items: Item[]): HTMLElement {
   const list = el("div", { class: "item-list" });
   if (items.length === 0) list.append(el("div", { class: "state-msg", text: "Ничего не найдено" }));
   else items.forEach((it) => list.append(buildItemRow(it)));
   return list;
 }
 
-function renderList() {
-  const box = document.getElementById("items");
+function renderList(): void {
+  const box = byId("items");
   box.textContent = "";
 
   if (state.loading) { box.append(el("div", { class: "state-msg", text: "Загрузка…" })); return; }
@@ -1312,7 +1390,7 @@ function renderList() {
   updateChips(base);
   const sorted = sortItems(base, state.sort);
 
-  const status = state.tab !== "list" ? state.tab : state.statusFilter === "watching" ? "watching" : "planned";
+  const status: Status = state.tab === "watched" || state.tab === "dropped" ? state.tab : state.statusFilter === "watching" ? "watching" : "planned";
   box.append(buildSection(sorted.filter((it) => it.status === status)));
 }
 
@@ -1321,39 +1399,70 @@ function renderList() {
 const MONTH_NAMES = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 const MONTH_FULL = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
 
-function statsFmt(value) {
+function statsFmt(value: number | null | undefined): string {
   return value == null ? "—" : value.toFixed(1).replace(".", ",");
 }
 
-function computeMonths(items, today = new Date()) {
-  const months = Array.from({ length: 12 }, (_, i) => {
+interface StatsMonth { key: string; month: number; year: number; count: number; items: Item[] }
+type RatedItem = Item & { ratings: { S: number; L: number } };
+interface GenreStats {
+  label: string;
+  count: number;
+  people: Record<Person, { count: number; average: number | null }>;
+  paired: number;
+  agreement: number | null;
+}
+interface CategoryStats extends CategoryType { total: number; watched: number }
+interface Stats {
+  values: Record<Person, number[]>;
+  counts: Record<Person, number[]>;
+  averages: Record<Person, number | null>;
+  both: RatedItem[];
+  groups: Map<string, RatedItem[]>;
+  genres: GenreStats[];
+  favoriteMonth: { label: string; count: number; items: RatedItem[] };
+  close: number;
+  exact: number;
+  statuses: Record<Status, number>;
+  months: StatsMonth[];
+  diffs: RatedItem[];
+  top: RatedItem[];
+  categories: CategoryStats[];
+}
+
+function computeMonths(items: Item[], today = new Date()): StatsMonth[] {
+  const months = Array.from({ length: 12 }, (_, i): StatsMonth => {
     const date = new Date(today.getFullYear(), today.getMonth() - 11 + i, 1);
     return { key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`, month: date.getMonth(), year: date.getFullYear(), count: 0, items: [] };
   });
   items.forEach((item) => {
     if (item.status !== "watched" || !item.watchedAt) return;
-    const month = months.find((m) => m.key === item.watchedAt.slice(0, 7));
+    const watchedMonth = item.watchedAt.slice(0, 7);
+    const month = months.find((m) => m.key === watchedMonth);
     if (month) { month.count++; month.items.push(item); }
   });
   return months;
 }
 
-function computeStats(items, types, today = new Date()) {
-  const values = {}, counts = {}, averages = {};
-  for (const person of PEOPLE) {
-    values[person] = items.map((item) => item.ratings?.[person]).filter((r) => Number.isInteger(r) && r >= 1 && r <= 10);
-    counts[person] = Array(11).fill(0);
-    values[person].forEach((r) => counts[person][r]++);
-    averages[person] = values[person].length ? values[person].reduce((sum, r) => sum + r, 0) / values[person].length : null;
-  }
-  const valid = (r) => Number.isInteger(r) && r >= 1 && r <= 10;
-  const both = items.filter((item) => valid(item.ratings?.S) && valid(item.ratings?.L));
-  const newer = (a, b) => (b.watchedAt || "").localeCompare(a.watchedAt || "");
-  const groups = new Map();
+function computeStats(items: Item[], types: CategoryType[], today = new Date()): Stats {
+  const valid = (r: unknown): r is number => typeof r === "number" && Number.isInteger(r) && r >= 1 && r <= 10;
+  const isRated = (item: Item): item is RatedItem => valid(item.ratings?.S) && valid(item.ratings?.L);
+  const perPerson = <T>(fn: (person: Person) => T): Record<Person, T> => ({ S: fn("S"), L: fn("L") });
+  const values = perPerson((person) => items.map((item) => item.ratings?.[person]).filter(valid));
+  const counts = perPerson((person) => {
+    const histogram: number[] = Array(11).fill(0);
+    values[person].forEach((r) => { histogram[r] = (histogram[r] ?? 0) + 1; });
+    return histogram;
+  });
+  const averages = perPerson((person) => values[person].length ? values[person].reduce((sum, r) => sum + r, 0) / values[person].length : null);
+  const both = items.filter(isRated);
+  const newer = (a: Item, b: Item): number => (b.watchedAt || "").localeCompare(a.watchedAt || "");
+  const groups = new Map<string, RatedItem[]>();
   both.forEach((item) => {
     const key = `${item.ratings.S}:${item.ratings.L}`;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(item);
+    const group = groups.get(key) ?? [];
+    group.push(item);
+    groups.set(key, group);
   });
   // Preserve items whose category is no longer in the configured list.
   const categories = types.map((type) => ({ ...type }));
@@ -1362,32 +1471,34 @@ function computeStats(items, types, today = new Date()) {
   });
   const watched = items.filter((item) => item.status === "watched");
   const watchedBoth = both.filter((item) => item.status === "watched");
-  const genreGroups = new Map();
+  const genreGroups = new Map<string, { label: string; items: Item[] }>();
   watched.forEach((item) => {
-    const seen = new Set();
+    const seen = new Set<string>();
     for (const raw of Array.isArray(item.genres) ? item.genres : []) {
       if (typeof raw !== "string" || !raw.trim()) continue;
       const label = raw.trim(), key = label.toLocaleLowerCase("ru-RU");
       if (seen.has(key)) continue;
       seen.add(key);
-      if (!genreGroups.has(key)) genreGroups.set(key, { label, items: [] });
-      genreGroups.get(key).items.push(item);
+      const group = genreGroups.get(key) ?? { label, items: [] };
+      group.items.push(item);
+      genreGroups.set(key, group);
     }
   });
-  const genres = [...genreGroups.values()].map((genre) => {
-    const paired = genre.items.filter((item) => valid(item.ratings?.S) && valid(item.ratings?.L));
-    const people = Object.fromEntries(PEOPLE.map((person) => {
+  const genres = [...genreGroups.values()].map((genre): GenreStats => {
+    const paired = genre.items.filter(isRated);
+    const people = perPerson((person) => {
       const ratings = genre.items.map((item) => item.ratings?.[person]).filter(valid);
-      return [person, { count: ratings.length, average: ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : null }];
-    }));
+      return { count: ratings.length, average: ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : null };
+    });
     return { label: genre.label, count: genre.items.length, people, paired: paired.length,
       agreement: paired.length ? 100 * (1 - paired.reduce((sum, item) => sum + Math.abs(item.ratings.S - item.ratings.L), 0) / paired.length / 9) : null };
   }).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "ru"));
   const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
   const currentDate = `${currentMonth}-${String(today.getDate()).padStart(2, "0")}`;
   const monthly = watchedBoth.filter((item) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(item.watchedAt || "") || item.watchedAt.slice(0, 7) !== currentMonth || item.watchedAt > currentDate) return false;
-    const day = Number(item.watchedAt.slice(8)), maxDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const watchedAt = item.watchedAt || "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(watchedAt) || watchedAt.slice(0, 7) !== currentMonth || watchedAt > currentDate) return false;
+    const day = Number(watchedAt.slice(8)), maxDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
     return day >= 1 && day <= maxDay;
   });
   const bestMonthly = Math.max(0, ...monthly.map((item) => item.ratings.S + item.ratings.L));
@@ -1397,7 +1508,7 @@ function computeStats(items, types, today = new Date()) {
       items: monthly.filter((item) => item.ratings.S + item.ratings.L === bestMonthly).sort((a, b) => newer(a, b) || a.title.localeCompare(b.title, "ru")) },
     close: both.filter((item) => Math.abs(item.ratings.S - item.ratings.L) <= 1).length,
     exact: both.filter((item) => item.ratings.S === item.ratings.L).length,
-    statuses: Object.fromEntries(STATUSES.map((status) => [status, items.filter((item) => item.status === status).length])),
+    statuses: { planned: 0, watching: 0, watched: 0, dropped: 0, ...Object.fromEntries(STATUSES.map((status) => [status, items.filter((item) => item.status === status).length])) },
     months: computeMonths(items, today),
     diffs: watchedBoth.filter((item) => item.ratings.S !== item.ratings.L).sort((a, b) => Math.abs(b.ratings.S - b.ratings.L) - Math.abs(a.ratings.S - a.ratings.L) || newer(a, b)).slice(0, 5),
     top: [...both].sort((a, b) => (b.ratings.S + b.ratings.L) - (a.ratings.S + a.ratings.L) || newer(a, b)).slice(0, 10),
@@ -1405,31 +1516,33 @@ function computeStats(items, types, today = new Date()) {
   };
 }
 
-function statsSvg(tag, attrs, ...children) {
+type SvgChild = Node | string | number | null | undefined;
+
+function statsSvg<K extends keyof SVGElementTagNameMap>(tag: K, attrs?: Record<string, string | number> | null, ...children: (SvgChild | SvgChild[])[]): SVGElementTagNameMap[K] {
   const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
   for (const [key, value] of Object.entries(attrs || {})) node.setAttribute(key, String(value));
-  children.flat().forEach((child) => { if (child != null) node.append(child.nodeType ? child : document.createTextNode(String(child))); });
+  children.flat().forEach((child) => { if (child != null) node.append(child instanceof Node ? child : document.createTextNode(String(child))); });
   return node;
 }
 
-function statsChart(width, height, label, interactive = false) {
+function statsChart(width: number, height: number, label: string, interactive = false): SVGSVGElement {
   return statsSvg("svg", { width: "100%", viewBox: `0 0 ${width} ${height}`, role: interactive ? "group" : "img", "aria-label": label });
 }
 
-function statsWho(person, text = person) {
+function statsWho(person: Person, text: string = person): HTMLElement {
   return el("b", { class: `who ${person.toLowerCase()}`, text });
 }
 
-function statsBadge(item) {
+function statsBadge(item: Item): HTMLElement {
   const type = getTypes().find((t) => t.key === item.type);
   return el("span", { class: "badge", style: `--c:${type?.color || "var(--muted)"}`, text: type?.label || item.type || "Без типа" });
 }
 
-function statsEmpty(text) {
+function statsEmpty(text: string): HTMLElement {
   return el("p", { class: "empty", text });
 }
 
-function statsSection(key, title, note) {
+function statsSection(key: string, title: string, note?: string | null): { section: HTMLElement; body: HTMLElement } {
   const body = el("div", { class: "sec-body", id: key });
   const section = el("section", { class: `card sec-${key}`, "aria-labelledby": `h-${key}` },
     el("h2", { class: "sec-title", id: `h-${key}`, text: title }),
@@ -1437,11 +1550,11 @@ function statsSection(key, title, note) {
   return { section, body };
 }
 
-function statsLegend(entries) {
+function statsLegend(entries: [string, string][]): HTMLElement {
   return el("div", { class: "legend" }, ...entries.map(([label, color]) => el("span", {}, el("i", { class: "sw", style: `background:${color}`, "aria-hidden": "true" }), label)));
 }
 
-function statsTooltip(tip, node, content) {
+function statsTooltip(tip: HTMLElement, node: HTMLElement | SVGElement, content: () => Node[]): void {
   const hide = () => { tip.hidden = true; };
   const show = () => {
     tip.replaceChildren(...content());
@@ -1455,19 +1568,19 @@ function statsTooltip(tip, node, content) {
   node.addEventListener("focus", show);
   node.addEventListener("pointerleave", hide);
   node.addEventListener("blur", hide);
-  node.addEventListener("keydown", (event) => { if (event.key === "Escape") hide(); });
+  node.addEventListener("keydown", (event: Event) => { if (event instanceof KeyboardEvent && event.key === "Escape") hide(); });
 }
 
-function renderStatsHero(items, data) {
-  const card = (name, label, ...children) => el("div", { class: `card hero-${name}` }, el("div", { class: "kpi-label", text: label }), ...children);
-  const statuses = [
+function renderStatsHero(items: Item[], data: Stats): HTMLElement {
+  const card = (name: string, label: string, ...children: ElChild[]): HTMLElement => el("div", { class: `card hero-${name}` }, el("div", { class: "kpi-label", text: label }), ...children);
+  const statuses: [Status, string, string][] = [
     ["watched", "Просмотрено", "var(--accent)"], ["watching", "Смотрим", "color-mix(in srgb,var(--accent) 50%,transparent)"],
     ["planned", "В планах", "var(--track)"], ["dropped", "Брошено", "var(--danger)"]
   ];
   const watched = card("watched", "Просмотрено", el("div", { class: "kpi" }, data.statuses.watched, el("small", { text: ` из ${items.length}` })));
   if (items.length) watched.append(el("div", { class: "status-bar", role: "img", "aria-label": statuses.map(([key, label]) => `${label}: ${data.statuses[key]}`).join(", ") },
     ...statuses.filter(([key]) => data.statuses[key]).map(([key, label, color]) => el("i", { style: `flex:${data.statuses[key]};background:${color}`, title: `${label}: ${data.statuses[key]}` }))),
-    statsLegend(statuses.map(([key, label, color]) => [`${label} ${data.statuses[key]}`, color])));
+    statsLegend(statuses.map(([key, label, color]): [string, string] => [`${label} ${data.statuses[key]}`, color])));
   else watched.append(statsEmpty("Список пока пуст"));
   const average = card("avg", "Средняя оценка");
   if (data.values.S.length || data.values.L.length) {
@@ -1498,21 +1611,21 @@ function renderStatsHero(items, data) {
   return el("section", { class: "hero", "aria-label": "Главное" }, watched, average, match, both);
 }
 
-function renderStatsHistogram(data, tip) {
-  const mode = (person) => data.counts[person].indexOf(Math.max(...data.counts[person]));
+function renderStatsHistogram(data: Stats, tip: HTMLElement): HTMLElement {
+  const mode = (person: Person): number => data.counts[person].indexOf(Math.max(...data.counts[person]));
   const phrases = PEOPLE.filter((person) => data.values[person].length).map((person, i) => `${person}${i ? " —" : " ставит"} ${mode(person)}`);
   const { section, body } = statsSection("hist", "Распределение оценок", phrases.length ? `Чаще всего ${phrases.join(", ")}` : null);
   if (!phrases.length) { body.append(statsEmpty("Пока нет оценок")); return section; }
   const chart = statsChart(440, 220, "Распределение оценок S и L от 1 до 10");
   const max = Math.max(...data.counts.S, ...data.counts.L), step = max <= 4 ? 1 : Math.ceil(max / 4), ceiling = Math.ceil(max / step) * step;
-  const y = (n) => 182 - n / ceiling * 160;
+  const y = (n: number): number => 182 - n / ceiling * 160;
   for (let n = 0; n <= ceiling; n += step) chart.append(statsSvg("line", { class: "grid", x1: 26, x2: 438, y1: y(n), y2: y(n) }), statsSvg("text", { class: "ax", x: 18, y: y(n) + 4, "text-anchor": "end" }, n));
   for (let rating = 1; rating <= 10; rating++) {
     const cx = 26 + (rating - 0.5) * 41.2;
     const group = statsSvg("g", { class: "col", tabindex: 0, "aria-label": `Оценка ${rating}: S ${data.counts.S[rating]}, L ${data.counts.L[rating]}` });
     group.append(statsSvg("rect", { class: "col-bg", x: cx - 19, y: 4, width: 38, height: 198, rx: 6 }));
     PEOPLE.forEach((person, index) => {
-      const count = data.counts[person][rating], x = cx + (index ? 1 : -15);
+      const count = data.counts[person][rating] ?? 0, x = cx + (index ? 1 : -15);
       if (count) group.append(statsSvg("rect", { x, y: y(count), width: 14, height: 182 - y(count), rx: 3, fill: `var(--${person.toLowerCase()})` }), statsSvg("text", { class: "val", x: x + 7, y: y(count) - 5, "text-anchor": "middle", fill: `var(--${person.toLowerCase()})` }, count));
     });
     group.append(statsSvg("text", { class: "ax-strong", x: cx, y: 201, "text-anchor": "middle" }, rating));
@@ -1524,7 +1637,7 @@ function renderStatsHistogram(data, tip) {
   return section;
 }
 
-function renderStatsMonths(data, tip) {
+function renderStatsMonths(data: Stats, tip: HTMLElement): HTMLElement {
   const total = data.months.reduce((sum, month) => sum + month.count, 0);
   const best = data.months.reduce((a, b) => b.count > a.count ? b : a);
   const note = total ? `${total} за 12 месяцев · больше всего — ${MONTH_FULL[best.month]} (${best.count}) · текущий месяц ещё идёт` : "Последние 12 календарных месяцев · текущий месяц ещё идёт";
@@ -1547,12 +1660,12 @@ function renderStatsMonths(data, tip) {
   return section;
 }
 
-function renderStatsScatter(data, tip) {
+function renderStatsScatter(data: Stats, tip: HTMLElement): HTMLElement {
   const { section, body } = statsSection("scatter", "S против L", "Каждая точка — тайтл, оценённый обоими. Нажмите на точку, чтобы увидеть названия.");
   if (!data.both.length) { body.append(statsEmpty("Пока нет общих оценок")); return section; }
   const chart = statsChart(440, 440, "Оценка S по горизонтали, оценка L по вертикали. Выберите точку, чтобы увидеть тайтлы", true);
-  const x = (value) => 30 + (value - 0.5) * 40, y = (value) => 404 - (value - 0.5) * 39.4;
-  const band = [[0.5, 1.5], [9.5, 10.5], [10.5, 10.5], [10.5, 9.5], [1.5, 0.5], [0.5, 0.5]];
+  const x = (value: number): number => 30 + (value - 0.5) * 40, y = (value: number): number => 404 - (value - 0.5) * 39.4;
+  const band: [number, number][] = [[0.5, 1.5], [9.5, 10.5], [10.5, 10.5], [10.5, 9.5], [1.5, 0.5], [0.5, 0.5]];
   chart.append(statsSvg("polygon", { points: band.map(([s, l]) => `${x(s)},${y(l)}`).join(" "), fill: "var(--accent)", "fill-opacity": 0.1 }));
   for (let rating = 1; rating <= 10; rating++) chart.append(
     statsSvg("line", { class: "grid", x1: x(rating), x2: x(rating), y1: 10, y2: 404 }), statsSvg("line", { class: "grid", x1: 30, x2: 430, y1: y(rating), y2: y(rating) }),
@@ -1564,9 +1677,11 @@ function renderStatsScatter(data, tip) {
     statsSvg("text", { class: "ax", x: 230, y: 438, "text-anchor": "middle" }, "оценка S →"),
     statsSvg("text", { class: "ax", transform: "translate(9 207) rotate(-90)", "text-anchor": "middle" }, "оценка L →"));
   const detail = el("div", { class: "scatter-detail", id: "scatter-detail", hidden: true, role: "region", "aria-label": "Выбранные тайтлы", "aria-live": "polite" });
-  const points = [];
+  const points: SVGGElement[] = [];
   [...data.groups.values()].sort((a, b) => b.length - a.length).forEach((items) => {
-    const { S: s, L: l } = items[0].ratings, color = s > l ? "var(--s)" : l > s ? "var(--l)" : "var(--accent)";
+    const first = items[0];
+    if (!first) return;
+    const { S: s, L: l } = first.ratings, color = s > l ? "var(--s)" : l > s ? "var(--l)" : "var(--accent)";
     const point = statsSvg("g", { class: "pt", tabindex: 0, role: "button", "aria-label": `S ${s}, L ${l}: ${items.map((item) => item.title).join(", ")}. Показать тайтлы`, "aria-controls": "scatter-detail", "aria-expanded": "false", "fill-opacity": 0.5 });
     point.append(statsSvg("circle", { cx: x(s), cy: y(l), r: Math.min(18, 7 + (items.length - 1) * 4), fill: color, stroke: color, "stroke-width": 1.5 }));
     if (items.length > 1) point.append(statsSvg("text", { x: x(s), y: y(l) + 4, "text-anchor": "middle", "font-size": 11, "font-weight": 700, fill: "var(--text)", "fill-opacity": 1 }, items.length));
@@ -1578,7 +1693,7 @@ function renderStatsScatter(data, tip) {
       detail.hidden = false;
     };
     point.addEventListener("click", select);
-    point.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } });
+    point.addEventListener("keydown", (event: KeyboardEvent) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } });
     statsTooltip(tip, point, () => items.map((item) => el("div", { class: "tip-row" }, el("span", { text: item.title }), el("span", { class: "tip-r" }, statsWho("S", `S ${s}`), statsWho("L", `L ${l}`)))));
     points.push(point); chart.append(point);
   });
@@ -1587,19 +1702,19 @@ function renderStatsScatter(data, tip) {
   return section;
 }
 
-function statsItemButton(item) {
+function statsItemButton(item: Item): HTMLElement {
   const button = el("button", { type: "button", class: "title stats-title-button", text: item.title, title: item.title, "aria-label": `Открыть обсуждение: ${item.title}` });
   button.addEventListener("click", () => {
     closeEditors();
-    state.tab = LIST_TABS.includes(item.status) ? item.status : "list";
+    state.tab = item.status === "watched" || item.status === "dropped" ? item.status : "list";
     state.statusFilter = item.status === "watching" ? "watching" : "all";
     state.typeFilter = "all";
     state.search = "";
-    document.getElementById("search").value = "";
+    byId<HTMLInputElement>("search").value = "";
     state.highlightId = item.id;
     openItems.add(item.id);
     render();
-    const row = document.querySelector(`.item-row[data-id="${CSS.escape(item.id)}"]`);
+    const row = document.querySelector<HTMLElement>(`.item-row[data-id="${CSS.escape(item.id)}"]`);
     if (row) { row.setAttribute("tabindex", "-1"); row.focus({ preventScroll: true }); row.scrollIntoView({ behavior: "smooth", block: "center" }); }
     clearTimeout(highlightTimer);
     highlightTimer = setTimeout(() => {
@@ -1610,7 +1725,7 @@ function statsItemButton(item) {
   return button;
 }
 
-function renderStatsGenres(data) {
+function renderStatsGenres(data: Stats): HTMLElement {
   const { section, body } = statsSection("genres", "Совпадение по жанрам", "Только просмотренное. Один тайтл может входить в несколько жанров.");
   if (!data.genres.length) { body.append(statsEmpty("Добавьте жанры в редакторе просмотренных тайтлов — здесь появится сравнение ваших вкусов.")); return section; }
   body.append(el("div", { class: "genre-grid" }, ...data.genres.map((genre) => {
@@ -1629,7 +1744,7 @@ function renderStatsGenres(data) {
   return section;
 }
 
-function renderStatsFavorite(data) {
+function renderStatsFavorite(data: Stats): HTMLElement {
   const favorite = data.favoriteMonth;
   const { section, body } = statsSection("favorite", "Фаворит месяца", `${favorite.label} · по средней оценке двоих`);
   if (!favorite.items.length) { body.append(statsEmpty("В этом месяце пока нет просмотренных тайтлов с датой и оценками обоих.")); return section; }
@@ -1641,11 +1756,11 @@ function renderStatsFavorite(data) {
   return section;
 }
 
-function renderStatsDiffs(data) {
+function renderStatsDiffs(data: Stats): HTMLElement {
   const { section, body } = statsSection("diff", "Самые спорные просмотры", "Пять самых больших расхождений среди просмотренного. Нажмите на название, чтобы открыть обсуждение.");
   body.id = "diffs";
   if (!data.diffs.length) { body.append(statsEmpty("Пока нет просмотренных тайтлов с разными оценками обоих.")); return section; }
-  const position = (value) => (value - 1) / 9 * 100;
+  const position = (value: number): number => (value - 1) / 9 * 100;
   data.diffs.forEach((item) => {
     const { S: s, L: l } = item.ratings;
     const scale = el("div", { class: "scale", "aria-hidden": "true" }, el("div", { class: "scale-track" }));
@@ -1659,7 +1774,7 @@ function renderStatsDiffs(data) {
   return section;
 }
 
-function renderStatsCategories(items, data) {
+function renderStatsCategories(items: Item[], data: Stats): HTMLElement {
   const { section, body } = statsSection("cats", "По типам", "Длина отрезка — всего в списке, заливка — просмотрено");
   if (!items.length) { body.append(statsEmpty("Список пока пуст")); return section; }
   body.append(el("div", { class: "seg", role: "img", "aria-label": data.categories.map((type) => `${type.label}: ${type.watched} из ${type.total}`).join(", ") },
@@ -1668,10 +1783,10 @@ function renderStatsCategories(items, data) {
   return section;
 }
 
-function renderStatsTop(data) {
+function renderStatsTop(data: Stats): HTMLElement {
   const { section, body } = statsSection("top", "Топ по средней оценке", "Только тайтлы, оценённые обоими");
   if (!data.top.length) { body.append(statsEmpty("Пока нет общих оценок")); return section; }
-  body.style.setProperty("--top-rows", Math.ceil(data.top.length / 2));
+  body.style.setProperty("--top-rows", String(Math.ceil(data.top.length / 2)));
   data.top.forEach((item, index) => body.append(el("div", { class: "top-row" }, el("span", { class: "rank", text: index + 1 }),
     el("div", { class: "top-main" }, el("span", { class: "title", text: item.title, title: item.title }), statsBadge(item)),
     el("div", { class: "mini-pair", "aria-label": `S ${item.ratings.S}, L ${item.ratings.L}` }, ...PEOPLE.map((person) => el("div", { class: `mini ${person.toLowerCase()}`, "aria-hidden": "true" }, el("b", { text: person }), el("span", { class: "mini-bar" }, el("i", { style: `width:${item.ratings[person] * 10}%` })), el("span", { text: item.ratings[person] })))),
@@ -1679,8 +1794,8 @@ function renderStatsTop(data) {
   return section;
 }
 
-function renderStats() {
-  const box = document.getElementById("stats");
+function renderStats(): void {
+  const box = byId("stats");
   box.textContent = "";
   if (state.loading) { box.append(el("div", { class: "state-msg", text: "Загрузка…" })); return; }
   if (state.error) { box.append(el("div", { class: "state-msg error", text: state.error })); return; }
@@ -1692,9 +1807,11 @@ function renderStats() {
 
 // ===== Toast =====
 
+interface ToastAction { label: string; run: () => void }
+
 // action: optional { label, run } rendered as a button inside the toast (e.g. undo).
-function showToast(msg, action) {
-  const t = document.getElementById("toast");
+function showToast(msg: string, action?: ToastAction): void {
+  const t = byId("toast");
   t.textContent = "";
   t.append(el("span", { class: "toast-text", text: msg }));
   if (action) {
@@ -1714,51 +1831,52 @@ function showToast(msg, action) {
 
 // ===== Settings dialog =====
 
-function openSettings() {
-  const dlg = document.getElementById("settings-dialog");
+function openSettings(): void {
+  const dlg = byId<HTMLDialogElement>("settings-dialog");
   let branchStatus = document.getElementById("data-branch-status");
   if (!branchStatus) {
     branchStatus = el("p", { id: "data-branch-status", class: "settings-text", style: "color: var(--muted)" });
-    dlg.querySelector("h2").after(branchStatus);
+    dlg.querySelector("h2")?.after(branchStatus);
   }
   branchStatus.textContent = `Данные: ${state.dataBranch || "опубликованная версия GitHub Pages"}`;
-  document.getElementById("settings-error").textContent = "";
+  byId("settings-error").textContent = "";
   dlg.showModal();
 }
 
-async function saveToken() {
-  const input = document.getElementById("token-input");
-  const errEl = document.getElementById("settings-error");
+async function saveToken(): Promise<void> {
+  const input = byId<HTMLInputElement>("token-input");
+  const errEl = byId("settings-error");
   const token = input.value.trim() || state.token;
   if (!token) { errEl.textContent = "Введите токен."; return; }
   errEl.textContent = "";
   try {
     // Verify the token and learn our login.
     const res = await fetch("https://api.github.com/user", { headers: apiHeaders(token), cache: "no-store" });
-    if (!res.ok) throw Object.assign(new Error(`GitHub API: HTTP ${res.status}`), { status: res.status });
-    const user = await res.json();
-    if (!rebindPendingSaves(token, user.login || "")) {
+    if (!res.ok) throw httpError(`GitHub API: HTTP ${res.status}`, res.status);
+    const user = asRecord(await res.json());
+    const login = typeof user?.login === "string" ? user.login : "";
+    if (!rebindPendingSaves(token, login)) {
       errEl.textContent = "Сначала сохраните изменения текущего пользователя. Можно обновить его токен.";
       return;
     }
     localStorage.setItem(LS_TOKEN, token);
-    localStorage.setItem(LS_LOGIN, user.login || "");
+    localStorage.setItem(LS_LOGIN, login);
     localStorage.removeItem(LS_PERSON); // legacy: person is now derived from the login
     state.token = token;
-    state.login = user.login || "";
+    state.login = login;
     state.person = personFor(state.login);
     retryFailedSaves();
     input.value = "";
-    document.getElementById("settings-dialog").close();
+    byId<HTMLDialogElement>("settings-dialog").close();
     showToast(`Вход выполнен: ${state.login} (${state.person})`);
-    loadAll(); // from now on read fresh data via the API
+    void loadAll(); // from now on read fresh data via the API
   } catch (e) {
     console.error("token check failed", e);
     errEl.textContent = friendlyError(e);
   }
 }
 
-function logout() {
+function logout(): void {
   if (hasUnsavedChanges()) { showToast("Сначала сохраните изменения — нажмите «Повторить сохранение»."); return; }
   localStorage.removeItem(LS_TOKEN);
   localStorage.removeItem(LS_LOGIN);
@@ -1766,16 +1884,16 @@ function logout() {
   state.token = "";
   state.login = "";
   state.person = "";
-  document.getElementById("settings-dialog").close();
+  byId<HTMLDialogElement>("settings-dialog").close();
   showToast("Вы вышли. Режим: только просмотр.");
-  loadAll(); // back to the public copy of data/movies.json
+  void loadAll(); // back to the public copy of data/movies.json
 }
 
 // ===== Categories dialog =====
 
-let selectedCategoryKey = null;
+let selectedCategoryKey: string | null = null;
 
-function renderPaletteSwatches() {
+function renderPaletteSwatches(): void {
   const container = document.getElementById("palette-swatches");
   if (!container) return;
   container.textContent = "";
@@ -1791,20 +1909,20 @@ function renderPaletteSwatches() {
       if (selectedCategoryKey) {
         updateCategoryColor(selectedCategoryKey, hex);
       }
-      const newColorInput = document.getElementById("new-category-color");
+      const newColorInput = document.getElementById("new-category-color") as HTMLInputElement | null;
       if (newColorInput) newColorInput.value = hex;
     });
     container.append(btn);
   });
 }
 
-function openCategories() {
-  const dlg = document.getElementById("categories-dialog");
+function openCategories(): void {
+  const dlg = byId<HTMLDialogElement>("categories-dialog");
   renderCategoriesDialog();
   dlg.showModal();
 }
 
-function renderCategoriesDialog() {
+function renderCategoriesDialog(): void {
   const list = document.getElementById("categories-list");
   if (!list) return;
   list.textContent = "";
@@ -1859,7 +1977,7 @@ function renderCategoriesDialog() {
       disabled: true
     });
 
-    const handleSave = () => {
+    const handleSave = (): void => {
       const val = input.value.trim();
       if (val && val !== t.label) {
         updateCategory(t.key, val);
@@ -1902,10 +2020,10 @@ function renderCategoriesDialog() {
   });
 }
 
-function updateTypeSelects() {
+function updateTypeSelects(): void {
   const types = getTypes();
 
-  const typeSel = document.getElementById("type-filter");
+  const typeSel = document.getElementById("type-filter") as HTMLSelectElement | null;
   if (typeSel) {
     const curVal = state.typeFilter;
     typeSel.textContent = "";
@@ -1920,46 +2038,49 @@ function updateTypeSelects() {
     }
   }
 
-  const addType = document.getElementById("add-type");
+  const addType = document.getElementById("add-type") as HTMLSelectElement | null;
   if (addType) {
     const curVal = addType.value;
     addType.textContent = "";
     types.forEach((t) => addType.append(el("option", { value: t.key, text: t.label })));
+    const firstType = types[0];
     if (types.some((t) => t.key === curVal)) {
       addType.value = curVal;
-    } else if (types.length > 0) {
-      addType.value = types[0].key;
+    } else if (firstType) {
+      addType.value = firstType.key;
     }
   }
 }
 
 // ===== Init =====
 
-function persistView() {
+function persistView(): void {
   if (state.loading) return;
   writeLocal("watchlist.view", { tab: state.tab, statusFilter: state.statusFilter, typeFilter: state.typeFilter, search: state.search, sort: state.sort });
 }
 
-function init() {
-  const savedScroll = readLocal("watchlist.scroll", {});
-  const tabScroll = { list: 0, watched: 0, dropped: 0, stats: 0 };
+function init(): void {
+  const savedScroll = asRecord(readLocal("watchlist.scroll")) ?? {};
+  const tabScroll: Record<Tab, number> = { list: 0, watched: 0, dropped: 0, stats: 0 };
   window.addEventListener("beforeunload", (event) => {
     if (!hasUnsavedChanges()) return;
     event.preventDefault();
     event.returnValue = "";
   });
   // Tabs.
-  document.querySelectorAll(".tab-btn").forEach((btn) => {
+  document.querySelectorAll<HTMLElement>(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
+      const tab = btn.dataset.tab;
+      if (tab !== "stats" && !isListTab(tab)) return;
       tabScroll[state.tab] = window.scrollY;
-      state.tab = btn.dataset.tab;
+      state.tab = tab;
       render();
       window.scrollTo(0, tabScroll[state.tab] || 0);
     });
   });
 
   // Status chips (built once, counts updated on each list render).
-  const chipsEl = document.getElementById("chips");
+  const chipsEl = byId("chips");
   CHIPS.forEach((c) => {
     const chip = el("button", { type: "button", class: "chip", "data-key": c.key }, c.label, el("span", { class: "count" }));
     chip.addEventListener("click", () => { state.statusFilter = c.key; render(); });
@@ -1967,7 +2088,7 @@ function init() {
   });
 
   // Type filter.
-  const typeSel = document.getElementById("type-filter");
+  const typeSel = byId<HTMLSelectElement>("type-filter");
   typeSel.addEventListener("change", () => {
     if (typeSel.value === "__manage__") {
       typeSel.value = state.typeFilter;
@@ -1979,19 +2100,21 @@ function init() {
   });
 
   // Search.
-  const searchInput = document.getElementById("search");
+  const searchInput = byId<HTMLInputElement>("search");
   searchInput.addEventListener("input", () => { state.search = searchInput.value; render(); });
 
   // Sort.
-  const sortSel = document.getElementById("sort");
+  const sortSel = byId<HTMLSelectElement>("sort");
+  const findSort = (value: unknown): SortKey | undefined => SORTS.find((s) => s.key === value)?.key;
   SORTS.forEach((s) => sortSel.append(el("option", { value: s.key, text: s.label })));
-  sortSel.addEventListener("change", () => { state.sort = sortSel.value; render(); });
+  sortSel.addEventListener("change", () => { state.sort = findSort(sortSel.value) ?? state.sort; render(); });
 
   updateTypeSelects();
-  const initCatalog = () => WatchlistTMDB.init({
+  const initCatalog = (): void => WatchlistTMDB.init({
     getItems: () => state.data?.items || [], getTypes, canEdit: () => !!state.token && !state.loading && !state.error,
     add: async (title, type, metadata) => {
-      if (metadata?.tmdb && state.data.items.some((it) => it.tmdb?.id === metadata.tmdb.id && it.tmdb?.mediaType === metadata.tmdb.mediaType)) {
+      const tmdb = metadata?.tmdb;
+      if (tmdb && state.data?.items.some((it) => it.tmdb?.id === tmdb.id && it.tmdb?.mediaType === tmdb.mediaType)) {
         throw new Error("Этот тайтл уже есть в списке.");
       }
       if (!addItem(title, type, metadata)) return false;
@@ -2000,50 +2123,50 @@ function init() {
       return true;
     }
   });
-  const view = readLocal("watchlist.view", {});
-  state.tab = view.tab === "stats" || LIST_TABS.includes(view.tab) ? view.tab : "list";
+  const view = asRecord(readLocal("watchlist.view")) ?? {};
+  state.tab = view.tab === "stats" || isListTab(view.tab) ? view.tab : "list";
   if (state.tab === "list" && (view.statusFilter === "watched" || view.statusFilter === "dropped")) state.tab = view.statusFilter;
-  state.statusFilter = CHIPS.some((c) => c.key === view.statusFilter) ? view.statusFilter : "all";
+  state.statusFilter = CHIPS.find((c) => c.key === view.statusFilter)?.key ?? "all";
   state.typeFilter = typeof view.typeFilter === "string" ? view.typeFilter : "all";
   state.search = typeof view.search === "string" ? view.search : "";
-  state.sort = SORTS.some((s) => s.key === view.sort) ? view.sort : "added-desc";
+  state.sort = findSort(view.sort) ?? "added-desc";
   searchInput.value = state.search;
   sortSel.value = state.sort;
   const clearFilters = el("button", { type: "button", class: "btn", text: "Сбросить фильтры" });
   clearFilters.addEventListener("click", () => { state.statusFilter = "all"; state.typeFilter = "all"; state.search = ""; searchInput.value = ""; render(); });
-  document.querySelector(".filters").append(clearFilters);
-  let scrollTimer;
+  document.querySelector(".filters")?.append(clearFilters);
+  let scrollTimer: ReturnType<typeof setTimeout> | undefined;
   window.addEventListener("scroll", () => { clearTimeout(scrollTimer); scrollTimer = setTimeout(() => writeLocal("watchlist.scroll", { tab: state.tab, y: window.scrollY }), 200); }, { passive: true });
 
   // Random pick.
-  document.getElementById("random-btn").addEventListener("click", pickRandom);
+  byId("random-btn").addEventListener("click", pickRandom);
 
   // Installable app / offline cache (needs http(s), not file://).
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
-    navigator.serviceWorker.register("sw.js").catch((e) => console.warn("service worker registration failed", e));
+    navigator.serviceWorker.register("sw.js").catch((e: unknown) => console.warn("service worker registration failed", e));
   }
 
   // Settings dialog.
-  document.getElementById("settings-btn").addEventListener("click", openSettings);
-  document.getElementById("save-token-btn").addEventListener("click", saveToken);
-  document.getElementById("logout-btn").addEventListener("click", logout);
-  const dlg = document.getElementById("settings-dialog");
-  document.getElementById("cancel-settings-btn").addEventListener("click", () => dlg.close());
+  byId("settings-btn").addEventListener("click", openSettings);
+  byId("save-token-btn").addEventListener("click", () => { void saveToken(); });
+  byId("logout-btn").addEventListener("click", logout);
+  const dlg = byId<HTMLDialogElement>("settings-dialog");
+  byId("cancel-settings-btn").addEventListener("click", () => dlg.close());
   dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
 
   // Categories dialog.
-  document.getElementById("categories-btn").addEventListener("click", openCategories);
-  document.getElementById("open-categories-from-settings").addEventListener("click", () => {
+  byId("categories-btn").addEventListener("click", openCategories);
+  byId("open-categories-from-settings").addEventListener("click", () => {
     dlg.close();
     openCategories();
   });
-  const catDlg = document.getElementById("categories-dialog");
-  document.getElementById("close-categories-btn").addEventListener("click", () => catDlg.close());
+  const catDlg = byId<HTMLDialogElement>("categories-dialog");
+  byId("close-categories-btn").addEventListener("click", () => catDlg.close());
   catDlg.addEventListener("click", (e) => { if (e.target === catDlg) catDlg.close(); });
 
-  const addCategoryForm = document.getElementById("add-category-form");
-  const newCategoryInput = document.getElementById("new-category-input");
-  const newCategoryColor = document.getElementById("new-category-color");
+  const addCategoryForm = byId<HTMLFormElement>("add-category-form");
+  const newCategoryInput = byId<HTMLInputElement>("new-category-input");
+  const newCategoryColor = document.getElementById("new-category-color") as HTMLInputElement | null;
   addCategoryForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const val = newCategoryInput.value.trim();
@@ -2052,14 +2175,15 @@ function init() {
     addCategory(val, color);
     newCategoryInput.value = "";
     if (newCategoryColor) {
-      newCategoryColor.value = PALETTE_PRESETS[getTypes().length % PALETTE_PRESETS.length];
+      newCategoryColor.value = PALETTE_PRESETS[getTypes().length % PALETTE_PRESETS.length] ?? newCategoryColor.value;
     }
   });
 
   render();
-  loadAll().then(() => {
+  void loadAll().then(() => {
     initCatalog();
-    if (savedScroll.tab === state.tab && Number.isFinite(savedScroll.y)) window.scrollTo(0, savedScroll.y);
+    const y = savedScroll.y;
+    if (savedScroll.tab === state.tab && typeof y === "number" && Number.isFinite(y)) window.scrollTo(0, y);
   });
 }
 
