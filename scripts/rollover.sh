@@ -7,6 +7,7 @@ TZ_NAME=${TZ_NAME:-Europe/Sofia}
 DRY_RUN=${DRY_RUN:-0}
 BOOTSTRAP=${BOOTSTRAP:-0}
 LATE_WAIT=${LATE_WAIT:-180}
+VALIDATOR=${VALIDATOR:-node .test-build/tools/validate-data.js}
 FILE=data/movies.json
 BOT_NAME='github-actions[bot]'
 BOT_EMAIL='41898099+github-actions[bot]@users.noreply.github.com'
@@ -83,6 +84,14 @@ coauthors() {
     coauthors "$BASE" "$H1"
 } > "$tmp/squash-message"
 
+# Refuse to publish a data blob that fails validation; runs before every push that changes $FILE.
+validate_blob() {
+    local blob=$1 what=$2
+    git cat-file blob "$blob" > "$tmp/validate.json" || die "Cannot read data blob $blob ($what)."
+    # shellcheck disable=SC2086 # VALIDATOR is a command line with arguments
+    $VALIDATOR "$tmp/validate.json" || die "Data validation failed for $what; nothing was pushed."
+}
+
 # Build a tree with only the data entry replaced; never use the user's index.
 commit_data() {
     local parent=$1 blob=$2 message=$3 mode tree
@@ -112,6 +121,7 @@ for attempt in 1 2 3; do
             die "Data on master and $OLD conflict; merge $FILE by hand. Nothing was pushed."
         squash_blob=$(git hash-object -w "$tmp/m-merged")
     fi
+    validate_blob "$squash_blob" "the squashed week $OLD"
     M=$(commit_data "$master" "$squash_blob" "$tmp/squash-message")
     printf 'Squash %s (%s changes) onto master %s; attempt %s.\n' "$OLD" "$count" "$master" "$attempt"
     if [[ $DRY_RUN == 1 ]]; then
@@ -158,6 +168,7 @@ for attempt in 1 2 3; do
         printf 'Late changes already present in %s.\n' "$CUR"
         exit 0
     fi
+    validate_blob "$merged_blob" "late changes carried from $OLD to $CUR"
     carry=$(commit_data "$current" "$merged_blob" "$tmp/carry-message")
     printf 'Carry late changes onto %s; attempt %s.\n' "$CUR" "$attempt"
     if push_ref "$carry" "$CUR"; then exit 0; fi

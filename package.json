@@ -1,10 +1,13 @@
 {
   "name": "watchlist",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.sw.json",
     "watch": "trap 'kill 0' EXIT; tsc -p tsconfig.json --watch --preserveWatchOutput & tsc -p tsconfig.sw.json --watch --preserveWatchOutput & wait",
-    "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.sw.json --noEmit"
+    "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.sw.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test .test-build/tests/*.test.js",
+    "validate-data": "tsc -p tsconfig.test.json && node .test-build/tools/validate-data.js data/movies.json"
   },
   "devDependencies": {
     "typescript": "~5.9.3"

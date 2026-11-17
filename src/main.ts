@@ -1,68 +1,31 @@
 /* Watchlist: personal film/series tracker.
- * TypeScript compiled to a classic script, no modules, no libraries.
+ * Strict TypeScript compiled by tsc to native ES modules, no libraries.
  * Data lives in data/movies.json; edits are committed to the repo
  * through the GitHub Contents API with a user-provided fine-grained token. */
 
-"use strict";
+import { DEFAULT_TYPES, LS_LOGIN, LS_PERSON, LS_TOKEN, PALETTE_PRESETS, PEOPLE, REACTION_KINDS, STATUS_LABELS, UNDO_MS, personFor } from "./config.js";
+import { GitHubRepository, apiHeaders, friendlyError, httpError } from "./data/github.js";
+import { SaveQueue } from "./data/save-queue.js";
+import type { SaveEntry } from "./data/save-queue.js";
+import { todayStr } from "./domain/dates.js";
+import { asRecord, isPerson, isReactionKind, isStatus } from "./domain/guards.js";
+import { avgRating, commentAuthor } from "./domain/items.js";
+import { normalizeGenres } from "./domain/normalize.js";
+import { applyOp, describeOp, isOp } from "./domain/ops.js";
+import type { Op } from "./domain/ops.js";
+import { MONTH_FULL, computeStats } from "./domain/stats.js";
+import type { Stats } from "./domain/stats.js";
+import { transliterate } from "./domain/text.js";
+import type { CategoryType, Item, Person, ReactionKind, Reply, Status, TmdbItemMetadata, WatchlistData } from "./domain/types.js";
+import { WatchlistTMDB } from "./tmdb.js";
+import type { ElChild } from "./ui/dom.js";
+import { byId, el, statsSvg } from "./ui/dom.js";
+import { newId } from "./util/id.js";
 
 // ===== Constants =====
 
-const REPO = "serchg0george/watchlist";
-const FILE_PATH = "data/movies.json";
-const API_CONTENTS_URL = `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`;
-const LS_TOKEN = "watchlist.token";
-const LS_LOGIN = "watchlist.login";
-const LS_PERSON = "watchlist.person";
 
-const PEOPLE: readonly Person[] = ["S", "L"];
-const REACTION_KINDS: readonly ReactionKindInfo[] = [
-  { key: "like", emoji: "👍", label: "Нравится" },
-  { key: "fire", emoji: "🔥", label: "Огонь" },
-  { key: "heart", emoji: "❤️", label: "Люблю" },
-  { key: "grin", emoji: "😁", label: "Улыбаюсь" },
-  { key: "eyes", emoji: "👀", label: "Интересно" },
-  { key: "laugh", emoji: "🤣", label: "Очень смешно" },
-  { key: "sad", emoji: "😢", label: "Грустно" },
-  { key: "dislike", emoji: "👎", label: "Не нравится" }
-];
-// Exactly two editors: the repo owner is S, the collaborator (any other login with write access) is L.
-const OWNER_LOGIN = "serchg0george";
-const UNDO_MS = 5000;
-
-function personFor(login: string): Person | "" {
-  if (!login) return "";
-  return login.toLowerCase() === OWNER_LOGIN ? "S" : "L";
-}
-const DEFAULT_TYPES: CategoryType[] = [
-  { key: "movie", label: "Фильм", color: "#e05638" },
-  { key: "series", label: "Сериал", color: "#2563eb" },
-  { key: "anime", label: "Аниме", color: "#7c3aed" },
-  { key: "show", label: "Шоу", color: "#059669" }
-];
-
-const PALETTE_PRESETS = [
-  "#e05638", "#ea580c", "#d97706", "#ca8a04",
-  "#65a30d", "#16a34a", "#059669", "#0d9488",
-  "#0891b2", "#0284c7", "#2563eb", "#4f46e5",
-  "#7c3aed", "#9333ea", "#c026d3", "#db2777",
-  "#e11d48", "#475569"
-];
-
-const STATUSES: readonly Status[] = ["planned", "watching", "watched", "dropped"];
-const STATUS_LABELS: Record<Status, string> = { planned: "Хочу посмотреть", watching: "Смотрим", watched: "Просмотрено", dropped: "Брошено" };
-
-const isPerson = (value: unknown): value is Person => PEOPLE.includes(value as Person);
-const isStatus = (value: unknown): value is Status => STATUSES.includes(value as Status);
-const isReactionKind = (value: unknown): value is ReactionKind => REACTION_KINDS.some((r) => r.key === value);
 const isListTab = (value: unknown): value is ListTab => LIST_TABS.includes(value as ListTab);
-const asRecord = (value: unknown): Record<string, unknown> | null =>
-  value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
-
-function byId<T extends HTMLElement = HTMLElement>(id: string): T {
-  const element = document.getElementById(id);
-  if (!element) throw new Error(`Missing element: #${id}`);
-  return element as T;
-}
 
 function getTypes(): CategoryType[] {
   if (state.data && Array.isArray(state.data.types) && state.data.types.length > 0) {
@@ -79,19 +42,6 @@ function getTypeLabel(key: string): string {
 function getTypeColor(key: string): string {
   const t = getTypes().find((item) => item.key === key);
   return t && t.color ? t.color : "#5b6b53";
-}
-
-function transliterate(str: string): string {
-  const ru: Record<string, string> = {
-    а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "yo", ж: "zh",
-    з: "z", и: "i", й: "y", к: "k", л: "l", м: "m", н: "n", о: "o",
-    п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f", х: "kh", ц: "ts",
-    ч: "ch", ш: "sh", щ: "shch", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya"
-  };
-  return str.split("").map((c) => {
-    const low = c.toLowerCase();
-    return ru[low] !== undefined ? ru[low] : c;
-  }).join("");
 }
 
 type ChipKey = "all" | "watching";
@@ -137,9 +87,6 @@ interface AppState {
   highlightId: string | null;
 }
 
-type DataOp = (data: WatchlistData) => void;
-interface PendingSave { op: DataOp; message: string; token: string; login: string }
-
 const state: AppState = {
   token: localStorage.getItem(LS_TOKEN) || "",
   login: localStorage.getItem(LS_LOGIN) || "",
@@ -165,6 +112,8 @@ const openItems = new Set<string>();
 const draftMemory = new Map<string, unknown>();
 const draftCleanups = new Map<string, unknown>();
 let catalogSavePending = false;
+// Per login, so a queue left by one account is never overwritten by another.
+const pendingKey = (login: string): string => `watchlist.pendingSaves.${login}`;
 
 function readLocal(key: string): unknown {
   try { return JSON.parse(localStorage.getItem(key) ?? "null") ?? null; } catch { return null; }
@@ -183,252 +132,28 @@ function writeDraft(key: string, value: unknown): void {
 
 function clearDraftAfterSave(key: string, snapshot: unknown): void {
   draftCleanups.set(key, snapshot);
-  waitForSaves().then(() => {
+  saves.wait().then(() => {
     if (JSON.stringify(readDraft(key)) === JSON.stringify(snapshot)) writeDraft(key, null);
     draftCleanups.delete(key);
   }).catch(() => {});
 }
 let highlightTimer: ReturnType<typeof setTimeout> | undefined;
-let pendingSaves = 0;
-const saveQueue: PendingSave[] = [];
-const saveWaiters: { resolve: () => void; reject: (error: unknown) => void }[] = [];
-let saveRunning = false;
-let saveError: unknown = null;
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 let saveHideTimer: ReturnType<typeof setTimeout> | undefined;
 
-// ===== Small DOM helper (no innerHTML with user data) =====
-
-type ElAttrValue = string | number | boolean | null | undefined | EventListener;
-type ElChild = Node | string | number | null | undefined | false;
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs?: Record<string, ElAttrValue> | null, ...children: (ElChild | ElChild[])[]): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  if (attrs) {
-    for (const [k, v] of Object.entries(attrs)) {
-      if (v == null || v === false) continue;
-      if (typeof v === "function") node.addEventListener(k.slice(2).toLowerCase(), v);
-      else if (k === "class") node.className = String(v);
-      else if (k === "text") node.textContent = String(v);
-      else if (v === true) node.setAttribute(k, "");
-      else node.setAttribute(k, String(v));
-    }
-  }
-  for (const c of children.flat()) {
-    if (c == null || c === false) continue;
-    node.append(c instanceof Node ? c : document.createTextNode(String(c)));
-  }
-  return node;
-}
-
-// ===== Encoding helpers: base64 <-> UTF-8 (safe for Cyrillic and large files) =====
-
-function base64ToUtf8(b64: string): string {
-  const bin = atob(b64); // one char per byte
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return new TextDecoder("utf-8").decode(bytes);
-}
-
-function utf8ToBase64(str: string): string {
-  const bytes = new TextEncoder().encode(str);
-  let bin = "";
-  // Chunked to avoid call-stack limits on large strings.
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(bin);
-}
-
-function todayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function newId(): string {
-  if (crypto && typeof crypto.randomUUID === "function") return crypto.randomUUID();
-  // Fallback for non-secure contexts.
-  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
 // ===== Data loading =====
 
-type HttpError = Error & { status?: number };
-interface FetchedFile { data: unknown; sha: string | null }
-
-function httpError(message: string, status: number): HttpError {
-  return Object.assign(new Error(message), { status });
-}
-
-function apiHeaders(token: string): Record<string, string> {
-  return {
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    Accept: "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28"
-  };
-}
-
-async function fetchTimed<T>(url: string, options: RequestInit, read: (response: Response) => Promise<T> | T): Promise<T> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15000);
-  try { return await read(await fetch(url, { ...options, signal: controller.signal })); }
-  finally { clearTimeout(timer); }
-}
-
-async function resolveDataBranch(token: string): Promise<string> {
-  return fetchTimed(`https://api.github.com/repos/${REPO}/git/matching-refs/heads/data/`, { headers: apiHeaders(token), cache: "no-store" }, async (res) => {
-    if (res.status === 404) return "master";
-    if (!res.ok) throw httpError(`GitHub API: HTTP ${res.status}`, res.status);
-    const refs: unknown = await res.json();
-    if (!Array.isArray(refs)) throw new Error("GitHub вернул неверный список веток данных");
-    const branches = refs.map((entry: unknown) => asRecord(entry)?.ref).filter((ref): ref is string => typeof ref === "string" && ref.startsWith("refs/heads/data/") && ref.length > "refs/heads/data/".length).sort();
-    const last = branches[branches.length - 1];
-    return last ? last.slice("refs/heads/".length) : "master";
-  });
-}
-
-async function fetchFileViaApi(token: string, branch: string): Promise<FetchedFile> {
-  return fetchTimed(`${API_CONTENTS_URL}?ref=${encodeURIComponent(branch)}`, { headers: apiHeaders(token), cache: "no-store" }, async (res) => {
-    if (!res.ok) throw httpError(`GitHub API: HTTP ${res.status}`, res.status);
-    const json = asRecord(await res.json()) ?? {};
-    return { data: JSON.parse(base64ToUtf8(String(json.content ?? ""))) as unknown, sha: typeof json.sha === "string" ? json.sha : null };
-  });
-}
-
-async function fetchFileLocal(): Promise<FetchedFile> {
-  const res = await fetch("data/movies.json", { cache: "no-store" });
-  if (!res.ok) throw httpError(`HTTP ${res.status}`, res.status);
-  return { data: await res.json() as unknown, sha: null };
-}
-
-function validRating(r: unknown): number | null {
-  return typeof r === "number" && Number.isInteger(r) && r >= 1 && r <= 10 ? r : null;
-}
-
-function normalizeRatings(it: Record<string, unknown>): Ratings {
-  const src = asRecord(it.ratings) ?? { S: it.rating };
-  return { S: validRating(src.S), L: validRating(src.L) };
-}
-
-function normalizeComments(it: Record<string, unknown>): Comments {
-  const src = asRecord(it.comments) ?? {};
-  return { S: String(src.S ?? ""), L: String(src.L ?? "") };
-}
-
-function normalizeReplies(it: Record<string, unknown>): Reply[] {
-  if (!Array.isArray(it.replies)) return [];
-  return it.replies.flatMap((raw: unknown): Reply[] => {
-    const r = asRecord(raw);
-    if (!r || typeof r.id !== "string" || !isPerson(r.by) ||
-      typeof r.text !== "string" || !r.text.trim() ||
-      typeof r.to !== "string" || typeof r.at !== "string") return [];
-    const reply: Reply = { ...r, id: r.id, by: r.by, to: r.to, at: r.at, text: r.text.trim() };
-    if (typeof r.editedAt === "string") reply.editedAt = r.editedAt;
-    else delete reply.editedAt;
-    return [reply];
-  });
-}
-
-function normalizeReactions(it: Record<string, unknown>): Reactions {
-  const reactions = asRecord(it.reactions);
-  if (!reactions) return {};
-  return Object.fromEntries(Object.entries(reactions).flatMap(([target, raw]) => {
-    const map = asRecord(raw);
-    if (!map) return [];
-    const entries = Object.entries(map).flatMap(([person, value]): [Person, ReactionKind[]][] => {
-      if (!isPerson(person)) return [];
-      // Legacy format stored a single kind string per person.
-      const given: unknown[] = Array.isArray(value) ? value : [value];
-      const kinds = REACTION_KINDS.map((r) => r.key).filter((k) => given.includes(k));
-      return kinds.length ? [[person, kinds]] : [];
-    });
-    return entries.length ? [[target, Object.fromEntries(entries)]] : [];
-  }));
-}
-
-function avgRating(it: Item): number | null {
-  const vals = PEOPLE.map((p) => it.ratings[p]).filter((r): r is number => r != null);
-  return vals.length ? vals.reduce((s, r) => s + r, 0) / vals.length : null;
-}
-
-function normalizeTypes(rawTypes: unknown): CategoryType[] {
-  if (Array.isArray(rawTypes) && rawTypes.length > 0) {
-    const seen = new Set<string>();
-    const result: CategoryType[] = [];
-    for (let i = 0; i < rawTypes.length; i++) {
-      const t = asRecord(rawTypes[i]);
-      if (!t) continue;
-      const key = String(t.key ?? "").trim();
-      const label = String(t.label ?? key).trim();
-      if (!key || !label || seen.has(key)) continue;
-      seen.add(key);
-      const color = typeof t.color === "string" && /^#[0-9a-fA-F]{3,8}$/.test(t.color.trim())
-        ? t.color.trim()
-        : PALETTE_PRESETS[i % PALETTE_PRESETS.length] ?? "#5b6b53";
-      result.push({ key, label, color });
-    }
-    if (result.length > 0) return result;
-  }
-  return DEFAULT_TYPES.map((t) => ({ ...t }));
-}
-
-function normalizeGenres(value: unknown): string[] {
-  const seen = new Set<string>();
-  return (Array.isArray(value) ? value : []).filter((genre): genre is string => {
-    if (typeof genre !== "string" || !genre.trim()) return false;
-    const key = genre.trim().toLocaleLowerCase("ru-RU");
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).map((genre) => genre.trim());
-}
-
-function normalize(raw: unknown): WatchlistData {
-  const data = asRecord(raw) ?? {};
-  const types = normalizeTypes(data.types);
-  const fallbackKey = types[0]?.key || "movie";
-  const rawItems: unknown[] = Array.isArray(data.items) ? data.items : [];
-  // Spread first: fields added by newer app versions (e.g. replies, reactions) must survive a save from this version.
-  const items = rawItems.map((raw0): Item => {
-    const it = asRecord(raw0) ?? {};
-    return {
-      ...it,
-      id: String(it.id ?? ""),
-      title: String(it.title ?? ""),
-      type: typeof it.type === "string" && it.type.trim() ? it.type.trim() : fallbackKey,
-      status: isStatus(it.status) ? it.status : "planned",
-      ratings: normalizeRatings(it),
-      comments: normalizeComments(it),
-      replies: normalizeReplies(it),
-      reactions: normalizeReactions(it),
-      genres: normalizeGenres(it.genres),
-      note: String(it.note ?? ""),
-      addedAt: typeof it.addedAt === "string" && it.addedAt ? it.addedAt : todayStr(),
-      watchedAt: typeof it.watchedAt === "string" && it.watchedAt ? it.watchedAt : null,
-      droppedAt: typeof it.droppedAt === "string" && it.droppedAt ? it.droppedAt : null,
-      updatedBy: String(it.updatedBy ?? "")
-    };
-  });
-  return Object.assign(data, { version: Number.isInteger(data.version) ? Number(data.version) : 1, types, items });
-}
-
-function friendlyError(e: unknown): string {
-  const status = asRecord(e)?.status;
-  if (status === 401 || status === 403) return "Токен недействителен или нет доступа к репозиторию.";
-  if (status === 404) return "Файл data/movies.json не найден в репозитории.";
-  if (e instanceof TypeError) return "Нет соединения. Проверьте интернет и попробуйте снова.";
-  return `Не удалось загрузить данные: ${e instanceof Error && e.message ? e.message : "неизвестная ошибка"}`;
-}
+const repo = new GitHubRepository();
 
 async function loadAll(): Promise<void> {
-  if (hasUnsavedChanges()) return;
+  if (saves.hasUnsaved()) return;
   state.loading = true;
   state.error = null;
   render();
   try {
-    state.dataBranch = state.token ? await resolveDataBranch(state.token) : null;
-    const result = state.token && state.dataBranch ? await fetchFileViaApi(state.token, state.dataBranch) : await fetchFileLocal();
-    state.data = normalize(result.data);
+    const loaded = await repo.load(state.token);
+    state.dataBranch = loaded.branch;
+    state.data = loaded.data;
   } catch (e) {
     console.error("load failed", e);
     state.error = friendlyError(e);
@@ -440,131 +165,76 @@ async function loadAll(): Promise<void> {
 
 // ===== Saving: retained optimistic queue with conflict retry =====
 
-function hasUnsavedChanges(): boolean {
-  return saveQueue.length > 0;
-}
-
-function applyAndSave(op: DataOp, message: string): boolean {
-  if (!state.token || !state.data) {
-    showToast("Войдите через ⚙, чтобы редактировать список");
-    return false;
-  }
-  if (saveQueue.some((entry) => entry.login !== state.login)) {
-    showToast("Сначала сохраните изменения предыдущего пользователя");
-    return false;
-  }
-  op(state.data);
-  render();
-  enqueueSave(op, message);
-  return true;
-}
-
-function enqueueSave(op: DataOp, message: string): void {
-  saveQueue.push({ op, message, token: state.token, login: state.login });
-  pendingSaves = saveQueue.length;
-  updateSaveIndicator();
-  void flushSaves();
-}
-
-function waitForSaves(): Promise<void> {
-  if (saveError) return Promise.reject(saveError);
-  if (!saveQueue.length) return Promise.resolve();
-  return new Promise((resolve, reject) => saveWaiters.push({ resolve, reject }));
-}
-
-function settleSaveWaiters(error?: unknown): void {
-  if (!error) {
+const saves = new SaveQueue<Op>({
+  async save(entry) {
+    const saved = await repo.save(entry.token, (data) => applyOp(data, entry.op, entry.login), entry.message);
+    state.dataBranch = saved.branch;
+    return saved.data;
+  },
+  apply: (data, entry) => applyOp(data, entry.op, entry.login),
+  // Tokens are never stored: after a reload the entries get the current token back.
+  // The queue only flushes under its own login, so state.login owns every entry.
+  persist: (entries) => writeLocal(pendingKey(state.login), entries.length ? entries.map(({ op, message, login }) => ({ op, message, login })) : null),
+  currentLogin: () => state.login,
+  onSaved(data) {
+    state.data = data;
+    render();
+  },
+  onChange: updateSaveIndicator,
+  onFlushed() {
     for (const [key, snapshot] of draftCleanups) {
       if (JSON.stringify(readDraft(key)) === JSON.stringify(snapshot)) writeDraft(key, null);
     }
     draftCleanups.clear();
     if (catalogSavePending) {
       catalogSavePending = false;
-      window.WatchlistTMDB?.acknowledgeSave();
+      WatchlistTMDB.acknowledgeSave();
     }
+  },
+  onError() {
+    showToast("Не удалось сохранить. Изменения остались здесь — нажмите «Повторить сохранение».");
   }
-  const waiters = saveWaiters.splice(0);
-  for (const waiter of waiters) {
-    if (error) waiter.reject(error);
-    else waiter.resolve();
-  }
-}
+});
 
-function rebindPendingSaves(token: string, login: string): boolean {
-  if (saveQueue.some((entry) => entry.login !== login)) return false;
-  for (const entry of saveQueue) entry.token = token;
+function applyAndSave(op: Op): boolean {
+  if (!state.token || !state.data) {
+    showToast("Войдите через ⚙, чтобы редактировать список");
+    return false;
+  }
+  if (saves.hasEntriesFromOther(state.login)) {
+    showToast("Сначала сохраните изменения предыдущего пользователя");
+    return false;
+  }
+  const message = describeOp(op, state.data);
+  applyOp(state.data, op, state.login);
+  render();
+  saves.enqueue({ op, message, token: state.token, login: state.login });
   return true;
 }
 
-function retryFailedSaves(): void {
-  if (saveRunning || !saveQueue.length) return;
-  saveError = null;
-  updateSaveIndicator();
-  void flushSaves();
+// Edits that were queued but not committed when the page closed are replayed after the first load.
+function restorePendingSaves(): void {
+  // A live queue already holds (and persists) everything stored for this login.
+  if (saves.hasUnsaved()) return;
+  const stored = readLocal(pendingKey(state.login));
+  if (!Array.isArray(stored) || !state.data) return;
+  const entries: SaveEntry<Op>[] = [];
+  for (const raw of stored) {
+    const rec = asRecord(raw);
+    if (!rec || !isOp(rec.op) || typeof rec.message !== "string" || rec.login !== state.login) continue;
+    entries.push({ op: rec.op, message: rec.message, token: state.token, login: state.login });
+  }
+  if (!state.token || !entries.length) return;
+  // isOp checks only the kind; an op that fails to apply locally is dropped instead of wedging the queue.
+  const data = state.data;
+  const applied = entries.filter((entry) => {
+    try { applyOp(data, entry.op, entry.login); return true; }
+    catch (error) { console.warn("dropped unreadable pending save", entry.op, error); return false; }
+  });
+  render();
+  saves.restore(applied);
 }
 
-async function flushSaves(): Promise<void> {
-  if (saveRunning || saveError || !saveQueue.length) return;
-  saveRunning = true;
-  try {
-    for (let entry = saveQueue[0]; entry; entry = saveQueue[0]) {
-      if (state.login !== entry.login) throw new Error("Войдите под автором несохранённых изменений");
-      const saved = await performSave(entry.op, entry.message, entry.token);
-      saveQueue.shift();
-      // Keep subsequent optimistic edits visible while each operation is committed.
-      state.data = saved;
-      for (const pending of saveQueue) pending.op(state.data);
-      pendingSaves = saveQueue.length;
-      render();
-      updateSaveIndicator();
-    }
-    settleSaveWaiters();
-  } catch (error) {
-    // The failed head remains queued. Never reload over unsaved local edits.
-    saveError = error;
-    settleSaveWaiters(error);
-    showToast("Не удалось сохранить. Изменения остались здесь — нажмите «Повторить сохранение».");
-  } finally {
-    saveRunning = false;
-    pendingSaves = saveQueue.length;
-    updateSaveIndicator();
-  }
-}
-
-async function performSave(op: DataOp, message: string, token: string = state.token): Promise<WatchlistData> {
-  if (!token) throw new Error("Нет токена");
-  let lastErr: unknown = null;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    const branch = await resolveDataBranch(token);
-    state.dataBranch = branch;
-    let fresh: FetchedFile;
-    try { fresh = await fetchFileViaApi(token, branch); }
-    catch (error) {
-      if (asRecord(error)?.status !== 404) throw error;
-      lastErr = error;
-      continue;
-    }
-    const freshData = normalize(fresh.data);
-    op(freshData);
-    const body = {
-      message,
-      content: utf8ToBase64(JSON.stringify(freshData, null, 2) + "\n"),
-      ...(fresh.sha ? { sha: fresh.sha } : {}),
-      branch
-    };
-    const res = await fetchTimed(API_CONTENTS_URL, {
-      method: "PUT",
-      headers: { ...apiHeaders(token), "Content-Type": "application/json" },
-      cache: "no-store",
-      body: JSON.stringify(body)
-    }, (response) => response);
-    if (res.ok) return normalize(freshData);
-    lastErr = httpError(`GitHub API: HTTP ${res.status}`, res.status);
-    if (res.status === 404 || res.status === 409 || res.status === 422) continue;
-    throw lastErr;
-  }
-  throw lastErr;
-}
 
 function updateSaveIndicator(): void {
   const ind = document.getElementById("save-indicator");
@@ -574,18 +244,18 @@ function updateSaveIndicator(): void {
   let retry = document.getElementById("retry-save-btn") as HTMLButtonElement | null;
   if (!retry) {
     retry = el("button", { id: "retry-save-btn", type: "button", class: "btn retry-save-btn", text: "Повторить сохранение" });
-    retry.addEventListener("click", retryFailedSaves);
+    retry.addEventListener("click", () => saves.retry());
     ind.after(retry);
   }
-  retry.hidden = !saveError;
-  retry.disabled = saveRunning;
-  ind.classList.toggle("save-error", !!saveError);
-  if (saveError) {
-    ind.textContent = `Не сохранено: ${pendingSaves}. Не закрывайте страницу.`;
+  retry.hidden = !saves.error;
+  retry.disabled = saves.running;
+  ind.classList.toggle("save-error", !!saves.error);
+  if (saves.error) {
+    ind.textContent = `Не сохранено: ${saves.size}. Не закрывайте страницу.`;
     ind.classList.add("visible");
     ind.classList.remove("busy");
-  } else if (pendingSaves > 0) {
-    ind.textContent = `Сохраняется: ${pendingSaves}…`;
+  } else if (saves.size > 0) {
+    ind.textContent = `Сохраняется: ${saves.size}…`;
     ind.classList.add("visible", "busy");
   } else {
     ind.textContent = "Сохранено";
@@ -595,7 +265,7 @@ function updateSaveIndicator(): void {
   }
 }
 
-// ===== Operations (each is an absolute mutation applied to a data object) =====
+// ===== Actions (each builds a serializable Op and hands it to applyAndSave) =====
 
 function addItem(title: string, type: string, metadata: TmdbItemMetadata = {}): boolean {
   const item: Item = {
@@ -615,11 +285,7 @@ function addItem(title: string, type: string, metadata: TmdbItemMetadata = {}): 
     updatedBy: state.login
   };
   if (metadata.tmdb) item.tmdb = { ...metadata.tmdb };
-  const op: DataOp = (data) => {
-    if (data.items.some((entry) => entry.id === item.id || (item.tmdb && entry.tmdb?.id === item.tmdb.id && entry.tmdb?.mediaType === item.tmdb.mediaType))) return;
-    data.items.unshift(JSON.parse(JSON.stringify(item)));
-  };
-  return applyAndSave(op, `Add "${title}"`);
+  return applyAndSave({ kind: "addItem", item });
 }
 
 // Undo restores the item exactly as it was before the change (re-inserting it if it was deleted).
@@ -634,13 +300,7 @@ function offerUndo(msg: string, snap: ItemSnapshot): void {
 }
 
 function restoreItem(snap: ItemSnapshot): void {
-  const op: DataOp = (data) => {
-    const restored = JSON.parse(JSON.stringify(snap.item)) as Item; // fresh copy: op runs on local and server data
-    const i = data.items.findIndex((x) => x.id === restored.id);
-    if (i >= 0) data.items[i] = restored;
-    else data.items.splice(Math.min(Math.max(snap.index, 0), data.items.length), 0, restored);
-  };
-  applyAndSave(op, `Undo change of "${snap.item.title}"`);
+  applyAndSave({ kind: "restoreItem", item: snap.item, index: snap.index });
 }
 
 function findItem(id: string): Item | undefined {
@@ -652,16 +312,8 @@ function toggleWatched(id: string): void {
   if (!item) return;
   const snap = snapshotOf(item);
   const toWatched = !(item.status === "watched" || item.status === "dropped");
-  const date = todayStr(), login = state.login;
-  const op: DataOp = (data) => {
-    const it = data.items.find((i) => i.id === id);
-    if (!it) return;
-    if (toWatched) { it.status = "watched"; it.watchedAt = date; }
-    else { it.status = "planned"; it.watchedAt = null; it.droppedAt = null; }
-    it.updatedBy = login;
-  };
-  const message = toWatched ? `Mark "${item.title}" watched` : `Edit "${item.title}"`;
-  if (applyAndSave(op, message)) {
+  const op: Op = toWatched ? { kind: "markWatched", itemId: id, date: todayStr() } : { kind: "unmarkWatched", itemId: id };
+  if (applyAndSave(op)) {
     offerUndo(toWatched ? `«${item.title}» — просмотрено` : `«${item.title}» снова в списке`, snap);
   }
 }
@@ -671,16 +323,7 @@ function rateItem(id: string, person: Person, star: number): void {
   if (!item) return;
   // Clicking the current rating again clears it.
   const newRating = item.ratings[person] === star ? null : star;
-  const op: DataOp = (data) => {
-    const it = data.items.find((i) => i.id === id);
-    if (!it) return;
-    it.ratings[person] = newRating;
-    it.updatedBy = state.login;
-  };
-  const message = newRating == null
-    ? `Clear ${person} rating of "${item.title}"`
-    : `Rate "${item.title}" ${person} ${newRating}/10`;
-  applyAndSave(op, message);
+  applyAndSave({ kind: "rate", itemId: id, person, rating: newRating });
 }
 
 function setComment(id: string, person: Person, text: string): void {
@@ -688,16 +331,7 @@ function setComment(id: string, person: Person, text: string): void {
   if (!item) return;
   closeEditors();
   if ((item.comments[person] || "") === text) { render(); return; }
-  const login = state.login;
-  const op: DataOp = (data) => {
-    const it = data.items.find((i) => i.id === id);
-    if (!it) return;
-    it.comments[person] = text;
-    if (!text) delete it.reactions[person];
-    it.updatedBy = login;
-  };
-  const message = text ? `Comment "${item.title}" as ${person}` : `Clear ${person} comment of "${item.title}"`;
-  applyAndSave(op, message);
+  applyAndSave({ kind: "setComment", itemId: id, person, text });
 }
 
 function closeEditors(): void {
@@ -705,11 +339,6 @@ function closeEditors(): void {
   state.commentingId = null;
   state.replyDraft = null;
   state.editingReplyId = null;
-}
-
-function commentAuthor(item: Item, target: string): Person | null {
-  if (isPerson(target)) return item.comments[target] ? target : null;
-  return item.replies.find((r) => r.id === target)?.by || null;
 }
 
 function addReply(id: string, to: string, text: string): void {
@@ -720,15 +349,7 @@ function addReply(id: string, to: string, text: string): void {
   const trimmed = text.trim();
   if (!trimmed || !commentAuthor(item, to)) { render(); return; }
   const reply: Reply = { id: newId(), to, by, text: trimmed, at: new Date().toISOString() };
-  const login = state.login;
-  const op: DataOp = (data) => {
-    const it = data.items.find((i) => i.id === id);
-    if (!it || !commentAuthor(it, to) || it.replies.some((r) => r.id === reply.id)) return;
-    it.replies.push({ ...reply });
-    it.updatedBy = login;
-  };
-  const target = isPerson(to) ? `${to} comment` : "reply";
-  applyAndSave(op, `Reply to ${target} on "${item.title}" as ${by}`);
+  applyAndSave({ kind: "addReply", itemId: id, reply });
 }
 
 function editReply(id: string, replyId: string, text: string): void {
@@ -740,16 +361,7 @@ function editReply(id: string, replyId: string, text: string): void {
   const trimmed = text.trim();
   if (!trimmed || trimmed === reply.text) { render(); return; }
   const editedAt = new Date().toISOString();
-  const login = state.login;
-  const op: DataOp = (data) => {
-    const it = data.items.find((i) => i.id === id);
-    const r = it?.replies.find((r) => r.id === replyId);
-    if (!it || !r || r.by !== by) return;
-    r.text = trimmed;
-    r.editedAt = editedAt;
-    it.updatedBy = login;
-  };
-  applyAndSave(op, `Edit reply on "${item?.title}"`);
+  applyAndSave({ kind: "editReply", itemId: id, replyId, by, text: trimmed, editedAt });
 }
 
 function deleteReply(id: string, replyId: string): void {
@@ -758,19 +370,7 @@ function deleteReply(id: string, replyId: string): void {
   const reply = item?.replies.find((r) => r.id === replyId);
   if (!state.token || !reply || reply.by !== by || !confirm("Удалить ответ?")) return;
   closeEditors();
-  const login = state.login;
-  const op: DataOp = (data) => {
-    const it = data.items.find((i) => i.id === id);
-    const r = it?.replies.find((r) => r.id === replyId);
-    if (!it || !r || r.by !== by) return;
-    for (const child of it.replies) {
-      if (child.to === replyId) child.to = r.to;
-    }
-    it.replies = it.replies.filter((r) => r.id !== replyId);
-    delete it.reactions[replyId];
-    it.updatedBy = login;
-  };
-  applyAndSave(op, `Delete reply on "${item?.title}"`);
+  applyAndSave({ kind: "deleteReply", itemId: id, replyId, by });
 }
 
 function reactToComment(id: string, target: string, kind: ReactionKind): void {
@@ -780,28 +380,7 @@ function reactToComment(id: string, target: string, kind: ReactionKind): void {
   const author = commentAuthor(item, target);
   if (!author || author === by) return;
   const adding = !item.reactions[target]?.[by]?.includes(kind);
-  const login = state.login;
-  const op: DataOp = (data) => {
-    const it = data.items.find((i) => i.id === id);
-    if (!it) return;
-    const currentAuthor = commentAuthor(it, target);
-    if (!currentAuthor || currentAuthor === by) return;
-    const map = { ...it.reactions[target] };
-    const given = new Set<ReactionKind>(map[by]);
-    if (adding) given.add(kind);
-    else given.delete(kind);
-    const kinds = REACTION_KINDS.map((r) => r.key).filter((k) => given.has(k));
-    if (kinds.length) map[by] = kinds;
-    else delete map[by];
-    if (Object.keys(map).length) it.reactions = { ...it.reactions, [target]: map };
-    else delete it.reactions[target];
-    it.updatedBy = login;
-  };
-  const label = isPerson(target) ? `${target} comment` : "reply";
-  const message = adding
-    ? `Add ${kind} reaction to ${label} on "${item.title}" as ${by}`
-    : `Remove ${kind} reaction from ${label} on "${item.title}" as ${by}`;
-  applyAndSave(op, message);
+  applyAndSave({ kind: "react", itemId: id, target, by, reaction: kind, add: adding });
 }
 
 interface EditFields {
@@ -820,21 +399,14 @@ function commitEdit(id: string, fields: EditFields): void {
   const dateKey = fields.status === "watched" ? "watchedAt" : fields.status === "dropped" ? "droppedAt" : null;
   const transitioned = fields.status !== item.status;
   const date = fields.finishedAt || todayStr();
-  const login = state.login;
   state.editingId = null; // close the editor on save
-  const op: DataOp = (data) => {
-    const it = data.items.find((i) => i.id === id);
-    if (!it) return;
-    it.title = fields.title;
-    it.type = fields.type;
-    it.status = fields.status;
-    it.note = fields.note;
-    it.genres = normalizeGenres(fields.genres);
-    // Capture the intended date once, including across conflict retries.
-    if (dateKey && (transitioned || fields.dateEdited)) it[dateKey] = date;
-    it.updatedBy = login;
-  };
-  applyAndSave(op, `Edit "${fields.title}"`);
+  // The date is decided once here, so conflict retries and replays reuse the same value.
+  applyAndSave({
+    kind: "editItem",
+    itemId: id,
+    fields: { title: fields.title, type: fields.type, status: fields.status, note: fields.note, genres: fields.genres },
+    date: dateKey && (transitioned || fields.dateEdited) ? { field: dateKey, value: date } : null
+  });
 }
 
 function deleteItem(id: string): void {
@@ -842,8 +414,7 @@ function deleteItem(id: string): void {
   if (!item) return;
   state.editingId = null;
   const snap = snapshotOf(item);
-  const op: DataOp = (data) => { data.items = data.items.filter((i) => i.id !== id); };
-  if (applyAndSave(op, `Delete "${item.title}"`)) offerUndo(`«${item.title}» удалено`, snap);
+  if (applyAndSave({ kind: "deleteItem", itemId: id })) offerUndo(`«${item.title}» удалено`, snap);
 }
 
 function addCategory(label: string, color: string | null): void {
@@ -862,11 +433,7 @@ function addCategory(label: string, color: string | null): void {
   const chosenColor = color && /^#[0-9a-fA-F]{3,8}$/.test(color.trim())
     ? color.trim()
     : PALETTE_PRESETS[types.length % PALETTE_PRESETS.length] ?? "#5b6b53";
-  const op: DataOp = (data) => {
-    if (!Array.isArray(data.types)) data.types = DEFAULT_TYPES.map((t) => ({ ...t }));
-    data.types.push({ key, label: trimmed, color: chosenColor });
-  };
-  if (applyAndSave(op, `Add category "${trimmed}"`)) {
+  if (applyAndSave({ kind: "addCategory", category: { key, label: trimmed, color: chosenColor } })) {
     showToast(`Категория «${trimmed}» добавлена`);
     renderCategoriesDialog();
   }
@@ -877,12 +444,7 @@ function updateCategoryColor(key: string, newColor: string): void {
   if (!/^#[0-9a-fA-F]{3,8}$/.test(trimmed)) return;
   const current = getTypes().find((t) => t.key === key);
   if (!current || current.color === trimmed) return;
-  const op: DataOp = (data) => {
-    if (!Array.isArray(data.types)) data.types = DEFAULT_TYPES.map((t) => ({ ...t }));
-    const t = data.types.find((item) => item.key === key);
-    if (t) t.color = trimmed;
-  };
-  if (applyAndSave(op, `Change color for category "${current.label}"`)) {
+  if (applyAndSave({ kind: "setCategoryColor", key, color: trimmed })) {
     renderCategoriesDialog();
   }
 }
@@ -896,12 +458,7 @@ function updateCategory(key: string, newLabel: string): void {
   }
   const current = getTypes().find((t) => t.key === key);
   if (!current || current.label === trimmed) return;
-  const op: DataOp = (data) => {
-    if (!Array.isArray(data.types)) data.types = DEFAULT_TYPES.map((t) => ({ ...t }));
-    const t = data.types.find((item) => item.key === key);
-    if (t) t.label = trimmed;
-  };
-  if (applyAndSave(op, `Rename category to "${trimmed}"`)) {
+  if (applyAndSave({ kind: "renameCategory", key, label: trimmed })) {
     showToast(`Категория переименована в «${trimmed}»`);
     renderCategoriesDialog();
   }
@@ -921,25 +478,10 @@ function deleteCategory(key: string): void {
     : `Удалить категорию «${target.label}»?`;
   if (!confirm(confirmMsg)) return;
 
-  const op: DataOp = (data) => {
-    if (!Array.isArray(data.types)) data.types = DEFAULT_TYPES.map((t) => ({ ...t }));
-    data.types = data.types.filter((item) => item.key !== key);
-  };
-  if (applyAndSave(op, `Delete category "${target.label}"`)) {
+  if (applyAndSave({ kind: "deleteCategory", key })) {
     showToast(`Категория «${target.label}» удалена`);
     renderCategoriesDialog();
   }
-}
-
-// Duplicate check: case-, "ё"- and punctuation-insensitive title match.
-function titleKey(s: string): string {
-  return s.toLowerCase().replace(/ё/g, "е").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-}
-
-function findDuplicate(title: string): Item | null {
-  if (!state.data) return null;
-  const key = titleKey(title);
-  return state.data.items.find((it) => titleKey(it.title) === key) || null;
 }
 
 // Random pick from "planned", respecting the type filter; avoids repeating the previous pick.
@@ -1397,133 +939,11 @@ function renderList(): void {
 // ===== Stats tab =====
 
 const MONTH_NAMES = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
-const MONTH_FULL = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
 
 function statsFmt(value: number | null | undefined): string {
   return value == null ? "—" : value.toFixed(1).replace(".", ",");
 }
 
-interface StatsMonth { key: string; month: number; year: number; count: number; items: Item[] }
-type RatedItem = Item & { ratings: { S: number; L: number } };
-interface GenreStats {
-  label: string;
-  count: number;
-  people: Record<Person, { count: number; average: number | null }>;
-  paired: number;
-  agreement: number | null;
-}
-interface CategoryStats extends CategoryType { total: number; watched: number }
-interface Stats {
-  values: Record<Person, number[]>;
-  counts: Record<Person, number[]>;
-  averages: Record<Person, number | null>;
-  both: RatedItem[];
-  groups: Map<string, RatedItem[]>;
-  genres: GenreStats[];
-  favoriteMonth: { label: string; count: number; items: RatedItem[] };
-  close: number;
-  exact: number;
-  statuses: Record<Status, number>;
-  months: StatsMonth[];
-  diffs: RatedItem[];
-  top: RatedItem[];
-  categories: CategoryStats[];
-}
-
-function computeMonths(items: Item[], today = new Date()): StatsMonth[] {
-  const months = Array.from({ length: 12 }, (_, i): StatsMonth => {
-    const date = new Date(today.getFullYear(), today.getMonth() - 11 + i, 1);
-    return { key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`, month: date.getMonth(), year: date.getFullYear(), count: 0, items: [] };
-  });
-  items.forEach((item) => {
-    if (item.status !== "watched" || !item.watchedAt) return;
-    const watchedMonth = item.watchedAt.slice(0, 7);
-    const month = months.find((m) => m.key === watchedMonth);
-    if (month) { month.count++; month.items.push(item); }
-  });
-  return months;
-}
-
-function computeStats(items: Item[], types: CategoryType[], today = new Date()): Stats {
-  const valid = (r: unknown): r is number => typeof r === "number" && Number.isInteger(r) && r >= 1 && r <= 10;
-  const isRated = (item: Item): item is RatedItem => valid(item.ratings?.S) && valid(item.ratings?.L);
-  const perPerson = <T>(fn: (person: Person) => T): Record<Person, T> => ({ S: fn("S"), L: fn("L") });
-  const values = perPerson((person) => items.map((item) => item.ratings?.[person]).filter(valid));
-  const counts = perPerson((person) => {
-    const histogram: number[] = Array(11).fill(0);
-    values[person].forEach((r) => { histogram[r] = (histogram[r] ?? 0) + 1; });
-    return histogram;
-  });
-  const averages = perPerson((person) => values[person].length ? values[person].reduce((sum, r) => sum + r, 0) / values[person].length : null);
-  const both = items.filter(isRated);
-  const newer = (a: Item, b: Item): number => (b.watchedAt || "").localeCompare(a.watchedAt || "");
-  const groups = new Map<string, RatedItem[]>();
-  both.forEach((item) => {
-    const key = `${item.ratings.S}:${item.ratings.L}`;
-    const group = groups.get(key) ?? [];
-    group.push(item);
-    groups.set(key, group);
-  });
-  // Preserve items whose category is no longer in the configured list.
-  const categories = types.map((type) => ({ ...type }));
-  items.forEach((item) => {
-    if (!categories.some((type) => type.key === item.type)) categories.push({ key: item.type, label: item.type || "Без типа", color: "var(--muted)" });
-  });
-  const watched = items.filter((item) => item.status === "watched");
-  const watchedBoth = both.filter((item) => item.status === "watched");
-  const genreGroups = new Map<string, { label: string; items: Item[] }>();
-  watched.forEach((item) => {
-    const seen = new Set<string>();
-    for (const raw of Array.isArray(item.genres) ? item.genres : []) {
-      if (typeof raw !== "string" || !raw.trim()) continue;
-      const label = raw.trim(), key = label.toLocaleLowerCase("ru-RU");
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const group = genreGroups.get(key) ?? { label, items: [] };
-      group.items.push(item);
-      genreGroups.set(key, group);
-    }
-  });
-  const genres = [...genreGroups.values()].map((genre): GenreStats => {
-    const paired = genre.items.filter(isRated);
-    const people = perPerson((person) => {
-      const ratings = genre.items.map((item) => item.ratings?.[person]).filter(valid);
-      return { count: ratings.length, average: ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : null };
-    });
-    return { label: genre.label, count: genre.items.length, people, paired: paired.length,
-      agreement: paired.length ? 100 * (1 - paired.reduce((sum, item) => sum + Math.abs(item.ratings.S - item.ratings.L), 0) / paired.length / 9) : null };
-  }).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "ru"));
-  const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-  const currentDate = `${currentMonth}-${String(today.getDate()).padStart(2, "0")}`;
-  const monthly = watchedBoth.filter((item) => {
-    const watchedAt = item.watchedAt || "";
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(watchedAt) || watchedAt.slice(0, 7) !== currentMonth || watchedAt > currentDate) return false;
-    const day = Number(watchedAt.slice(8)), maxDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    return day >= 1 && day <= maxDay;
-  });
-  const bestMonthly = Math.max(0, ...monthly.map((item) => item.ratings.S + item.ratings.L));
-  return {
-    values, counts, averages, both, groups, genres,
-    favoriteMonth: { label: `${MONTH_FULL[today.getMonth()]} ${today.getFullYear()}`, count: monthly.length,
-      items: monthly.filter((item) => item.ratings.S + item.ratings.L === bestMonthly).sort((a, b) => newer(a, b) || a.title.localeCompare(b.title, "ru")) },
-    close: both.filter((item) => Math.abs(item.ratings.S - item.ratings.L) <= 1).length,
-    exact: both.filter((item) => item.ratings.S === item.ratings.L).length,
-    statuses: { planned: 0, watching: 0, watched: 0, dropped: 0, ...Object.fromEntries(STATUSES.map((status) => [status, items.filter((item) => item.status === status).length])) },
-    months: computeMonths(items, today),
-    diffs: watchedBoth.filter((item) => item.ratings.S !== item.ratings.L).sort((a, b) => Math.abs(b.ratings.S - b.ratings.L) - Math.abs(a.ratings.S - a.ratings.L) || newer(a, b)).slice(0, 5),
-    top: [...both].sort((a, b) => (b.ratings.S + b.ratings.L) - (a.ratings.S + a.ratings.L) || newer(a, b)).slice(0, 10),
-    categories: categories.map((type) => ({ ...type, total: items.filter((item) => item.type === type.key).length, watched: items.filter((item) => item.type === type.key && item.status === "watched").length }))
-  };
-}
-
-type SvgChild = Node | string | number | null | undefined;
-
-function statsSvg<K extends keyof SVGElementTagNameMap>(tag: K, attrs?: Record<string, string | number> | null, ...children: (SvgChild | SvgChild[])[]): SVGElementTagNameMap[K] {
-  const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
-  for (const [key, value] of Object.entries(attrs || {})) node.setAttribute(key, String(value));
-  children.flat().forEach((child) => { if (child != null) node.append(child instanceof Node ? child : document.createTextNode(String(child))); });
-  return node;
-}
 
 function statsChart(width: number, height: number, label: string, interactive = false): SVGSVGElement {
   return statsSvg("svg", { width: "100%", viewBox: `0 0 ${width} ${height}`, role: interactive ? "group" : "img", "aria-label": label });
@@ -1855,7 +1275,7 @@ async function saveToken(): Promise<void> {
     if (!res.ok) throw httpError(`GitHub API: HTTP ${res.status}`, res.status);
     const user = asRecord(await res.json());
     const login = typeof user?.login === "string" ? user.login : "";
-    if (!rebindPendingSaves(token, login)) {
+    if (!saves.rebind(token, login)) {
       errEl.textContent = "Сначала сохраните изменения текущего пользователя. Можно обновить его токен.";
       return;
     }
@@ -1865,11 +1285,11 @@ async function saveToken(): Promise<void> {
     state.token = token;
     state.login = login;
     state.person = personFor(state.login);
-    retryFailedSaves();
+    saves.retry();
     input.value = "";
     byId<HTMLDialogElement>("settings-dialog").close();
     showToast(`Вход выполнен: ${state.login} (${state.person})`);
-    void loadAll(); // from now on read fresh data via the API
+    void loadAll().then(restorePendingSaves); // from now on read fresh data via the API
   } catch (e) {
     console.error("token check failed", e);
     errEl.textContent = friendlyError(e);
@@ -1877,7 +1297,7 @@ async function saveToken(): Promise<void> {
 }
 
 function logout(): void {
-  if (hasUnsavedChanges()) { showToast("Сначала сохраните изменения — нажмите «Повторить сохранение»."); return; }
+  if (saves.hasUnsaved()) { showToast("Сначала сохраните изменения — нажмите «Повторить сохранение»."); return; }
   localStorage.removeItem(LS_TOKEN);
   localStorage.removeItem(LS_LOGIN);
   localStorage.removeItem(LS_PERSON);
@@ -2063,7 +1483,7 @@ function init(): void {
   const savedScroll = asRecord(readLocal("watchlist.scroll")) ?? {};
   const tabScroll: Record<Tab, number> = { list: 0, watched: 0, dropped: 0, stats: 0 };
   window.addEventListener("beforeunload", (event) => {
-    if (!hasUnsavedChanges()) return;
+    if (!saves.hasUnsaved()) return;
     event.preventDefault();
     event.returnValue = "";
   });
@@ -2119,7 +1539,7 @@ function init(): void {
       }
       if (!addItem(title, type, metadata)) return false;
       catalogSavePending = true;
-      await waitForSaves();
+      await saves.wait();
       return true;
     }
   });
@@ -2181,6 +1601,7 @@ function init(): void {
 
   render();
   void loadAll().then(() => {
+    restorePendingSaves();
     initCatalog();
     const y = savedScroll.y;
     if (savedScroll.tab === state.tab && typeof y === "number" && Number.isFinite(y)) window.scrollTo(0, y);

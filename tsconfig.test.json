@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": [],
+    "rootDir": ".",
+    "outDir": ".test-build",
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "verbatimModuleSyntax": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noEmitOnError": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/config.ts",
+    "src/domain/**/*.ts",
+    "src/data/save-queue.ts",
+    "src/data/repository.ts",
+    "tests/**/*.ts",
+    "tools/**/*.ts"
+  ]
+}

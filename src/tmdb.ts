@@ -1,6 +1,8 @@
 /* TMDB search and local add drafts. Credentials never enter item metadata. */
 
-window.WatchlistTMDB = ((): WatchlistTMDBApi => {
+import type { Item, MediaType, ParsedQuery, TmdbHooks, TmdbItemMetadata, TmdbSelection, WatchlistTMDBApi } from "./domain/types.js";
+
+export const WatchlistTMDB = ((): WatchlistTMDBApi => {
   const TOKEN_KEY = "watchlist.tmdbToken";
   const DRAFT_KEY = "watchlist.addDraft";
   const API = "https://api.themoviedb.org/3";

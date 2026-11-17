@@ -2,8 +2,8 @@
 /.claude/settings.local.json
 .DS_Store
 
-# Build output (compiled from src/*.ts)
-/app.js
-/tmdb.js
+# Build output (compiled from src/**/*.ts)
+/js/
 /sw.js
+/.test-build/
 node_modules/

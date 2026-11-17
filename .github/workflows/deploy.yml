@@ -18,6 +18,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      data_ok: ${{ steps.validate.outcome == 'success' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,6 +32,7 @@ jobs:
       - name: Build TypeScript
         run: |
           npm ci
+          npm test
           npm run build
       - name: Overlay current data and prepare site
         shell: bash
@@ -50,7 +53,13 @@ jobs:
             --exclude='design/' --exclude='*.md' --exclude='opencode.jsonc' \
             --exclude='.idea/' --exclude='.gitignore' --exclude='.claude/' \
             --exclude='src/' --exclude='node_modules/' --exclude='package.json' \
-            --exclude='package-lock.json' --exclude='tsconfig*.json' --exclude='.npmrc'
+            --exclude='package-lock.json' --exclude='tsconfig*.json' --exclude='.npmrc' \
+            --exclude='tests/' --exclude='tools/' --exclude='.test-build/'
+      # The site itself writes the data; bad data must not block code deploys, but the run turns red.
+      - name: Validate data
+        id: validate
+        continue-on-error: true
+        run: node .test-build/tools/validate-data.js data/movies.json
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
@@ -64,3 +73,12 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+  data-check:
+    needs: [build, deploy]
+    if: ${{ always() && needs.build.outputs.data_ok == 'false' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report invalid data
+        run: |
+          echo "::error::data/movies.json failed validation; the site was deployed anyway. See the Validate data step of the build job."
+          exit 1

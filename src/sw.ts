@@ -1,11 +1,38 @@
 /* Service worker: makes the site installable and usable offline.
  * Network-first for same-origin GET requests, so updates show up immediately;
- * the cached copy is used only when the network fails. GitHub API calls are not touched. */
+ * the cached copy is used only when the network fails. Every module is precached so the app
+ * works offline right after install; tests/sw-shell.test.ts fails if a module is missing here. GitHub API calls are not touched. */
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
-const CACHE = "watchlist-v11";
-const SHELL = ["./", "index.html", "style.css", "tmdb.js", "app.js", "manifest.json", "data/movies.json", "icons/icon-192.png", "icons/tmdb.svg"];
+const CACHE = "watchlist-v13";
+const SHELL = [
+  "./",
+  "index.html",
+  "style.css",
+  "js/config.js",
+  "js/data/encoding.js",
+  "js/data/github.js",
+  "js/data/repository.js",
+  "js/data/save-queue.js",
+  "js/domain/dates.js",
+  "js/domain/guards.js",
+  "js/domain/items.js",
+  "js/domain/normalize.js",
+  "js/domain/ops.js",
+  "js/domain/stats.js",
+  "js/domain/text.js",
+  "js/domain/types.js",
+  "js/domain/validate.js",
+  "js/main.js",
+  "js/tmdb.js",
+  "js/ui/dom.js",
+  "js/util/id.js",
+  "manifest.json",
+  "data/movies.json",
+  "icons/icon-192.png",
+  "icons/tmdb.svg"
+];
 
 sw.addEventListener("install", (e: ExtendableEvent) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => sw.skipWaiting()));

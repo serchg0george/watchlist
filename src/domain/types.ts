@@ -1,24 +1,24 @@
-type Person = "S" | "L";
-type Status = "planned" | "watching" | "watched" | "dropped";
-type MediaType = "movie" | "tv";
-type ReactionKind = "like" | "fire" | "heart" | "grin" | "eyes" | "laugh" | "sad" | "dislike";
+export type Person = "S" | "L";
+export type Status = "planned" | "watching" | "watched" | "dropped";
+export type MediaType = "movie" | "tv";
+export type ReactionKind = "like" | "fire" | "heart" | "grin" | "eyes" | "laugh" | "sad" | "dislike";
 
-interface ReactionKindInfo {
+export interface ReactionKindInfo {
   key: ReactionKind;
   emoji: string;
   label: string;
 }
 
-interface CategoryType {
+export interface CategoryType {
   key: string;
   label: string;
   color: string;
 }
 
-type Ratings = Record<Person, number | null>;
-type Comments = Record<Person, string>;
+export type Ratings = Record<Person, number | null>;
+export type Comments = Record<Person, string>;
 
-interface Reply {
+export interface Reply {
   id: string;
   to: string;
   by: Person;
@@ -27,9 +27,9 @@ interface Reply {
   editedAt?: string;
 }
 
-type Reactions = Record<string, Partial<Record<Person, ReactionKind[]>>>;
+export type Reactions = Record<string, Partial<Record<Person, ReactionKind[]>>>;
 
-interface TmdbMetadata {
+export interface TmdbMetadata {
   id: number;
   mediaType: MediaType;
   originalTitle: string;
@@ -40,7 +40,7 @@ interface TmdbMetadata {
   imdbId?: string;
 }
 
-interface Item {
+export interface Item {
   id: string;
   title: string;
   type: string;
@@ -58,45 +58,39 @@ interface Item {
   tmdb?: TmdbMetadata;
 }
 
-interface WatchlistData {
+export interface WatchlistData {
   version: number;
   types: CategoryType[];
   items: Item[];
 }
 
-interface TmdbSelection {
+export interface TmdbSelection {
   title: string;
   tmdb: TmdbMetadata;
   genres: string[];
 }
 
-interface TmdbItemMetadata {
+export interface TmdbItemMetadata {
   tmdb?: TmdbMetadata;
   genres?: string[];
 }
 
-interface TmdbHooks {
+export interface TmdbHooks {
   getItems: () => Item[];
   getTypes: () => CategoryType[];
   canEdit: () => boolean;
   add: (title: string, type: string, metadata: TmdbItemMetadata) => Promise<boolean>;
 }
 
-type ParsedQuery =
+export type ParsedQuery =
   | { query: string }
   | { mediaType: MediaType; id: number }
   | { imdbId: string };
 
-interface WatchlistTMDBApi {
+export interface WatchlistTMDBApi {
   init: (options: TmdbHooks) => void;
   parseQuery: (value: string) => ParsedQuery;
   asMetadata: (raw: unknown, mediaType: MediaType) => TmdbSelection;
   safePoster: (path: unknown) => string | null;
   acknowledgeSave: () => void;
 }
-
-interface Window {
-  WatchlistTMDB?: WatchlistTMDBApi;
-}
-
-declare var WatchlistTMDB: WatchlistTMDBApi;
