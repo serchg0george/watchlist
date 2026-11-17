@@ -133,7 +133,9 @@
       "replies": [],
       "reactions": {
         "L": {
-          "S": "fire"
+          "S": [
+            "fire"
+          ]
         }
       },
       "genres": [
@@ -589,7 +591,9 @@
       "replies": [],
       "reactions": {
         "L": {
-          "S": "heart"
+          "S": [
+            "heart"
+          ]
         }
       },
       "genres": [
@@ -678,7 +682,9 @@
       ],
       "reactions": {
         "L": {
-          "S": "heart"
+          "S": [
+            "heart"
+          ]
         }
       },
       "genres": [
@@ -708,7 +714,9 @@
       "replies": [],
       "reactions": {
         "L": {
-          "S": "heart"
+          "S": [
+            "heart"
+          ]
         }
       },
       "genres": [
@@ -838,7 +846,9 @@
       "replies": [],
       "reactions": {
         "L": {
-          "S": "grin"
+          "S": [
+            "grin"
+          ]
         }
       },
       "genres": [
@@ -868,7 +878,9 @@
       "replies": [],
       "reactions": {
         "L": {
-          "S": "laugh"
+          "S": [
+            "laugh"
+          ]
         }
       },
       "genres": [
@@ -949,7 +961,10 @@
       "replies": [],
       "reactions": {
         "L": {
-          "S": "heart"
+          "S": [
+            "heart",
+            "grin"
+          ]
         }
       },
       "genres": [
