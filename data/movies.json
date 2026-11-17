@@ -34,6 +34,42 @@
   ],
   "items": [
     {
+      "id": "70824b2e-ec52-4b0d-ab0a-eaa54ba1ff43",
+      "title": "Форма голоса",
+      "type": "movie",
+      "status": "planned",
+      "ratings": {
+        "S": null,
+        "L": null
+      },
+      "comments": {
+        "S": "",
+        "L": ""
+      },
+      "replies": [],
+      "reactions": {},
+      "genres": [
+        "мультфильм",
+        "драма",
+        "мелодрама"
+      ],
+      "note": "",
+      "addedAt": "2026-11-18",
+      "watchedAt": null,
+      "droppedAt": null,
+      "updatedBy": "serchg0george",
+      "tmdb": {
+        "id": 378064,
+        "mediaType": "movie",
+        "originalTitle": "映画 聲の形",
+        "year": 2016,
+        "overview": "Молодой человек Сёя Исида внезапно осознаёт, что в школе умудрился превратить жизнь одноклассницы Сёко в ад только потому, что та была глухая. И теперь, хоть и запоздало, парень понимает — чтобы сказать нечто важное тому, кто не может тебя услышать, вовсе не обязательно использовать голос.",
+        "posterPath": "/c0Gv8xTSEmIcQPxbhINKvkbJO8s.jpg",
+        "runtime": 130,
+        "imdbId": "tt5323662"
+      }
+    },
+    {
       "id": "84c27643-d09c-425f-a4fd-59801ffe80ca",
       "title": "Ход королевы",
       "type": "series",
