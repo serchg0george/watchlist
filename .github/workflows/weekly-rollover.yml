@@ -35,6 +35,14 @@ jobs:
         with:
           ref: master
           fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Build data validator
+        run: |
+          npm ci
+          npx tsc -p tsconfig.test.json
       - name: Roll over weekly data
         id: rollover
         env:
