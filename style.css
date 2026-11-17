@@ -1,4 +1,4 @@
-/* ===== Watchlist: mobile-first, light theme with soft green accent ===== */
+/* ===== Watchlist: mobile-first; light theme with soft green accent, dark theme blue-black with cyan accent ===== */
 
 :root {
   --bg: #fbfcf9;
@@ -19,22 +19,23 @@
 }
 
 @media (prefers-color-scheme: dark) {
+  /* Neutral blue-black with a cyan accent (no green tint). */
   :root {
-    --bg: #12160f;
-    --card: #1e2a17;
-    --card-hover: #25341d;
-    --text: #e8efe2;
-    --muted: #9fb093;
-    --accent: #6fbf63;
-    --on-accent: #0e150b;
-    --border: rgba(255, 255, 255, 0.12);
-    --chip-bg: #22301c;
-    --chip-active-bg: #35502a;
+    --bg: #0e1215;
+    --card: #171d22;
+    --card-hover: #1e262c;
+    --text: #e9edf0;
+    --muted: #8d979f;
+    --accent: #2ab0e4;
+    --on-accent: #06141b;
+    --border: rgba(255, 255, 255, 0.08);
+    --chip-bg: #1c2329;
+    --chip-active-bg: #1f3d4c;
     --danger: #e07b6f;
     --star-on: #e8b93c;
-    --star-off: #4d5c45;
-    --track: rgba(255, 255, 255, 0.1);
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --star-off: #3a444c;
+    --track: rgba(255, 255, 255, 0.08);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   }
 }
 
