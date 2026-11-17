@@ -34,6 +34,40 @@
   ],
   "items": [
     {
+      "id": "84c27643-d09c-425f-a4fd-59801ffe80ca",
+      "title": "Ход королевы",
+      "type": "series",
+      "status": "planned",
+      "ratings": {
+        "S": null,
+        "L": null
+      },
+      "comments": {
+        "S": "",
+        "L": ""
+      },
+      "replies": [],
+      "reactions": {},
+      "genres": [
+        "драма"
+      ],
+      "note": "",
+      "addedAt": "2026-11-18",
+      "watchedAt": null,
+      "droppedAt": null,
+      "updatedBy": "serchg0george",
+      "tmdb": {
+        "id": 87739,
+        "mediaType": "tv",
+        "originalTitle": "The Queen's Gambit",
+        "year": 2020,
+        "overview": "1950-е, сиротский приют. Юная девушка обнаруживает удивительный талант к шахматам и начинает свой невероятный путь к славе, которой может помешать зависимость.",
+        "posterPath": "/s2s3E4yNyErQZ081jDEONfLFYxb.jpg",
+        "runtime": null,
+        "imdbId": "tt10048342"
+      }
+    },
+    {
       "id": "53cb1876-9d9c-4806-b6a8-3bcbd4340533",
       "title": "Битва за битвой",
       "type": "movie",
