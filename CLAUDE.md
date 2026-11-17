@@ -23,8 +23,8 @@ GitHub user **serchg0george**, repo **serchg0george/watchlist**, branch **master
 ## 3. Структура
 
 - `index.html`, `style.css` — сайт на HTML/CSS; `src/` — строгий TypeScript без фреймворков и бандлера: `config.ts` (константы), `domain/` (чистая логика без DOM: типы, normalize, ops — изменения данных как сериализуемые `Op`, `applyOp`, validate, stats), `data/` (`GitHubRepository` за `WatchlistRepository`, `SaveQueue`), `ui/dom.ts`, `tmdb.ts`, `main.ts` (UI и связка пока в нём). `tsc` (`npm run build`, конфиги `tsconfig.json` и `tsconfig.sw.json`) собирает `src/main.ts` в нативные ES-модули `js/main.js` (`index.html` грузит его как `<script type="module">`) и `src/sw.ts` в `sw.js` в корне; `js/` и `sw.js` в `.gitignore` и собираются в `deploy.yml`. Единственная зависимость — `typescript` в devDependencies. Перед коммитом — `npm run check && npm test`.
-- `manifest.json`, `src/sw.ts`, `icons/` — установка на телефон и офлайн-кэш (network-first); в precache только `js/main.js`, остальные модули кэшируются при первом запросе. При изменении списка файлов оболочки — поднять `CACHE` в `src/sw.ts`.
-- `data/movies.json` — данные (схема в `README.md`); `npm run validate-data` их проверяет, Deploy Pages и Weekly rollover без валидных данных не публикуются.
+- `manifest.json`, `src/sw.ts`, `icons/` — установка на телефон и офлайн-кэш (network-first); все модули `js/` перечислены в `SHELL` (`tests/sw-shell.test.ts` проверяет). При добавлении модуля — дописать его в `SHELL` и поднять `CACHE` в `src/sw.ts`.
+- `data/movies.json` — данные (схема в `README.md`); `npm run validate-data` их проверяет, Weekly rollover не пушит невалидные данные, Deploy Pages публикует сайт, но краснеет.
 - `scripts/` — `delegate.sh`, `qwen.sh`, `coauthor.sh`. `.githooks/` — трейлеры соавторов.
 
 ## 4. Local Qwen Lifecycle — MANDATORY

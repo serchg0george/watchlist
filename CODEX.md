@@ -38,5 +38,5 @@ Never use `git config --global`.
 - Every data change is an `Op` (serializable value, `src/domain/`) passed to `applyAndSave(op)`. The queue is persisted and ops are replayed on fresh server data on conflict, so `applyOp` must find targets by id inside `data`, never capture objects from `state.data`, and be idempotent: safe to apply where the target is already gone.
 - Data compatibility is mandatory: never remove or rename existing fields in `data/movies.json`; new fields are optional and `normalize()` must keep unknown fields (it spreads the original item first).
 - Do not edit `data/movies.json` — it is live data written by the site. Use a local fixture outside the repo for testing.
-- When the list of shell files changes, or app logic/CSS changes, bump `CACHE` in `src/sw.ts`. Only `js/main.js` is precached; other modules are cached on first fetch.
+- When the list of shell files changes, or app logic/CSS changes, bump `CACHE` in `src/sw.ts`. Every `js/` module is listed in `SHELL` (checked by `tests/sw-shell.test.ts`); add new modules there.
 - Desktop (Mac/Windows browser) is the primary screen; mobile must still work (single column, no horizontal scroll).

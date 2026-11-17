@@ -214,6 +214,8 @@ function applyAndSave(op: Op): boolean {
 
 // Edits that were queued but not committed when the page closed are replayed after the first load.
 function restorePendingSaves(): void {
+  // A live queue already holds (and persists) everything stored for this login.
+  if (saves.hasUnsaved()) return;
   const stored = readLocal(pendingKey(state.login));
   if (!Array.isArray(stored) || !state.data) return;
   const entries: SaveEntry<Op>[] = [];
@@ -1287,7 +1289,7 @@ async function saveToken(): Promise<void> {
     input.value = "";
     byId<HTMLDialogElement>("settings-dialog").close();
     showToast(`Вход выполнен: ${state.login} (${state.person})`);
-    void loadAll(); // from now on read fresh data via the API
+    void loadAll().then(restorePendingSaves); // from now on read fresh data via the API
   } catch (e) {
     console.error("token check failed", e);
     errEl.textContent = friendlyError(e);
