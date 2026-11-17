@@ -1,3 +1,9 @@
 /.idea/
 /.claude/settings.local.json
 .DS_Store
+
+# Build output (compiled from src/*.ts)
+/app.js
+/tmdb.js
+/sw.js
+node_modules/

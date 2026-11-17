@@ -33,10 +33,10 @@ Never use `git config --global`.
 
 ## Code rules
 
-- Until the TypeScript task lands: plain HTML/CSS/JS, no build step, no npm, no frameworks, no CDN libraries.
+- Strict TypeScript in `src/*.ts`, compiled by `tsc` to classic scripts in the repo root (`npm run build`; outputs are gitignored and built in `deploy.yml`). No frameworks, bundlers, runtime dependencies or CDN libraries. Run `npm run check` before committing; no `any`, narrow `unknown` from JSON/network.
 - UI text in Russian; identifiers and comments in English. Follow existing style: the `el()` DOM helper, the global `state`, `render()` re-rendering.
 - Every data change goes through `applyAndSave(op, message)`. `op(data)` is replayed on fresh server data on conflict, so it must find items/replies by id inside `data`, never capture objects from `state.data`, and must be safe to apply to data where the target is already gone.
 - Data compatibility is mandatory: never remove or rename existing fields in `data/movies.json`; new fields are optional and `normalize()` must keep unknown fields (it spreads the original item first).
 - Do not edit `data/movies.json` — it is live data written by the site. Use a local fixture outside the repo for testing.
-- When the list of shell files changes, or app logic/CSS changes, bump `CACHE` in `sw.js`.
+- When the list of shell files changes, or app logic/CSS changes, bump `CACHE` in `src/sw.ts`.
 - Desktop (Mac/Windows browser) is the primary screen; mobile must still work (single column, no horizontal scroll).
