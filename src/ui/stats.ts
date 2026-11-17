@@ -3,7 +3,7 @@ import { PEOPLE } from "../config.js";
 import { MONTH_FULL, computeStats } from "../domain/stats.js";
 import type { Stats } from "../domain/stats.js";
 import type { Item, Person, Status } from "../domain/types.js";
-import { getTypes, openItems, render, state } from "../state/store.js";
+import { getTypes, openComments, render, state } from "../state/store.js";
 import { byId, el, statsSvg } from "./dom.js";
 import type { ElChild } from "./dom.js";
 
@@ -203,7 +203,8 @@ function statsItemButton(item: Item): HTMLElement {
     state.search = "";
     byId<HTMLInputElement>("search").value = "";
     state.highlightId = item.id;
-    openItems.add(item.id);
+    // Make the card's comments expanded: flip the status default via openComments (XOR).
+    if (item.status === "watched" || item.status === "dropped") openComments.delete(item.id); else openComments.add(item.id);
     render();
     const row = document.querySelector<HTMLElement>(`.item-row[data-id="${CSS.escape(item.id)}"]`);
     if (row) { row.setAttribute("tabindex", "-1"); row.focus({ preventScroll: true }); row.scrollIntoView({ behavior: "smooth", block: "center" }); }
