@@ -633,28 +633,6 @@
       "droppedAt": null
     },
     {
-      "id": "hrustalnyy",
-      "title": "Хрустальный",
-      "type": "movie",
-      "status": "planned",
-      "ratings": {
-        "S": null,
-        "L": null
-      },
-      "comments": {
-        "S": "",
-        "L": ""
-      },
-      "note": "посмотри сам",
-      "addedAt": "2026-11-15",
-      "watchedAt": null,
-      "updatedBy": "",
-      "replies": [],
-      "reactions": {},
-      "genres": [],
-      "droppedAt": null
-    },
-    {
       "id": "trigger",
       "title": "Триггер",
       "type": "series",
