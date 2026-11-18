@@ -8,6 +8,7 @@ export const API_CONTENTS_URL = `https://api.github.com/repos/${REPO}/contents/$
 export const LS_TOKEN = "watchlist.token";
 export const LS_LOGIN = "watchlist.login";
 export const LS_PERSON = "watchlist.person";
+export const LS_DATA_CACHE = "watchlist.dataCache";
 
 export const PEOPLE: readonly Person[] = ["S", "L"];
 export const REACTION_KINDS: readonly ReactionKindInfo[] = [
@@ -23,6 +24,8 @@ export const REACTION_KINDS: readonly ReactionKindInfo[] = [
 // Exactly two editors: the repo owner is S, the collaborator (any other login with write access) is L.
 export const OWNER_LOGIN = "serchg0george";
 export const UNDO_MS = 5000;
+// A tab that comes back after this long gets a quiet data refresh.
+export const REFRESH_AFTER_MS = 30_000;
 
 export function personFor(login: string): Person | "" {
   if (!login) return "";

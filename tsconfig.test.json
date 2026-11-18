@@ -20,8 +20,9 @@
   "include": [
     "src/config.ts",
     "src/domain/**/*.ts",
-    "src/data/github.ts",
+    "src/data/data-cache.ts",
     "src/data/encoding.ts",
+    "src/data/github.ts",
     "src/data/save-queue.ts",
     "src/data/repository.ts",
     "src/util/**/*.ts",

@@ -1,3 +1,5 @@
+import { LS_DATA_CACHE } from "../config.js";
+import { chooseFallback, makeCache, parseCache } from "../data/data-cache.js";
 import { GitHubRepository, friendlyError } from "../data/github.js";
 import { SaveQueue } from "../data/save-queue.js";
 import type { SaveEntry } from "../data/save-queue.js";
@@ -39,20 +41,55 @@ let saveHideTimer: ReturnType<typeof setTimeout> | undefined;
 
 const repo = new GitHubRepository();
 
-export async function loadAll(): Promise<void> {
+let lastLoadAt = 0; // Date.now() of the last successful load or save
+
+export function msSinceLoad(): number { return Date.now() - lastLoadAt; }
+
+export async function loadAll(options: { silent?: boolean } = {}): Promise<void> {
   if (saves.hasUnsaved()) return;
-  state.loading = true;
-  state.error = null;
-  render();
+  const silent = options.silent === true;
+  // A quiet refresh must not start while the initial load is in flight.
+  if (silent && state.loading) return;
+  // Silent: no "Загрузка…" flash, no error clearing before the request.
+  if (!silent) {
+    state.loading = true;
+    state.error = null;
+    render();
+  }
   try {
     const loaded = await repo.load(state.token);
+    // An edit may have been queued while the request was in flight: keep local data, the queue will bring fresh copies.
+    if (silent && saves.hasUnsaved()) return;
     state.dataBranch = loaded.branch;
     state.data = loaded.data;
+    writeLocal(LS_DATA_CACHE, makeCache(loaded.data, loaded.branch, new Date()));
+    state.offline = false;
+    state.offlineSince = null;
+    state.error = null;
+    lastLoadAt = Date.now();
   } catch (e) {
     console.error("load failed", e);
-    state.error = friendlyError(e);
+    if (!silent) {
+      const fb = chooseFallback(readLocal(LS_DATA_CACHE));
+      if (fb.kind === "cache") {
+        // Show the cached copy instead of an error screen.
+        state.data = fb.data;
+        state.dataBranch = fb.branch;
+        state.offline = true;
+        state.offlineSince = fb.savedAt;
+      } else {
+        state.error = friendlyError(e);
+      }
+    } else if (state.data !== null) {
+      // Keep the shown data, mark it as stale.
+      state.offline = true;
+      if (!state.offlineSince) {
+        const cache = parseCache(readLocal(LS_DATA_CACHE));
+        state.offlineSince = cache ? cache.savedAt : new Date().toISOString();
+      }
+    }
   } finally {
-    state.loading = false;
+    if (!silent) state.loading = false;
     render();
   }
 }
@@ -72,6 +109,10 @@ export const saves = new SaveQueue<Op>({
   currentLogin: () => state.login,
   onSaved(data) {
     state.data = data;
+    writeLocal(LS_DATA_CACHE, makeCache(data, state.dataBranch, new Date()));
+    state.offline = false;
+    state.offlineSince = null;
+    lastLoadAt = Date.now();
     render();
   },
   onChange: updateSaveIndicator,

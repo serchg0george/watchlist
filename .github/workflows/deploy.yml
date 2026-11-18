@@ -46,15 +46,10 @@ jobs:
           else
             echo 'No data branch yet; deploying master data.'
           fi
-          mkdir -p _site
-          rsync -a ./ _site/ \
-            --exclude='_site/' --exclude='.git/' --exclude='.github/' \
-            --exclude='.githooks/' --exclude='scripts/' --exclude='tasks/' \
-            --exclude='design/' --exclude='*.md' --exclude='opencode.jsonc' \
-            --exclude='.idea/' --exclude='.gitignore' --exclude='.claude/' \
-            --exclude='src/' --exclude='node_modules/' --exclude='package.json' \
-            --exclude='package-lock.json' --exclude='tsconfig*.json' --exclude='.npmrc' \
-            --exclude='tests/' --exclude='tools/' --exclude='.test-build/'
+          mkdir -p _site/data
+          cp index.html style.css manifest.json sw.js _site/
+          cp -R js icons _site/
+          cp data/movies.json _site/data/
       # The site itself writes the data; bad data must not block code deploys, but the run turns red.
       - name: Validate data
         id: validate
