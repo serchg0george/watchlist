@@ -23,11 +23,6 @@ declare module "node:fs" {
   export function readdirSync(path: string, options: { recursive: true }): string[];
 }
 
-declare const console: {
-  log(...data: unknown[]): void;
-  error(...data: unknown[]): void;
-};
-
 declare const process: {
   readonly argv: readonly string[];
   exitCode: number | undefined;

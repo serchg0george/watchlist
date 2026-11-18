@@ -5,7 +5,7 @@
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
-const CACHE = "watchlist-v20";
+const CACHE = "watchlist-v21";
 const SHELL = [
   "./",
   "index.html",
@@ -40,6 +40,7 @@ const SHELL = [
   "js/ui/list/list.js",
   "js/ui/stats.js",
   "js/ui/toast.js",
+  "js/util/delay.js",
   "js/util/id.js",
   "manifest.json",
   "data/movies.json",

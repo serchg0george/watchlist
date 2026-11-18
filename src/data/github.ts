@@ -2,6 +2,7 @@ import { API_CONTENTS_URL, REPO } from "../config.js";
 import { asRecord } from "../domain/guards.js";
 import { normalize } from "../domain/normalize.js";
 import type { WatchlistData } from "../domain/types.js";
+import { delay } from "../util/delay.js";
 import { base64ToUtf8, utf8ToBase64 } from "./encoding.js";
 import type { LoadedData, WatchlistRepository } from "./repository.js";
 
@@ -80,6 +81,7 @@ export class GitHubRepository implements WatchlistRepository {
       catch (error) {
         if (asRecord(error)?.status !== 404) throw error;
         lastErr = error;
+        if (attempt < 3) await delay(250 * attempt + Math.random() * 250);
         continue;
       }
       const freshData = normalize(fresh.data);
@@ -98,7 +100,10 @@ export class GitHubRepository implements WatchlistRepository {
       }, (response) => response);
       if (res.ok) return { data: normalize(freshData), branch };
       lastErr = httpError(`GitHub API: HTTP ${res.status}`, res.status);
-      if (res.status === 404 || res.status === 409 || res.status === 422) continue;
+      if (res.status === 404 || res.status === 409 || res.status === 422) {
+        if (attempt < 3) await delay(250 * attempt + Math.random() * 250);
+        continue;
+      }
       throw lastErr;
     }
     throw lastErr;
