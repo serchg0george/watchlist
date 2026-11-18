@@ -1,3 +1,5 @@
+import { LS_DATA_CACHE } from "../config.js";
+import { chooseFallback, makeCache } from "../data/data-cache.js";
 import { GitHubRepository, friendlyError } from "../data/github.js";
 import { SaveQueue } from "../data/save-queue.js";
 import type { SaveEntry } from "../data/save-queue.js";
@@ -48,9 +50,21 @@ export async function loadAll(): Promise<void> {
     const loaded = await repo.load(state.token);
     state.dataBranch = loaded.branch;
     state.data = loaded.data;
+    writeLocal(LS_DATA_CACHE, makeCache(loaded.data, loaded.branch, new Date()));
+    state.offline = false;
+    state.offlineSince = null;
   } catch (e) {
     console.error("load failed", e);
-    state.error = friendlyError(e);
+    const fb = chooseFallback(readLocal(LS_DATA_CACHE));
+    if (fb.kind === "cache") {
+      // Show the cached copy instead of an error screen.
+      state.data = fb.data;
+      state.dataBranch = fb.branch;
+      state.offline = true;
+      state.offlineSince = fb.savedAt;
+    } else {
+      state.error = friendlyError(e);
+    }
   } finally {
     state.loading = false;
     render();
@@ -72,6 +86,9 @@ export const saves = new SaveQueue<Op>({
   currentLogin: () => state.login,
   onSaved(data) {
     state.data = data;
+    writeLocal(LS_DATA_CACHE, makeCache(data, state.dataBranch, new Date()));
+    state.offline = false;
+    state.offlineSince = null;
     render();
   },
   onChange: updateSaveIndicator,

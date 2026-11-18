@@ -8,6 +8,7 @@ export const API_CONTENTS_URL = `https://api.github.com/repos/${REPO}/contents/$
 export const LS_TOKEN = "watchlist.token";
 export const LS_LOGIN = "watchlist.login";
 export const LS_PERSON = "watchlist.person";
+export const LS_DATA_CACHE = "watchlist.dataCache";
 
 export const PEOPLE: readonly Person[] = ["S", "L"];
 export const REACTION_KINDS: readonly ReactionKindInfo[] = [

@@ -52,6 +52,11 @@ function init(): void {
     event.preventDefault();
     event.returnValue = "";
   });
+  // Back online: retry failed saves, or reload data shown from the offline cache.
+  window.addEventListener("online", () => {
+    if (saves.error) saves.retry();
+    else if (saves.size === 0 && state.offline) void loadAll();
+  });
   // Tabs.
   document.querySelectorAll<HTMLElement>(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
