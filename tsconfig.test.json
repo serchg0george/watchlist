@@ -20,6 +20,7 @@
   "include": [
     "src/config.ts",
     "src/domain/**/*.ts",
+    "src/data/data-cache.ts",
     "src/data/save-queue.ts",
     "src/data/repository.ts",
     "tests/**/*.ts",

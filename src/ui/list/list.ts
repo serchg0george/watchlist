@@ -11,6 +11,15 @@ export function renderHeader(): void {
   line.textContent = state.token && state.login
     ? `Редактирует: ${state.login}${state.person ? ` (${state.person})` : ""}`
     : "Только просмотр";
+  // Muted mark while the list is shown from the offline cache.
+  const badge = byId("offline-badge");
+  if (state.offline && state.offlineSince) {
+    const date = new Date(state.offlineSince).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    badge.textContent = `Офлайн · данные от ${date}`;
+    badge.hidden = false;
+  } else {
+    badge.hidden = true;
+  }
 }
 
 function sortItems(items: Item[], key: SortKey): Item[] {

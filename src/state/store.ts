@@ -50,6 +50,8 @@ interface AppState {
   person: Person | "";
   data: WatchlistData | null;
   dataBranch: string | null;
+  offline: boolean;
+  offlineSince: string | null; // savedAt of the shown cache
   loading: boolean;
   error: string | null;
   tab: Tab;
@@ -71,6 +73,8 @@ export const state: AppState = {
   person: personFor(localStorage.getItem(LS_LOGIN) || ""),
   data: null,
   dataBranch: null,
+  offline: false,
+  offlineSince: null,
   loading: true,
   error: null,
   tab: "list",
