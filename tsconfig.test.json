@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM"],
     "types": [],
     "rootDir": ".",
     "outDir": ".test-build",
@@ -20,8 +20,11 @@
   "include": [
     "src/config.ts",
     "src/domain/**/*.ts",
+    "src/data/github.ts",
+    "src/data/encoding.ts",
     "src/data/save-queue.ts",
     "src/data/repository.ts",
+    "src/util/**/*.ts",
     "tests/**/*.ts",
     "tools/**/*.ts"
   ]
