@@ -1,24 +1,39 @@
-import { closeEditors, rateItem, toggleWatched } from "../../actions.js";
-import { PEOPLE, STATUS_LABELS } from "../../config.js";
-import type { Item } from "../../domain/types.js";
-import { expandedOverviews, openComments, render, state, getTypeColor, getTypeLabel } from "../../state/store.js";
+import { closeEditors, rateItem, setStatus, toggleWatched } from "../../actions.js";
+import { PEOPLE, STATUSES, STATUS_LABELS } from "../../config.js";
+import type { Item, Status } from "../../domain/types.js";
+import { expandedOverviews, openComments, render, selectedIds, state, getTypeColor, getTypeLabel } from "../../state/store.js";
 import { el } from "../dom.js";
 import { buildComments } from "./comments.js";
 import { buildEditor } from "./editor.js";
+
+const STATUS_ICONS: Record<Status, string> = { planned: "↺", watching: "▶", watched: "✓", dropped: "✕" };
 
 export function buildItemRow(item: Item): HTMLElement {
   if (state.editingId === item.id && state.token) return buildEditor(item);
 
   const isFinished = item.status === "watched" || item.status === "dropped";
   const canEdit = !!state.token;
+  const selecting = state.selecting;
+  const isSelected = selecting && selectedIds.has(item.id);
 
   // Checkbox: checked for watched/dropped.
   const cb = el("input", { type: "checkbox", class: "item-check", "aria-label": `Просмотрено: ${item.title}` });
   cb.checked = isFinished;
-  if (!canEdit) cb.disabled = true;
+  if (!canEdit || selecting) cb.disabled = true;
   cb.addEventListener("change", () => toggleWatched(item.id));
 
-  const children: HTMLElement[] = [el("label", { class: "check-wrap" }, cb)];
+  const children: HTMLElement[] = [];
+  // Selection mode: a checkbox at the very start of the row.
+  if (selecting) {
+    const selInput = el("input", { type: "checkbox", class: "item-select", "aria-label": `Выбрать: ${item.title}` });
+    selInput.checked = isSelected;
+    selInput.addEventListener("change", () => {
+      if (selInput.checked) selectedIds.add(item.id); else selectedIds.delete(item.id);
+      render();
+    });
+    children.push(el("label", { class: "select-wrap" }, selInput));
+  }
+  children.push(el("label", { class: "check-wrap" }, cb));
   children.push(el("span", { class: "item-title", text: item.title }));
   const typeColor = getTypeColor(item.type);
   children.push(el("span", { class: "badge badge-type", style: `--cat-color: ${typeColor}`, text: getTypeLabel(item.type) }));
@@ -95,11 +110,22 @@ export function buildItemRow(item: Item): HTMLElement {
 
   if (body.children.length > 0) children.push(body);
 
-  if (canEdit) {
+  // Status buttons take their own full-width line below the body.
+  if (canEdit && !selecting) {
+    const statusActions = el("div", { class: "status-actions", role: "group", "aria-label": "Статус" });
+    for (const s of STATUSES) {
+      const btn = el("button", { type: "button", class: `status-btn status-btn-${s}`, "aria-pressed": String(item.status === s), text: `${STATUS_ICONS[s]} ${STATUS_LABELS[s]}` });
+      btn.addEventListener("click", () => setStatus(item.id, s));
+      statusActions.append(btn);
+    }
+    children.push(statusActions);
+  }
+
+  if (canEdit && !selecting) {
     const editBtn = el("button", { type: "button", class: "icon-btn edit-btn", text: "✎", "aria-label": "Редактировать" });
     editBtn.addEventListener("click", () => { closeEditors(); state.editingId = item.id; render(); });
     children.push(editBtn);
   }
 
-  return el("div", { class: `item-row${state.highlightId === item.id ? " highlight" : ""}`, "data-id": item.id }, ...children);
+  return el("div", { class: `item-row${isSelected ? " selected" : ""}${state.highlightId === item.id ? " highlight" : ""}`, "data-id": item.id }, ...children);
 }

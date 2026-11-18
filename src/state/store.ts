@@ -62,6 +62,7 @@ interface AppState {
   replyDraft: ReplyDraft | null;
   editingReplyId: string | null;
   highlightId: string | null;
+  selecting: boolean;
 }
 
 export const state: AppState = {
@@ -81,12 +82,17 @@ export const state: AppState = {
   commentingId: null,
   replyDraft: null,
   editingReplyId: null,
-  highlightId: null
+  highlightId: null,
+  selecting: false
 };
 
 // Per-card user choices: comments shown/hidden (overrides the status default) and expanded overviews.
 export const openComments = new Map<string, boolean>();
 export const expandedOverviews = new Set<string>();
+// Selection mode for bulk actions; leaving the mode clears it.
+export const selectedIds = new Set<string>();
+// Ids of the items rendered by the last renderList, in render order (empty for loading/error/empty states).
+export const visibleIds: string[] = [];
 
 export function readLocal(key: string): unknown {
   try { return JSON.parse(localStorage.getItem(key) ?? "null") ?? null; } catch { return null; }

@@ -32,6 +32,8 @@ export type Op =
   | { kind: "deleteReply"; itemId: string; replyId: string; by: Person }
   | { kind: "react"; itemId: string; target: string; by: Person; reaction: ReactionKind; add: boolean }
   | { kind: "editItem"; itemId: string; fields: ItemFields; date: { field: DateField; value: string } | null }
+  | { kind: "setStatus"; itemId: string; status: Status; date: string | null }
+  | { kind: "batch"; ops: Exclude<Op, { kind: "batch" }>[] }
   | { kind: "deleteItem"; itemId: string }
   | { kind: "addCategory"; category: CategoryType }
   | { kind: "setCategoryColor"; key: string; color: string }
@@ -164,6 +166,32 @@ export function applyOp(data: WatchlistData, op: Op, login: string): void {
       it.updatedBy = login;
       return;
     }
+    case "setStatus": {
+      const it = findItem(data, op.itemId);
+      if (!it) return;
+      it.status = op.status;
+      switch (op.status) {
+        case "watched":
+          if (op.date != null) it.watchedAt = op.date;
+          break;
+        case "dropped":
+          if (op.date != null) it.droppedAt = op.date;
+          break;
+        case "planned":
+          // Same as unmarkWatched: back to the list, no dates.
+          it.watchedAt = null;
+          it.droppedAt = null;
+          break;
+        case "watching":
+          // Dates are left unchanged.
+          break;
+      }
+      it.updatedBy = login;
+      return;
+    }
+    case "batch":
+      for (const inner of op.ops) applyOp(data, inner, login);
+      return;
     case "deleteItem":
       data.items = data.items.filter((it) => it.id !== op.itemId);
       return;
@@ -214,6 +242,11 @@ export function describeOp(op: Op, data: WatchlistData): string {
       ? `Add ${op.reaction} reaction to ${target(op.target)} on "${title(op.itemId)}" as ${op.by}`
       : `Remove ${op.reaction} reaction from ${target(op.target)} on "${title(op.itemId)}" as ${op.by}`;
     case "editItem": return `Edit "${op.fields.title}"`;
+    case "setStatus": return `Set "${title(op.itemId)}" status to ${op.status}`;
+    case "batch": {
+      const kinds = new Set(op.ops.map((o) => o.kind));
+      return kinds.size === 1 ? `Bulk ${op.ops[0]?.kind} of ${op.ops.length} items` : `Bulk: ${op.ops.length} changes`;
+    }
     case "deleteItem": return `Delete "${title(op.itemId)}"`;
     case "addCategory": return `Add category "${op.category.label}"`;
     case "setCategoryColor": return `Change color for category "${category(op.key)}"`;
@@ -225,10 +258,20 @@ export function describeOp(op: Op, data: WatchlistData): string {
 
 const OP_KINDS: readonly OpKind[] = [
   "addItem", "restoreItem", "markWatched", "unmarkWatched", "rate", "setComment", "addReply", "editReply",
-  "deleteReply", "react", "editItem", "deleteItem", "addCategory", "setCategoryColor", "renameCategory", "deleteCategory"
+  "deleteReply", "react", "editItem", "setStatus", "batch", "deleteItem", "addCategory", "setCategoryColor", "renameCategory", "deleteCategory"
 ];
 
 /** Shallow shape check for ops restored from storage; anything unknown is dropped. */
 export function isOp(value: unknown): value is Op {
-  return !!value && typeof value === "object" && OP_KINDS.includes((value as { kind?: unknown }).kind as OpKind);
+  if (!value || typeof value !== "object") return false;
+  const rec = value as Record<string, unknown>;
+  if (!OP_KINDS.includes(rec.kind as OpKind)) return false;
+  // A batch must hold a flat list of valid ops (no nested batches).
+  if (rec.kind === "batch") {
+    if (!Array.isArray(rec.ops)) return false;
+    for (const inner of rec.ops) {
+      if (!isOp(inner) || (inner as { kind?: unknown }).kind === "batch") return false;
+    }
+  }
+  return true;
 }
