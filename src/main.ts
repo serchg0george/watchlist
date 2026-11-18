@@ -4,9 +4,9 @@
  * through the GitHub Contents API with a user-provided fine-grained token. */
 
 import { addCategory, addItem, pickRandom } from "./actions.js";
-import { PALETTE_PRESETS } from "./config.js";
+import { PALETTE_PRESETS, REFRESH_AFTER_MS } from "./config.js";
 import { asRecord } from "./domain/guards.js";
-import { loadAll, markCatalogSave, restorePendingSaves, saves } from "./state/saving.js";
+import { loadAll, markCatalogSave, msSinceLoad, restorePendingSaves, saves } from "./state/saving.js";
 import { CHIPS, SORTS, getTypes, isListTab, readLocal, render, selectedIds, setRenderer, state, writeLocal } from "./state/store.js";
 import type { SortKey, Tab } from "./state/store.js";
 import { WatchlistTMDB } from "./tmdb.js";
@@ -41,10 +41,35 @@ function renderAll(): void {
   renderBulkBar();
 }
 
+// The item editor is rebuilt on every render; its values come back from the draft,
+// so put focus and caret where they were to keep typing uninterrupted.
+function renderPreservingEditorFocus(): void {
+  const active = document.activeElement;
+  let className: string | null = null;
+  let selStart: number | null = null;
+  let selEnd: number | null = null;
+  if ((active instanceof HTMLInputElement || active instanceof HTMLSelectElement || active instanceof HTMLTextAreaElement) && active.closest(".editor")) {
+    className = active.classList[0] ?? null;
+    const text = active as HTMLInputElement | HTMLTextAreaElement;
+    if (typeof text.selectionStart === "number" && typeof text.selectionEnd === "number") {
+      selStart = text.selectionStart;
+      selEnd = text.selectionEnd;
+    }
+  }
+  renderAll();
+  if (!className) return;
+  const next = document.querySelector<HTMLElement>(`.editor .${CSS.escape(className)}`);
+  if (!next || !next.isConnected) return;
+  next.focus({ preventScroll: true });
+  if (selStart != null && selEnd != null && (next instanceof HTMLInputElement || next instanceof HTMLTextAreaElement)) {
+    next.setSelectionRange(selStart, selEnd);
+  }
+}
+
 // ===== Init =====
 
 function init(): void {
-  setRenderer(renderAll);
+  setRenderer(renderPreservingEditorFocus);
   const savedScroll = asRecord(readLocal("watchlist.scroll")) ?? {};
   const tabScroll: Record<Tab, number> = { list: 0, watched: 0, dropped: 0, stats: 0 };
   window.addEventListener("beforeunload", (event) => {
@@ -56,6 +81,12 @@ function init(): void {
   window.addEventListener("online", () => {
     if (saves.error) saves.retry();
     else if (saves.size === 0 && state.offline) void loadAll();
+  });
+  // Back in the tab: retry failed saves, or quietly refresh data that went stale while away.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    if (saves.error) saves.retry();
+    else if (!saves.hasUnsaved() && msSinceLoad() >= REFRESH_AFTER_MS) void loadAll({ silent: true });
   });
   // Tabs.
   document.querySelectorAll<HTMLElement>(".tab-btn").forEach((btn) => {
