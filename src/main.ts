@@ -7,12 +7,13 @@ import { addCategory, addItem, pickRandom } from "./actions.js";
 import { PALETTE_PRESETS } from "./config.js";
 import { asRecord } from "./domain/guards.js";
 import { loadAll, markCatalogSave, restorePendingSaves, saves } from "./state/saving.js";
-import { CHIPS, SORTS, getTypes, isListTab, readLocal, render, setRenderer, state, writeLocal } from "./state/store.js";
+import { CHIPS, SORTS, getTypes, isListTab, readLocal, render, selectedIds, setRenderer, state, writeLocal } from "./state/store.js";
 import type { SortKey, Tab } from "./state/store.js";
 import { WatchlistTMDB } from "./tmdb.js";
 import { byId, el } from "./ui/dom.js";
 import { openCategories, renderCategoriesDialog, updateTypeSelects } from "./ui/dialogs/categories.js";
 import { logout, openSettings, saveToken } from "./ui/dialogs/settings.js";
+import { renderBulkBar } from "./ui/list/bulk-bar.js";
 import { renderHeader, renderList } from "./ui/list/list.js";
 import { renderStats } from "./ui/stats.js";
 
@@ -23,14 +24,21 @@ function renderAll(): void {
   updateTypeSelects();
   document.querySelectorAll<HTMLElement>(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === state.tab));
   const isList = isListTab(state.tab);
+  // Losing the token or leaving the list ends selection mode.
+  if (!state.token || !isList) { state.selecting = false; selectedIds.clear(); }
   byId("list-tab").hidden = !isList;
   byId("stats-tab").hidden = state.tab !== "stats";
   byId("add-form").hidden = !state.token || state.tab !== "list";
   byId("mobile-add-btn").hidden = !state.token || state.tab !== "list";
   byId("chips").hidden = state.tab !== "list";
   byId("random-btn").hidden = state.tab !== "list";
+  const selectBtn = byId("select-btn");
+  selectBtn.hidden = !state.token || !isList;
+  selectBtn.textContent = state.selecting ? "Готово" : "☑ Выбрать";
+  document.body.classList.toggle("selecting", state.selecting);
   if (isList) renderList();
   else renderStats();
+  renderBulkBar();
 }
 
 // ===== Init =====
@@ -117,6 +125,13 @@ function init(): void {
 
   // Random pick.
   byId("random-btn").addEventListener("click", pickRandom);
+
+  // Selection mode with bulk actions.
+  byId("select-btn").addEventListener("click", () => {
+    state.selecting = !state.selecting;
+    if (!state.selecting) selectedIds.clear();
+    render();
+  });
 
   // Installable app / offline cache (needs http(s), not file://).
   if ("serviceWorker" in navigator && location.protocol !== "file:") {

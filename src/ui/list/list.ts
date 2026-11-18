@@ -1,7 +1,7 @@
 import { PEOPLE } from "../../config.js";
 import { avgRating } from "../../domain/items.js";
 import type { Item, Status } from "../../domain/types.js";
-import { state } from "../../state/store.js";
+import { state, visibleIds } from "../../state/store.js";
 import type { SortKey } from "../../state/store.js";
 import { byId, el } from "../dom.js";
 import { buildItemRow } from "./item-row.js";
@@ -44,7 +44,8 @@ function updateChips(base: Item[]): void {
     chip.classList.toggle("active", state.statusFilter === key);
   });
   document.querySelectorAll<HTMLElement>(".tab-btn .count").forEach((span) => {
-    span.textContent = String(counts[span.parentElement?.dataset.tab ?? ""]);
+    const key = span.parentElement?.dataset.tab ?? "";
+    if (key in counts) span.textContent = String(counts[key]);
   });
 }
 
@@ -58,6 +59,7 @@ function buildSection(items: Item[]): HTMLElement {
 export function renderList(): void {
   const box = byId("items");
   box.textContent = "";
+  visibleIds.length = 0;
 
   if (state.loading) { box.append(el("div", { class: "state-msg", text: "Загрузка…" })); return; }
   if (state.error) { box.append(el("div", { class: "state-msg error", text: state.error })); return; }
@@ -79,5 +81,7 @@ export function renderList(): void {
   const sorted = sortItems(base, state.sort);
 
   const status: Status = state.tab === "watched" || state.tab === "dropped" ? state.tab : state.statusFilter === "watching" ? "watching" : "planned";
-  box.append(buildSection(sorted.filter((it) => it.status === status)));
+  const shown = sorted.filter((it) => it.status === status);
+  for (const it of shown) visibleIds.push(it.id);
+  box.append(buildSection(shown));
 }

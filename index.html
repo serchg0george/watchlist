@@ -64,6 +64,7 @@
           <select id="sort" aria-label="Сортировка"></select>
         </div>
         <button id="random-btn" type="button" class="btn random-btn">🎲 Что посмотреть сегодня?</button>
+        <button id="select-btn" type="button" class="btn select-btn" hidden>☑ Выбрать</button>
       </div>
 
       <div id="items" class="items"></div>
@@ -129,6 +130,8 @@
       <button type="button" id="close-categories-btn" class="btn">Закрыть</button>
     </div>
   </dialog>
+
+  <div id="bulk-bar" class="bulk-bar" hidden></div>
 
   <div id="toast" class="toast" role="status"></div>
 </body>

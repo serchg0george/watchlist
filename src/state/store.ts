@@ -1,8 +1,8 @@
 import { DEFAULT_TYPES, LS_LOGIN, LS_TOKEN, personFor } from "../config.js";
 import type { CategoryType, Person, WatchlistData } from "../domain/types.js";
 
-// ===== Constants =====
-
+// Tabs that show the item list; "list" is filtered by CHIPS, the others by their own status.
+const LIST_TABS: readonly ListTab[] = ["list", "watched", "dropped"];
 
 export const isListTab = (value: unknown): value is ListTab => LIST_TABS.includes(value as ListTab);
 
@@ -32,8 +32,6 @@ export const CHIPS: readonly { key: ChipKey; label: string }[] = [
   { key: "all", label: "Все" },
   { key: "watching", label: "Смотрим" }
 ];
-// Tabs that show the item list; "list" is filtered by CHIPS, the others by their own status.
-const LIST_TABS: readonly ListTab[] = ["list", "watched", "dropped"];
 
 export const SORTS: readonly { key: SortKey; label: string }[] = [
   { key: "added-desc", label: "Недавно добавленные" },
@@ -64,6 +62,7 @@ interface AppState {
   replyDraft: ReplyDraft | null;
   editingReplyId: string | null;
   highlightId: string | null;
+  selecting: boolean;
 }
 
 export const state: AppState = {
@@ -83,12 +82,17 @@ export const state: AppState = {
   commentingId: null,
   replyDraft: null,
   editingReplyId: null,
-  highlightId: null
+  highlightId: null,
+  selecting: false
 };
 
 // Per-card user choices: comments shown/hidden (overrides the status default) and expanded overviews.
 export const openComments = new Map<string, boolean>();
 export const expandedOverviews = new Set<string>();
+// Selection mode for bulk actions; leaving the mode clears it.
+export const selectedIds = new Set<string>();
+// Ids of the items rendered by the last renderList, in render order (empty for loading/error/empty states).
+export const visibleIds: string[] = [];
 
 export function readLocal(key: string): unknown {
   try { return JSON.parse(localStorage.getItem(key) ?? "null") ?? null; } catch { return null; }
@@ -98,9 +102,15 @@ export function writeLocal(key: string, value: unknown): void {
   try { if (value == null) localStorage.removeItem(key); else localStorage.setItem(key, JSON.stringify(value)); } catch { /* Keep in-memory drafts when storage is unavailable. */ }
 }
 
+let lastViewJson = "";
+
 function persistView(): void {
   if (state.loading) return;
-  writeLocal("watchlist.view", { tab: state.tab, statusFilter: state.statusFilter, typeFilter: state.typeFilter, search: state.search, sort: state.sort });
+  const view = { tab: state.tab, statusFilter: state.statusFilter, typeFilter: state.typeFilter, search: state.search, sort: state.sort };
+  const json = JSON.stringify(view);
+  if (json === lastViewJson) return;
+  lastViewJson = json;
+  writeLocal("watchlist.view", view);
 }
 
 let renderer: () => void = () => {};

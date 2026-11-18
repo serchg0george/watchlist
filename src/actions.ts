@@ -1,4 +1,4 @@
-import { PALETTE_PRESETS } from "./config.js";
+import { PALETTE_PRESETS, STATUS_LABELS } from "./config.js";
 import { todayStr } from "./domain/dates.js";
 import { isPerson, isReactionKind } from "./domain/guards.js";
 import { commentAuthor } from "./domain/items.js";
@@ -7,18 +7,23 @@ import type { Op } from "./domain/ops.js";
 import { transliterate } from "./domain/text.js";
 import type { Item, Person, ReactionKind, Reply, Status, TmdbItemMetadata } from "./domain/types.js";
 import { applyAndSave } from "./state/saving.js";
-import { getTypes, render, state } from "./state/store.js";
+import { getTypes, getTypeLabel, render, selectedIds, state } from "./state/store.js";
 import { byId } from "./ui/dom.js";
 import { showToast } from "./ui/toast.js";
 import { newId } from "./util/id.js";
 
 let lastPickId: string | null = null;
 
-export let highlightTimer: ReturnType<typeof setTimeout> | undefined;
+// The highlight is dropped without a re-render, so nothing in progress gets rebuilt.
+let highlightTimer: ReturnType<typeof setTimeout> | undefined;
 
-// main.ts writes through this setter, since import bindings are read-only.
-export function setHighlightTimer(timer: ReturnType<typeof setTimeout> | undefined): void {
-  highlightTimer = timer;
+export function highlightItem(id: string): void {
+  state.highlightId = id;
+  clearTimeout(highlightTimer);
+  highlightTimer = setTimeout(() => {
+    state.highlightId = null;
+    document.querySelectorAll(".item-row.highlight").forEach((r) => r.classList.remove("highlight"));
+  }, 3000);
 }
 
 // ===== Actions (each builds a serializable Op and hands it to applyAndSave) =====
@@ -71,6 +76,19 @@ export function toggleWatched(id: string): void {
   const op: Op = toWatched ? { kind: "markWatched", itemId: id, date: todayStr() } : { kind: "unmarkWatched", itemId: id };
   if (applyAndSave(op)) {
     offerUndo(toWatched ? `«${item.title}» — просмотрено` : `«${item.title}» снова в списке`, snap);
+  }
+}
+
+export function setStatus(id: string, status: Status): void {
+  const item = findItem(id);
+  if (!item) return;
+  // Pressing the active button returns the item to «Хочу посмотреть».
+  const target = status === item.status && status !== "planned" ? "planned" : status;
+  if (target === item.status) return;
+  const snap = snapshotOf(item);
+  const date = target === "watched" || target === "dropped" ? todayStr() : null;
+  if (applyAndSave({ kind: "setStatus", itemId: id, status: target, date })) {
+    offerUndo(`«${item.title}» — ${STATUS_LABELS[target]}`, snap);
   }
 }
 
@@ -173,6 +191,62 @@ export function deleteItem(id: string): void {
   if (applyAndSave({ kind: "deleteItem", itemId: id })) offerUndo(`«${item.title}» удалено`, snap);
 }
 
+// ===== Bulk actions (selection mode): one batch op, one undo for the whole change =====
+
+function restoreItems(snaps: ItemSnapshot[]): void {
+  const ops = snaps.slice().sort((a, b) => a.index - b.index).map((s) => ({ kind: "restoreItem" as const, item: s.item, index: s.index }));
+  applyAndSave({ kind: "batch", ops });
+}
+
+function existingItems(ids: string[]): Item[] {
+  const found: Item[] = [];
+  for (const id of ids) {
+    const it = findItem(id);
+    if (it) found.push(it);
+  }
+  return found;
+}
+
+export function bulkSetStatus(ids: string[], status: Status): void {
+  const targets = existingItems(ids).filter((it) => it.status !== status);
+  if (targets.length === 0) return;
+  const snaps = targets.map(snapshotOf);
+  const date = status === "watched" || status === "dropped" ? todayStr() : null;
+  const ops = targets.map((it) => ({ kind: "setStatus" as const, itemId: it.id, status, date }));
+  if (applyAndSave({ kind: "batch", ops })) {
+    selectedIds.clear(); // stay in selection mode
+    showToast(`Статус «${STATUS_LABELS[status]}»: ${targets.length}`, { label: "Отменить", run: () => restoreItems(snaps) });
+  }
+}
+
+export function bulkSetType(ids: string[], type: string): void {
+  const targets = existingItems(ids).filter((it) => it.type !== type);
+  if (targets.length === 0) return;
+  const snaps = targets.map(snapshotOf);
+  const ops = targets.map((it) => ({
+    kind: "editItem" as const,
+    itemId: it.id,
+    fields: { title: it.title, type, status: it.status, note: it.note, genres: it.genres },
+    date: null
+  }));
+  if (applyAndSave({ kind: "batch", ops })) {
+    selectedIds.clear(); // stay in selection mode
+    showToast(`Категория «${getTypeLabel(type)}»: ${targets.length}`, { label: "Отменить", run: () => restoreItems(snaps) });
+  }
+}
+
+export function bulkDelete(ids: string[]): void {
+  const targets = existingItems(ids);
+  if (targets.length === 0) return;
+  if (!confirm(`Удалить выбранное (${targets.length})?`)) return;
+  const snaps = targets.map(snapshotOf);
+  const ops = targets.map((it) => ({ kind: "deleteItem" as const, itemId: it.id }));
+  if (applyAndSave({ kind: "batch", ops })) {
+    selectedIds.clear(); // stay in selection mode
+    showToast(`Удалено: ${targets.length}`, { label: "Отменить", run: () => restoreItems(snaps) });
+  }
+}
+
 export function addCategory(label: string, color: string | null): void {
   const trimmed = label.trim();
   if (!trimmed) return;
@@ -248,15 +322,9 @@ export function pickRandom(): void {
   state.statusFilter = "all";
   state.search = "";
   byId<HTMLInputElement>("search").value = "";
-  state.highlightId = pick.id;
+  highlightItem(pick.id);
   render();
   showToast(`🎲 ${pick.title}`);
   const row = document.querySelector(`.item-row[data-id="${CSS.escape(pick.id)}"]`);
   if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
-  // Drop the highlight without a re-render, so nothing in progress gets rebuilt.
-  clearTimeout(highlightTimer);
-  highlightTimer = setTimeout(() => {
-    state.highlightId = null;
-    document.querySelectorAll(".item-row.highlight").forEach((r) => r.classList.remove("highlight"));
-  }, 3000);
 }

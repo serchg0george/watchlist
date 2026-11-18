@@ -246,6 +246,57 @@ describe("applyOp", () => {
     assert.equal(item(data, "dune").droppedAt, "2026-02-02");
   });
 
+  test("setStatus sets each status with its date rules", () => {
+    let data = makeData();
+    item(data, "dune").watchedAt = "2026-01-01";
+    item(data, "dune").droppedAt = "2026-02-02";
+    applyOp(data, { kind: "setStatus", itemId: "dune", status: "planned", date: null }, "bob");
+    let it = item(data, "dune");
+    assert.equal(it.status, "planned");
+    assert.equal(it.watchedAt, null);
+    assert.equal(it.droppedAt, null);
+    assert.equal(it.updatedBy, "bob");
+
+    data = makeData();
+    item(data, "dune").watchedAt = "2026-01-01";
+    applyOp(data, { kind: "setStatus", itemId: "dune", status: "watching", date: null }, "bob");
+    it = item(data, "dune");
+    assert.equal(it.status, "watching");
+    assert.equal(it.watchedAt, "2026-01-01");
+
+    data = makeData();
+    applyOp(data, { kind: "setStatus", itemId: "dune", status: "watched", date: "2026-05-05" }, "bob");
+    it = item(data, "dune");
+    assert.equal(it.status, "watched");
+    assert.equal(it.watchedAt, "2026-05-05");
+
+    data = makeData();
+    applyOp(data, { kind: "setStatus", itemId: "dune", status: "dropped", date: "2026-06-06" }, "bob");
+    it = item(data, "dune");
+    assert.equal(it.status, "dropped");
+    assert.equal(it.droppedAt, "2026-06-06");
+
+    // A null date leaves the field untouched.
+    data = makeData();
+    item(data, "dune").watchedAt = "2026-01-01";
+    applyOp(data, { kind: "setStatus", itemId: "dune", status: "watched", date: null }, "bob");
+    it = item(data, "dune");
+    assert.equal(it.status, "watched");
+    assert.equal(it.watchedAt, "2026-01-01");
+  });
+
+  test("batch applies every inner op in order", () => {
+    const data = makeData();
+    applyOp(data, { kind: "batch", ops: [
+      { kind: "markWatched", itemId: "dune", date: "2026-05-05" },
+      { kind: "rate", itemId: "other", person: "S", rating: 7 },
+      { kind: "deleteItem", itemId: "other" }
+    ] }, "bob");
+    assert.equal(item(data, "dune").status, "watched");
+    assert.equal(item(data, "dune").updatedBy, "bob");
+    assert.deepEqual(data.items.map((x) => x.id), ["dune"]);
+  });
+
   test("deleteItem removes the item; idempotent", () => {
     const { once, twice } = applyTwice({ kind: "deleteItem", itemId: "dune" });
     assert.deepEqual(once.items.map((x) => x.id), ["other"]);
@@ -297,6 +348,7 @@ describe("applyOp", () => {
       { kind: "deleteReply", itemId: "dune", replyId: "zzz", by: "L" },
       { kind: "react", itemId: "zzz", target: "S", by: "L", reaction: "like", add: true },
       { kind: "editItem", itemId: "zzz", fields, date: null },
+      { kind: "setStatus", itemId: "zzz", status: "watched", date: null },
       { kind: "deleteItem", itemId: "zzz" },
       { kind: "setCategoryColor", key: "zzz", color: "#fff" },
       { kind: "renameCategory", key: "zzz", label: "x" },
@@ -342,6 +394,18 @@ describe("describeOp", () => {
     assert.equal(d({ kind: "react", itemId: "dune", target: "r1", by: "S", reaction: "like", add: false }), 'Remove like reaction from reply on "Dune" as S');
   });
 
+  test("setStatus and batch", () => {
+    assert.equal(d({ kind: "setStatus", itemId: "dune", status: "watched", date: null }), 'Set "Dune" status to watched');
+    assert.equal(
+      d({ kind: "batch", ops: [{ kind: "markWatched", itemId: "dune", date: "2026-01-01" }, { kind: "rate", itemId: "dune", person: "S", rating: 5 }] }),
+      "Bulk: 2 changes"
+    );
+    assert.equal(
+      d({ kind: "batch", ops: [{ kind: "deleteItem", itemId: "dune" }, { kind: "deleteItem", itemId: "other" }] }),
+      "Bulk deleteItem of 2 items"
+    );
+  });
+
   test("category ops use the label when known and the key otherwise", () => {
     assert.equal(d({ kind: "addCategory", category: { key: "doc", label: "Doc", color: "#fff" } }), 'Add category "Doc"');
     assert.equal(d({ kind: "setCategoryColor", key: "movie", color: "#fff" }), 'Change color for category "Фильм"');
@@ -354,11 +418,20 @@ describe("describeOp", () => {
 describe("isOp", () => {
   const kinds = [
     "addItem", "restoreItem", "markWatched", "unmarkWatched", "rate", "setComment", "addReply", "editReply",
-    "deleteReply", "react", "editItem", "deleteItem", "addCategory", "setCategoryColor", "renameCategory", "deleteCategory"
+    "deleteReply", "react", "editItem", "setStatus", "deleteItem", "addCategory", "setCategoryColor", "renameCategory", "deleteCategory"
   ];
 
   test("accepts every kind", () => {
     for (const kind of kinds) assert.equal(isOp({ kind }), true, kind);
+  });
+
+  test("batch needs a flat list of valid ops", () => {
+    assert.equal(isOp({ kind: "batch", ops: [{ kind: "markWatched", itemId: "dune", date: "2026-01-01" }] }), true);
+    assert.equal(isOp({ kind: "batch", ops: [] }), true);
+    assert.equal(isOp({ kind: "batch" }), false);
+    assert.equal(isOp({ kind: "batch", ops: "nope" }), false);
+    assert.equal(isOp({ kind: "batch", ops: [{ kind: "nope" }] }), false);
+    assert.equal(isOp({ kind: "batch", ops: [{ kind: "batch", ops: [] }] }), false);
   });
 
   test("rejects junk", () => {

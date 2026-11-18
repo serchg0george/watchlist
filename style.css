@@ -269,6 +269,17 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 .item-check { width: 26px; height: 26px; margin: 0; accent-color: var(--accent); cursor: pointer; }
 .item-check:disabled { cursor: default; }
 
+.select-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  flex-shrink: 0;
+}
+
+.item-select { width: 26px; height: 26px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+
 .item-title { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 .item-genres, .item-date { flex-basis: 100%; padding-left: 50px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 
@@ -1088,6 +1099,27 @@ dialog h2 { margin: 0 0 10px; font-size: 20px; }
 .item-row.highlight { animation: pick-flash 1.2s ease 2; outline: 2px solid var(--accent); outline-offset: 2px; }
 @keyframes pick-flash { 50% { background: var(--chip-active-bg); } }
 
+/* ===== Status buttons and selection mode ===== */
+
+.status-actions { order: 30; flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.status-btn { padding: 6px 10px; min-height: 36px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
+.status-btn:hover { background: var(--card-hover); }
+.status-btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.status-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.item-row.selected { outline: 2px solid var(--accent); }
+
+.select-btn { width: 100%; margin-top: 8px; }
+
+/* ===== Bulk actions bar ===== */
+
+.bulk-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--card); border-top: 1px solid var(--border); }
+.bulk-bar[hidden] { display: none; }
+.bulk-count { font-weight: 600; margin-right: auto; }
+
+body.selecting main { padding-bottom: 120px; }
+body.selecting .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+
 /* ===== Wider screens ===== */
 
 @media (min-width: 640px) {
@@ -1150,8 +1182,8 @@ dialog h2 { margin: 0 0 10px; font-size: 20px; }
 .item-body > .item-note + .item-genres { margin-top: 4px; }
 .item-body .item-genres { padding-left: 0; }
 .item-body > .ratings, .item-body > .comments { padding-left: 0; margin-top: 10px; }
-.catalog-overview.clamp { margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
-.catalog-overview.clamp.expanded { display: block; -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
+.catalog-overview { margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
+.catalog-overview.expanded { display: block; -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
 .link-btn { background: none; border: 0; padding: 4px 0; color: var(--accent); font: inherit; font-size: 13px; cursor: pointer; }
 .link-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .comments-toggle { display: block; margin-top: 10px; color: var(--muted); }
@@ -1185,6 +1217,7 @@ dialog { max-height: 90vh; max-height: 90dvh; overflow-y: auto; overscroll-behav
   .tmdb-preview-main { flex-basis: 160px; }
   .tmdb-preview-actions .btn { flex: 1 1 100%; }
   .item-date { padding-left: 0; }
+  .status-btn { flex: 1 1 calc(50% - 6px); min-height: 44px; }
   .catalog-poster { width: 64px; height: 96px; flex-basis: 64px; }
   .filter-row > select, .filter-row > input { flex: 1 1 140px; min-width: 0; }
   main { padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
@@ -1205,6 +1238,7 @@ dialog { max-height: 90vh; max-height: 90dvh; overflow-y: auto; overscroll-behav
   .mobile-add-btn.near-add { display: none; }
   .toast { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); border-radius: 12px; }
   .toast.has-action { flex-wrap: wrap; }
+  body.selecting .toast { bottom: calc(132px + env(safe-area-inset-bottom, 0px)); }
   dialog { padding: 16px; max-width: calc(100vw - 20px); }
 }
 
