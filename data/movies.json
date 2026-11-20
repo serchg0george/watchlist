@@ -34,6 +34,42 @@
   ],
   "items": [
     {
+      "id": "8cefc48f-fe0e-4fdc-91e6-69260eeffa3f",
+      "title": "Голодные игры: Рассвет жатвы",
+      "type": "movie",
+      "status": "planned",
+      "ratings": {
+        "S": null,
+        "L": null
+      },
+      "comments": {
+        "S": "",
+        "L": ""
+      },
+      "replies": [],
+      "reactions": {},
+      "genres": [
+        "фантастика",
+        "боевик",
+        "приключения"
+      ],
+      "note": "",
+      "addedAt": "2026-11-20",
+      "watchedAt": null,
+      "droppedAt": null,
+      "updatedBy": "serchg0george",
+      "tmdb": {
+        "id": 1300968,
+        "mediaType": "movie",
+        "originalTitle": "The Hunger Games: Sunrise on the Reaping",
+        "year": 2026,
+        "overview": "Молодой Хеймитч Эбернети из 12-го дистрикта участвует в легендарных 50-х Голодных играх. Но шансов уцелеть у него немного — в последний раз трибут из его района побеждал на играх сорок лет назад.",
+        "posterPath": "/tD4kBIthK1NFxesGT5Pj42fM5u5.jpg",
+        "runtime": 158,
+        "imdbId": "tt32558705"
+      }
+    },
+    {
       "id": "bbc8a333-18cb-4909-a95d-9828ce866131",
       "title": "Триггер",
       "type": "series",
