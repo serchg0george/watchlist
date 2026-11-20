@@ -107,7 +107,7 @@ function renderStatsHistogram(data: Stats, tip: HTMLElement): HTMLElement {
   const phrases = PEOPLE.filter((person) => data.values[person].length).map((person, i) => `${person}${i ? " —" : " ставит"} ${mode(person)}`);
   const { section, body } = statsSection("hist", "Распределение оценок", phrases.length ? `Чаще всего ${phrases.join(", ")}` : null);
   if (!phrases.length) { body.append(statsEmpty("Пока нет оценок")); return section; }
-  const chart = statsChart(440, 220, "Распределение оценок S и L от 1 до 10");
+  const chart = statsChart(440, 220, "Распределение оценок S и L, округление вниз до целого");
   const max = Math.max(...data.counts.S, ...data.counts.L), step = max <= 4 ? 1 : Math.ceil(max / 4), ceiling = Math.ceil(max / step) * step;
   const y = (n: number): number => 182 - n / ceiling * 160;
   for (let n = 0; n <= ceiling; n += step) chart.append(statsSvg("line", { class: "grid", x1: 26, x2: 438, y1: y(n), y2: y(n) }), statsSvg("text", { class: "ax", x: 18, y: y(n) + 4, "text-anchor": "end" }, n));
@@ -173,19 +173,21 @@ function renderStatsScatter(data: Stats, tip: HTMLElement): HTMLElement {
     const first = items[0];
     if (!first) return;
     const { S: s, L: l } = first.ratings, color = s > l ? "var(--s)" : l > s ? "var(--l)" : "var(--accent)";
-    const point = statsSvg("g", { class: "pt", tabindex: 0, role: "button", "aria-label": `S ${s}, L ${l}: ${items.map((item) => item.title).join(", ")}. Показать тайтлы`, "aria-controls": "scatter-detail", "aria-expanded": "false", "fill-opacity": 0.5 });
+    const sStr = s.toLocaleString("ru-RU");
+    const lStr = l.toLocaleString("ru-RU");
+    const point = statsSvg("g", { class: "pt", tabindex: 0, role: "button", "aria-label": `S ${sStr}, L ${lStr}: ${items.map((item) => item.title).join(", ")}. Показать тайтлы`, "aria-controls": "scatter-detail", "aria-expanded": "false", "fill-opacity": 0.5 });
     point.append(statsSvg("circle", { cx: x(s), cy: y(l), r: Math.min(18, 7 + (items.length - 1) * 4), fill: color, stroke: color, "stroke-width": 1.5 }));
     if (items.length > 1) point.append(statsSvg("text", { x: x(s), y: y(l) + 4, "text-anchor": "middle", "font-size": 11, "font-weight": 700, fill: "var(--text)", "fill-opacity": 1 }, items.length));
     const select = () => {
       tip.hidden = true;
       points.forEach((other) => other.setAttribute("aria-expanded", String(other === point)));
-      detail.replaceChildren(el("div", { class: "scatter-detail-head" }, statsWho("S", `S ${s}`), statsWho("L", `L ${l}`)),
+      detail.replaceChildren(el("div", { class: "scatter-detail-head" }, statsWho("S", `S ${sStr}`), statsWho("L", `L ${lStr}`)),
         el("div", { class: "scatter-detail-list" }, ...items.map((item) => el("div", { class: "scatter-detail-item" }, el("span", { class: "title", text: item.title }), statsBadge(item)))));
       detail.hidden = false;
     };
     point.addEventListener("click", select);
     point.addEventListener("keydown", (event: KeyboardEvent) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } });
-    statsTooltip(tip, point, () => items.map((item) => el("div", { class: "tip-row" }, el("span", { text: item.title }), el("span", { class: "tip-r" }, statsWho("S", `S ${s}`), statsWho("L", `L ${l}`)))));
+    statsTooltip(tip, point, () => items.map((item) => el("div", { class: "tip-row" }, el("span", { text: item.title }), el("span", { class: "tip-r" }, statsWho("S", `S ${sStr}`), statsWho("L", `L ${lStr}`)))));
     points.push(point); chart.append(point);
   });
   body.append(el("div", { class: "chart scatter-box" }, chart), statsLegend([["S выше", "var(--s)"], ["L выше", "var(--l)"], ["поровну", "var(--accent)"]]),
@@ -226,7 +228,7 @@ function renderStatsGenres(data: Stats): HTMLElement {
     if (genre.paired < 3) card.append(el("p", { class: "sec-note", text: genre.paired ? "Пока мало совместных оценок — результат предварительный." : "Нужны оценки обоих на одни и те же тайтлы." }));
     return card;
   })));
-  body.append(el("p", { class: "sec-note genre-formula", text: "Средние оценки S и L учитывают все их оценки в жанре. Совпадение = 100 × (1 − средняя разница общих оценок / 9): одинаковые оценки дают 100%, разница в 9 баллов — 0%." }));
+  body.append(el("p", { class: "sec-note genre-formula", text: "Средние оценки S и L учитывают все их оценки в жанре. Совпадение = 100 × (1 − средняя разница общих оценок / 9,5): одинаковые оценки дают 100%, разница в 9,5 балла — 0%." }));
   return section;
 }
 
@@ -237,7 +239,7 @@ function renderStatsFavorite(data: Stats): HTMLElement {
   body.append(el("p", { class: "sec-note", text: `Тайтлов с двумя оценками за месяц: ${favorite.count}${favorite.items.length > 1 ? ". Первое место разделили:" : ""}` }));
   favorite.items.forEach((item) => body.append(el("div", { class: "favorite-row" },
     el("div", { class: "favorite-main" }, statsItemButton(item), statsBadge(item)),
-    el("div", { class: "pair" }, statsWho("S", `S ${item.ratings.S}`), statsWho("L", `L ${item.ratings.L}`)),
+    el("div", { class: "pair" }, statsWho("S", `S ${item.ratings.S.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}`), statsWho("L", `L ${item.ratings.L.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}`)),
     el("strong", { class: "favorite-score", "aria-label": `Средняя оценка ${statsFmt((item.ratings.S + item.ratings.L) / 2)}`, text: statsFmt((item.ratings.S + item.ratings.L) / 2) }))));
   return section;
 }
@@ -246,15 +248,15 @@ function renderStatsDiffs(data: Stats): HTMLElement {
   const { section, body } = statsSection("diff", "Самые спорные просмотры", "Пять самых больших расхождений среди просмотренного. Нажмите на название, чтобы открыть обсуждение.");
   body.id = "diffs";
   if (!data.diffs.length) { body.append(statsEmpty("Пока нет просмотренных тайтлов с разными оценками обоих.")); return section; }
-  const position = (value: number): number => (value - 1) / 9 * 100;
+  const position = (value: number): number => (value - 0.5) / 9.5 * 100;
   data.diffs.forEach((item) => {
     const { S: s, L: l } = item.ratings;
     const scale = el("div", { class: "scale", "aria-hidden": "true" }, el("div", { class: "scale-track" }));
     for (let value = 1; value <= 10; value++) scale.append(el("i", { class: "scale-tick", style: `left:${position(value)}%` }));
-    scale.append(el("i", { class: "scale-line", style: `left:${position(Math.min(s, l))}%;width:${Math.abs(s - l) / 9 * 100}%;background:linear-gradient(90deg,var(--${s <= l ? "s" : "l"}),var(--${s <= l ? "l" : "s"}))` }),
+    scale.append(el("i", { class: "scale-line", style: `left:${position(Math.min(s, l))}%;width:${Math.abs(s - l) / 9.5 * 100}%;background:linear-gradient(90deg,var(--${s <= l ? "s" : "l"}),var(--${s <= l ? "l" : "s"}))` }),
       el("span", { class: "dot s", style: `left:${position(s)}%`, text: "S" }), el("span", { class: "dot l", style: `left:${position(l)}%`, text: "L" }));
     body.append(el("div", { class: "row" }, el("div", { class: "row-head" }, statsItemButton(item),
-      el("span", { class: "pair" }, statsWho("S", `S ${s}`), statsWho("L", `L ${l}`)), el("span", { class: "delta", "aria-label": `разница ${Math.abs(s - l)}`, text: `Δ ${Math.abs(s - l)}` })), scale));
+      el("span", { class: "pair" }, statsWho("S", `S ${s.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}`), statsWho("L", `L ${l.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}`)), el("span", { class: "delta", "aria-label": `разница ${Math.abs(s - l).toLocaleString("ru-RU", { maximumFractionDigits: 1 })}`, text: `Δ ${Math.abs(s - l).toLocaleString("ru-RU", { maximumFractionDigits: 1 })}` })), scale));
   });
   body.append(el("div", { class: "scale-axis", "aria-hidden": "true" }, ...Array.from({ length: 10 }, (_, i) => el("span", { style: `left:${position(i + 1)}%`, text: i + 1 }))));
   return section;
@@ -275,7 +277,7 @@ function renderStatsTop(data: Stats): HTMLElement {
   body.style.setProperty("--top-rows", String(Math.ceil(data.top.length / 2)));
   data.top.forEach((item, index) => body.append(el("div", { class: "top-row" }, el("span", { class: "rank", text: index + 1 }),
     el("div", { class: "top-main" }, el("span", { class: "title", text: item.title, title: item.title }), statsBadge(item)),
-    el("div", { class: "mini-pair", "aria-label": `S ${item.ratings.S}, L ${item.ratings.L}` }, ...PEOPLE.map((person) => el("div", { class: `mini ${person.toLowerCase()}`, "aria-hidden": "true" }, el("b", { text: person }), el("span", { class: "mini-bar" }, el("i", { style: `width:${item.ratings[person] * 10}%` })), el("span", { text: item.ratings[person] })))),
+    el("div", { class: "mini-pair", "aria-label": `S ${item.ratings.S.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}, L ${item.ratings.L.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}` }, ...PEOPLE.map((person) => el("div", { class: `mini ${person.toLowerCase()}`, "aria-hidden": "true" }, el("b", { text: person }), el("span", { class: "mini-bar" }, el("i", { style: `width:${item.ratings[person] * 10}%` })), el("span", { text: item.ratings[person].toLocaleString("ru-RU", { maximumFractionDigits: 1 }) })))),
     el("span", { class: "avg", "aria-label": `средняя ${statsFmt((item.ratings.S + item.ratings.L) / 2)}`, text: statsFmt((item.ratings.S + item.ratings.L) / 2) }))));
   return section;
 }
@@ -287,8 +289,17 @@ export function renderStats(): void {
   if (state.error) { box.append(el("div", { class: "state-msg error", text: state.error })); return; }
   const items = state.data?.items || [], data = computeStats(items, getTypes());
   const tip = el("div", { class: "tip", role: "tooltip", hidden: true });
-  const stack = el("div", { class: "stack" }, renderStatsHero(items, data), renderStatsHistogram(data, tip), renderStatsMonths(data, tip), renderStatsScatter(data, tip), renderStatsCategories(items, data), renderStatsTop(data),
-    // Long lists go last so the compact charts stay on top; favorite and diffs share a row on wide screens.
-    renderStatsFavorite(data), renderStatsDiffs(data), renderStatsGenres(data));
+  // Order: hero, histogram, months, scatter, genres, categories, top, favorite, diffs
+  // scatter and genres share a row on wide screens; favorite and diffs share a row on wide screens.
+  const stack = el("div", { class: "stack" },
+    renderStatsHero(items, data),
+    renderStatsHistogram(data, tip),
+    renderStatsMonths(data, tip),
+    renderStatsScatter(data, tip),
+    renderStatsGenres(data),
+    renderStatsCategories(items, data),
+    renderStatsTop(data),
+    renderStatsFavorite(data),
+    renderStatsDiffs(data));
   box.append(el("div", { class: "stats-wrap" }, el("header", { class: "page-head" }, el("h1", { text: "Статистика" }), el("p", { text: `S и L · данные на ${new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}` })), stack), tip);
 }

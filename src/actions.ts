@@ -1,6 +1,6 @@
 import { PALETTE_PRESETS, STATUS_LABELS } from "./config.js";
 import { todayStr } from "./domain/dates.js";
-import { isPerson, isReactionKind } from "./domain/guards.js";
+import { isPerson, isRating, isReactionKind } from "./domain/guards.js";
 import { commentAuthor } from "./domain/items.js";
 import { normalizeGenres } from "./domain/normalize.js";
 import type { Op } from "./domain/ops.js";
@@ -92,11 +92,11 @@ export function setStatus(id: string, status: Status): void {
   }
 }
 
-export function rateItem(id: string, person: Person, star: number): void {
+export function rateItem(id: string, person: Person, value: number): void {
   const item = findItem(id);
-  if (!item) return;
+  if (!item || !isRating(value)) return;
   // Clicking the current rating again clears it.
-  const newRating = item.ratings[person] === star ? null : star;
+  const newRating = item.ratings[person] === value ? null : value;
   applyAndSave({ kind: "rate", itemId: id, person, rating: newRating });
 }
 

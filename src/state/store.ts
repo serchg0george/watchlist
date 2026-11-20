@@ -93,6 +93,7 @@ export const state: AppState = {
 // Per-card user choices: comments shown/hidden (overrides the status default) and expanded overviews.
 export const openComments = new Map<string, boolean>();
 export const expandedOverviews = new Set<string>();
+export const collapsedCards = new Set<string>();
 // Selection mode for bulk actions; leaving the mode clears it.
 export const selectedIds = new Set<string>();
 // Ids of the items rendered by the last renderList, in render order (empty for loading/error/empty states).

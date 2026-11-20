@@ -1,4 +1,5 @@
 import { STATUSES } from "../config.js";
+import { isRating } from "./guards.js";
 import type { CategoryType, Item, Person, Status } from "./types.js";
 
 export const MONTH_FULL = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
@@ -45,13 +46,17 @@ export function computeMonths(items: Item[], today = new Date()): StatsMonth[] {
 }
 
 export function computeStats(items: Item[], types: CategoryType[], today = new Date()): Stats {
-  const valid = (r: unknown): r is number => typeof r === "number" && Number.isInteger(r) && r >= 1 && r <= 10;
+  const valid = isRating;
   const isRated = (item: Item): item is RatedItem => valid(item.ratings?.S) && valid(item.ratings?.L);
   const perPerson = <T>(fn: (person: Person) => T): Record<Person, T> => ({ S: fn("S"), L: fn("L") });
   const values = perPerson((person) => items.map((item) => item.ratings?.[person]).filter(valid));
   const counts = perPerson((person) => {
     const histogram: number[] = Array(11).fill(0);
-    values[person].forEach((r) => { histogram[r] = (histogram[r] ?? 0) + 1; });
+    values[person].forEach((r) => {
+      // Half-point ratings bucket into the integer below (0.5 -> 1, 7.5 -> 7).
+      const index = Math.max(1, Math.floor(r));
+      histogram[index] = (histogram[index] ?? 0) + 1;
+    });
     return histogram;
   });
   const averages = perPerson((person) => values[person].length ? values[person].reduce((sum, r) => sum + r, 0) / values[person].length : null);
@@ -91,7 +96,7 @@ export function computeStats(items: Item[], types: CategoryType[], today = new D
       return { count: ratings.length, average: ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : null };
     });
     return { label: genre.label, count: genre.items.length, people, paired: paired.length,
-      agreement: paired.length ? 100 * (1 - paired.reduce((sum, item) => sum + Math.abs(item.ratings.S - item.ratings.L), 0) / paired.length / 9) : null };
+      agreement: paired.length ? 100 * (1 - paired.reduce((sum, item) => sum + Math.abs(item.ratings.S - item.ratings.L), 0) / paired.length / 9.5) : null };
   }).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "ru"));
   const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
   const currentDate = `${currentMonth}-${String(today.getDate()).padStart(2, "0")}`;

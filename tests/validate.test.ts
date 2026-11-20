@@ -57,9 +57,11 @@ describe("validateData", () => {
     assert.ok(errorsOf(doc(item({ status: "done" }))).some((e) => e.includes("status")));
   });
 
-  test("ratings must be null, absent or an integer 1..10", () => {
-    assert.deepEqual(errorsOf(doc(item({ ratings: { S: 10, L: 1 } }))), []);
-    for (const bad of [0, 11, 5.5, "7"]) {
+  test("ratings must be null, absent or a multiple of 0.5 from 0.5 to 10", () => {
+    for (const good of [0.5, 7.5, 10]) {
+      assert.deepEqual(errorsOf(doc(item({ ratings: { S: good, L: null } }))), [], `rating ${String(good)}`);
+    }
+    for (const bad of [0, 0.3, 10.5, "7"]) {
       const errors = errorsOf(doc(item({ ratings: { S: bad, L: null } })));
       assert.ok(errors.some((e) => e.includes("ratings.S")), `rating ${String(bad)}`);
     }

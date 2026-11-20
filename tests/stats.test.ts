@@ -89,6 +89,23 @@ describe("computeStats", () => {
     assert.equal(drama?.paired, 2);
   });
 
+  test("half-point ratings bucket by floor and scale genre agreement to a 9.5 spread", () => {
+    const half = normalize({
+      items: [
+        { id: "h1", title: "H1", type: "movie", status: "watched", watchedAt: "2026-11-05", ratings: { S: 0.5, L: 10 }, genres: ["Horror"] },
+        { id: "h2", title: "H2", type: "movie", status: "watched", watchedAt: "2026-11-06", ratings: { S: 7.5, L: null } },
+        { id: "h3", title: "H3", type: "movie", status: "watched", watchedAt: "2026-11-07", ratings: { S: 5, L: 5 }, genres: ["Sci-Fi"] }
+      ]
+    });
+    const stats = computeStats(half.items, half.types, today);
+    assert.equal(stats.counts.S[1], 1);
+    assert.equal(stats.counts.S[7], 1);
+    const horror = stats.genres.find((g) => g.label === "Horror");
+    assert.equal(horror?.agreement, 0);
+    const scifi = stats.genres.find((g) => g.label === "Sci-Fi");
+    assert.equal(scifi?.agreement, 100);
+  });
+
   test("favorite month uses the current month and the best combined rating", () => {
     assert.equal(stats.favoriteMonth.label, "ноябрь 2026");
     assert.equal(stats.favoriteMonth.count, 2);

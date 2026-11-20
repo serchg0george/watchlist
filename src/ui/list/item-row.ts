@@ -1,7 +1,7 @@
 import { closeEditors, rateItem, setStatus, toggleWatched } from "../../actions.js";
 import { PEOPLE, STATUSES, STATUS_LABELS } from "../../config.js";
 import type { Item, Status } from "../../domain/types.js";
-import { expandedOverviews, openComments, render, selectedIds, state, getTypeColor, getTypeLabel } from "../../state/store.js";
+import { collapsedCards, expandedOverviews, openComments, render, selectedIds, state, getTypeColor, getTypeLabel } from "../../state/store.js";
 import { el } from "../dom.js";
 import { buildComments } from "./comments.js";
 import { buildEditor } from "./editor.js";
@@ -15,6 +15,10 @@ export function buildItemRow(item: Item): HTMLElement {
   const canEdit = !!state.token;
   const selecting = state.selecting;
   const isSelected = selecting && selectedIds.has(item.id);
+
+  // Check if the card is collapsed (for watched items only)
+  const isWatched = item.status === "watched";
+  const collapsed = isWatched && collapsedCards.has(item.id);
 
   // Checkbox: checked for watched/dropped.
   const cb = el("input", { type: "checkbox", class: "item-check", "aria-label": `Просмотрено: ${item.title}` });
@@ -41,6 +45,26 @@ export function buildItemRow(item: Item): HTMLElement {
   if (item.status === "watching" || item.status === "dropped") {
     children.push(el("span", { class: `badge badge-status-${item.status}`, text: STATUS_LABELS[item.status] }));
   }
+
+  // Add the collapse toggle for watched items
+  if (isWatched) {
+    const toggleText = collapsed ? "Развернуть" : "Свернуть";
+    const toggleButton = el("button", {
+      type: "button",
+      class: "link-btn card-toggle",
+      "aria-expanded": String(!collapsed),
+      text: toggleText
+    });
+    toggleButton.addEventListener("click", () => {
+      if (collapsed) {
+        collapsedCards.delete(item.id);
+      } else {
+        collapsedCards.add(item.id);
+      }
+      render();
+    });
+    children.push(toggleButton);
+  }
   const body = el("div", { class: "item-body" });
   if (item.note) body.append(el("span", { class: "item-note", text: item.note }));
   if (item.genres?.length) body.append(el("span", { class: "item-genres", text: item.genres.join(" · ") }));
@@ -55,12 +79,15 @@ export function buildItemRow(item: Item): HTMLElement {
     }
     const overviewText = meta.overview || "Описание пока отсутствует.";
     const isExpanded = expandedOverviews.has(item.id);
-    // The clamp class is always on; the toggle appears only when the text is actually cut off.
-    const overview = el("p", { class: `catalog-overview clamp${isExpanded ? " expanded" : ""}`, text: overviewText });
-    const toggle = el("button", { type: "button", class: "link-btn overview-toggle", hidden: !isExpanded, text: isExpanded ? "Свернуть" : "Ещё" });
-    toggle.addEventListener("click", () => { if (expandedOverviews.has(item.id)) expandedOverviews.delete(item.id); else expandedOverviews.add(item.id); render(); });
-    if (!isExpanded) requestAnimationFrame(() => { if (overview.isConnected && overview.scrollHeight > overview.clientHeight + 1) toggle.hidden = false; });
-    const descriptionChildren: HTMLElement[] = [overview, toggle];
+    // Watched cards show the full overview; other cards clamp it and show the toggle only when the text is cut off.
+    const overview = el("p", { class: isWatched ? "catalog-overview" : `catalog-overview clamp${isExpanded ? " expanded" : ""}`, text: overviewText });
+    const descriptionChildren: HTMLElement[] = [overview];
+    if (!isWatched) {
+      const toggle = el("button", { type: "button", class: "link-btn overview-toggle", hidden: !isExpanded, text: isExpanded ? "Свернуть" : "Ещё" });
+      toggle.addEventListener("click", () => { if (expandedOverviews.has(item.id)) expandedOverviews.delete(item.id); else expandedOverviews.add(item.id); render(); });
+      if (!isExpanded) requestAnimationFrame(() => { if (overview.isConnected && overview.scrollHeight > overview.clientHeight + 1) toggle.hidden = false; });
+      descriptionChildren.push(toggle);
+    }
     info.append(el("div", { class: "catalog-description" }, ...descriptionChildren,
       el("a", { class: "catalog-source", href: `https://www.themoviedb.org/${meta.mediaType}/${meta.id}`, target: "_blank", rel: "noopener noreferrer", text: "Открыть в TMDB" })));
     body.append(info);
@@ -71,6 +98,7 @@ export function buildItemRow(item: Item): HTMLElement {
   // Each person rates only on their own line; the other line is read-only.
   if (isFinished) {
     const ratings = el("div", { class: "ratings" });
+    const fmt = (v: number): string => v.toLocaleString("ru-RU");
     for (const p of PEOPLE) {
       const value = item.ratings[p];
       const mine = canEdit && state.person === p;
@@ -78,16 +106,22 @@ export function buildItemRow(item: Item): HTMLElement {
         el("span", { class: "person-tag", text: p }));
       const stars = el("span", { class: "stars" });
       for (let i = 1; i <= 10; i++) {
-        const on = value != null && i <= value;
+        // Full when the star is at or below the value, half when it sits exactly on a half-step.
+        const fill = value == null ? "" : i - 0.5 === value ? "half" : i <= value ? "on" : "";
         if (mine) {
-          const s = el("button", { type: "button", class: `star${on ? " on" : ""}`, text: on ? "★" : "☆", "aria-label": `${p}: ${i} из 10` });
-          s.addEventListener("click", () => rateItem(item.id, p, i));
+          const s = el("span", { class: `star${fill ? ` ${fill}` : ""}`, text: fill === "" ? "☆" : "★" });
+          // Two transparent halves over the glyph: left rates i - 0.5, right rates i.
+          const left = el("button", { type: "button", class: "star-half star-half-left", "aria-label": `${p}: ${fmt(i - 0.5)} из 10` });
+          left.addEventListener("click", () => rateItem(item.id, p, i - 0.5));
+          const right = el("button", { type: "button", class: "star-half star-half-right", "aria-label": `${p}: ${fmt(i)} из 10` });
+          right.addEventListener("click", () => rateItem(item.id, p, i));
+          s.append(left, right);
           stars.append(s);
         } else {
-          stars.append(el("span", { class: `star static${on ? " on" : ""}`, text: on ? "★" : "☆" }));
+          stars.append(el("span", { class: `star static${fill ? ` ${fill}` : ""}`, text: fill === "" ? "☆" : "★" }));
         }
       }
-      line.append(stars, el("span", { class: "rating-value", text: value != null ? String(value) : "—" }));
+      line.append(stars, el("span", { class: "rating-value", text: value != null ? fmt(value) : "—" }));
       ratings.append(line);
     }
     body.append(ratings);
@@ -108,7 +142,8 @@ export function buildItemRow(item: Item): HTMLElement {
     if (comments.children.length > 0) body.append(comments);
   }
 
-  if (body.children.length > 0) children.push(body);
+  // Only render the body if not collapsed
+  if (!collapsed && body.children.length > 0) children.push(body);
 
   // Status buttons take their own full-width line below the body.
   if (canEdit && !selecting) {

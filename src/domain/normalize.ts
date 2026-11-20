@@ -1,10 +1,10 @@
 import { DEFAULT_TYPES, PALETTE_PRESETS, REACTION_KINDS } from "../config.js";
 import { todayStr } from "./dates.js";
-import { asRecord, isPerson, isStatus } from "./guards.js";
+import { asRecord, isPerson, isRating, isStatus } from "./guards.js";
 import type { CategoryType, Comments, Item, Person, Ratings, ReactionKind, Reactions, Reply, WatchlistData } from "./types.js";
 
 export function validRating(r: unknown): number | null {
-  return typeof r === "number" && Number.isInteger(r) && r >= 1 && r <= 10 ? r : null;
+  return isRating(r) ? r : null;
 }
 
 export function normalizeRatings(it: Record<string, unknown>): Ratings {
