@@ -7,23 +7,29 @@ import type { Op } from "./domain/ops.js";
 import { transliterate } from "./domain/text.js";
 import type { Item, Person, ReactionKind, Reply, Status, TmdbItemMetadata } from "./domain/types.js";
 import { applyAndSave } from "./state/saving.js";
-import { getTypes, getTypeLabel, render, selectedIds, state } from "./state/store.js";
-import { byId } from "./ui/dom.js";
-import { showToast } from "./ui/toast.js";
+import { afterRender, getTypes, getTypeLabel, render, selectedIds, state } from "./state/store.js";
+import { showToast } from "./state/toast.js";
 import { newId } from "./util/id.js";
 
 let lastPickId: string | null = null;
 
-// The highlight is dropped without a re-render, so nothing in progress gets rebuilt.
+// Re-rendering keeps inputs in progress (React reuses the nodes), so the highlight can simply be cleared.
 let highlightTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function highlightItem(id: string): void {
   state.highlightId = id;
   clearTimeout(highlightTimer);
-  highlightTimer = setTimeout(() => {
-    state.highlightId = null;
-    document.querySelectorAll(".item-row.highlight").forEach((r) => r.classList.remove("highlight"));
-  }, 3000);
+  highlightTimer = setTimeout(() => { state.highlightId = null; render(); }, 3000);
+}
+
+/** Scrolls to (and optionally focuses) a list row once it is rendered. */
+export function revealItem(id: string, focus = false): void {
+  afterRender(() => {
+    const row = document.querySelector<HTMLElement>(`.item-row[data-id="${CSS.escape(id)}"]`);
+    if (!row) return;
+    if (focus) { row.setAttribute("tabindex", "-1"); row.focus({ preventScroll: true }); }
+    row.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
 }
 
 // ===== Actions (each builds a serializable Op and hands it to applyAndSave) =====
@@ -321,10 +327,8 @@ export function pickRandom(): void {
   state.tab = "list";
   state.statusFilter = "all";
   state.search = "";
-  byId<HTMLInputElement>("search").value = "";
   highlightItem(pick.id);
   render();
   showToast(`🎲 ${pick.title}`);
-  const row = document.querySelector(`.item-row[data-id="${CSS.escape(pick.id)}"]`);
-  if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+  revealItem(pick.id);
 }

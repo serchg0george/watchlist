@@ -6,6 +6,7 @@
     "outDir": "js",
     "module": "ES2022",
     "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
     "verbatimModuleSyntax": true,
     "strict": true,
     "noImplicitAny": true,
@@ -16,6 +17,6 @@
     "noEmitOnError": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["src/sw.ts"]
 }

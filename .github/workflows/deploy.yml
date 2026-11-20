@@ -29,7 +29,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Build TypeScript
+      - name: Build site
         run: |
           npm ci
           npm test
@@ -46,9 +46,9 @@ jobs:
           else
             echo 'No data branch yet; deploying master data.'
           fi
+          mkdir -p _site
+          cp -R dist/. _site/
           mkdir -p _site/data
-          cp index.html style.css manifest.json sw.js _site/
-          cp -R js icons _site/
           cp data/movies.json _site/data/
       # The site itself writes the data; bad data must not block code deploys, but the run turns red.
       - name: Validate data

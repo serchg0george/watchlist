@@ -49,28 +49,28 @@ Global rules (already in every executor run via `delegate.sh`, repeated here for
 | 1.1 | Light palette, theme-color | coder | low | — | done |
 | 1.2 | Highlight + card borders | Claude | medium | 1.1 | done |
 | 1.3 | Sweep leftover greens | — | — | — | done (nothing left) |
-| 2.1 | Rating guard, normalize, validate, stats domain + tests | 27b | medium | — | in progress |
+| 2.1 | Rating guard, normalize, validate, stats domain + tests | 27b | medium | — | done |
 | 2.3 | README schema | acli | low | — | done |
-| 2.4 | Half-star buttons | 27b | high | 2.1 | todo |
-| 2.5 | Stats UI formatting | coder | medium | 2.1 | todo |
-| 3.1 | Collapse state + toggle | coder | medium | 2.4 | todo |
-| 3.2 | Expanded watched body + CSS | coder | medium | 3.1 | todo |
-| 4.1 | Scatter next to genres | coder | high | 2.5 | todo |
-| 5.1 | Vite + React tooling | 27b | high | 3.2, 4.1 | todo |
-| 5.2 | Deploy from dist | coder | high | 5.1 | todo |
-| 5.3 | Store hook | 27b | high | 5.1 | todo |
-| 5.4 | Toast, Stars | coder | medium | 5.3 | todo |
-| 5.5 | Comments | coder | medium | 5.4 | todo |
-| 5.6 | ItemRow | 27b | high | 5.5 | todo |
-| 5.7 | BulkBar, Editor | coder | medium | 5.6 | todo |
-| 5.8 | List | coder | medium | 5.7 | todo |
-| 5.9 | Stats part 1 | coder | medium | 5.3 | todo |
-| 5.10 | Stats part 2 | coder | medium | 5.9 | todo |
-| 5.11 | Dialogs | coder | medium | 5.3 | todo |
-| 5.12 | App, remove old rendering | 27b | high | 5.8, 5.10, 5.11 | todo |
-| 5.13 | SW SHELL from Vite manifest | 27b | high | 5.12 | todo |
-| 5.14 | Docs | acli | low | 5.13 | todo |
-| 5.15 | React component tests | 27b | medium | 5.14 | todo |
+| 2.4 | Half-star buttons | 27b | high | 2.1 | done |
+| 2.5 | Stats UI formatting | coder | medium | 2.1 | done |
+| 3.1 | Collapse state + toggle | coder | medium | 2.4 | done |
+| 3.2 | Expanded watched body + CSS | coder | medium | 3.1 | done |
+| 4.1 | Scatter next to genres | coder | high | 2.5 | done |
+| 5.1 | Vite + React tooling | 27b | high | 3.2, 4.1 | done |
+| 5.2 | Deploy from dist | coder | high | 5.1 | done |
+| 5.3 | Store hook | 27b | high | 5.1 | done |
+| 5.4 | Toast, Stars | coder | medium | 5.3 | done |
+| 5.5 | Comments | coder | medium | 5.4 | done |
+| 5.6 | ItemRow | 27b | high | 5.5 | done |
+| 5.7 | BulkBar, Editor | coder | medium | 5.6 | done |
+| 5.8 | List | coder | medium | 5.7 | done |
+| 5.9 | Stats part 1 | coder | medium | 5.3 | done |
+| 5.10 | Stats part 2 | coder | medium | 5.9 | done |
+| 5.11 | Dialogs | coder | medium | 5.3 | done |
+| 5.12 | App, remove old rendering | 27b | high | 5.8, 5.10, 5.11 | done |
+| 5.13 | SW SHELL from Vite manifest | 27b | high | 5.12 | done |
+| 5.14 | Docs | acli | low | 5.13 | done |
+| 5.15 | React component tests | 27b | medium | 5.14 | done |
 
 ---
 

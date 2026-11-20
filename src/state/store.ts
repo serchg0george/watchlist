@@ -96,7 +96,7 @@ export const expandedOverviews = new Set<string>();
 export const collapsedCards = new Set<string>();
 // Selection mode for bulk actions; leaving the mode clears it.
 export const selectedIds = new Set<string>();
-// Ids of the items rendered by the last renderList, in render order (empty for loading/error/empty states).
+// Ids of the items shown in the list by the last render, in render order (empty for loading/error/empty states).
 export const visibleIds: string[] = [];
 
 export function readLocal(key: string): unknown {
@@ -118,7 +118,20 @@ function persistView(): void {
   writeLocal("watchlist.view", view);
 }
 
-let renderer: () => void = () => {};
-/** main.ts registers the real renderer; every module calls render() from here. */
-export function setRenderer(fn: () => void): void { renderer = fn; }
-export function render(): void { persistView(); renderer(); }
+// State is mutated in place; render() bumps a version that React reads through useSyncExternalStore.
+const listeners = new Set<() => void>();
+let version = 0;
+export function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+export const getVersion = (): number => version;
+export function render(): void {
+  persistView();
+  version++;
+  listeners.forEach((listener) => listener());
+}
+/** Runs fn once the DOM reflects the latest render() (for scrolling and focusing rendered rows). */
+export function afterRender(fn: () => void): void {
+  requestAnimationFrame(() => requestAnimationFrame(fn));
+}
