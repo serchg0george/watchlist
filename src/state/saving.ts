@@ -7,8 +7,7 @@ import { asRecord } from "../domain/guards.js";
 import { applyOp, describeOp, isOp } from "../domain/ops.js";
 import type { Op } from "../domain/ops.js";
 import { WatchlistTMDB } from "../tmdb.js";
-import { el } from "../ui/dom.js";
-import { showToast } from "../ui/toast.js";
+import { showToast } from "./toast.js";
 import { readLocal, render, state, writeLocal } from "./store.js";
 
 const draftMemory = new Map<string, unknown>();
@@ -170,31 +169,15 @@ export function restorePendingSaves(): void {
   saves.restore(applied);
 }
 
+// "Сохранено" stays visible for a moment after the queue drains; the header reads this flag.
+export const saveIndicator = { touched: false, visible: false };
+
 function updateSaveIndicator(): void {
-  const ind = document.getElementById("save-indicator");
-  if (!ind) return;
   clearTimeout(saveHideTimer);
-  ind.setAttribute("role", "status");
-  let retry = document.getElementById("retry-save-btn") as HTMLButtonElement | null;
-  if (!retry) {
-    retry = el("button", { id: "retry-save-btn", type: "button", class: "btn retry-save-btn", text: "Повторить сохранение" });
-    retry.addEventListener("click", () => saves.retry());
-    ind.after(retry);
+  saveIndicator.touched = true;
+  saveIndicator.visible = true;
+  if (!saves.error && saves.size === 0) {
+    saveHideTimer = setTimeout(() => { saveIndicator.visible = false; render(); }, 1600);
   }
-  retry.hidden = !saves.error;
-  retry.disabled = saves.running;
-  ind.classList.toggle("save-error", !!saves.error);
-  if (saves.error) {
-    ind.textContent = `Не сохранено: ${saves.size}. Не закрывайте страницу.`;
-    ind.classList.add("visible");
-    ind.classList.remove("busy");
-  } else if (saves.size > 0) {
-    ind.textContent = `Сохраняется: ${saves.size}…`;
-    ind.classList.add("visible", "busy");
-  } else {
-    ind.textContent = "Сохранено";
-    ind.classList.add("visible");
-    ind.classList.remove("busy");
-    saveHideTimer = setTimeout(() => ind.classList.remove("visible"), 1600);
-  }
+  render();
 }

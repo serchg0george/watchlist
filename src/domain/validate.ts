@@ -1,5 +1,5 @@
 import { REACTION_KINDS, STATUSES } from "../config.js";
-import { asRecord, isPerson, isReactionKind, isStatus } from "./guards.js";
+import { asRecord, isPerson, isRating, isReactionKind, isStatus } from "./guards.js";
 import { normalize } from "./normalize.js";
 
 export interface ValidationResult {
@@ -16,9 +16,6 @@ function isDate(value: unknown): boolean {
   const date = new Date(Date.UTC(y ?? 0, (m ?? 1) - 1, d ?? 1));
   return date.getUTCFullYear() === y && date.getUTCMonth() === (m ?? 1) - 1 && date.getUTCDate() === d;
 }
-
-const isRawRating = (value: unknown): boolean =>
-  typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 10;
 
 const nonEmptyString = (value: unknown): value is string => typeof value === "string" && value.trim() !== "";
 
@@ -69,8 +66,8 @@ export function validateData(raw: unknown): ValidationResult {
     const ratings = asRecord(item.ratings);
     const ratingSources: [string, unknown][] = [["rating", item.rating], ["ratings.S", ratings?.S], ["ratings.L", ratings?.L]];
     for (const [name, value] of ratingSources) {
-      if (value !== null && value !== undefined && !isRawRating(value)) {
-        errors.push(`${at}: ${name} ${JSON.stringify(value)} is not an integer from 1 to 10.`);
+      if (value !== null && value !== undefined && !isRating(value)) {
+        errors.push(`${at}: ${name} ${JSON.stringify(value)} is not a rating from 0.5 to 10 in steps of 0.5.`);
       }
     }
     for (const field of DATE_FIELDS) {

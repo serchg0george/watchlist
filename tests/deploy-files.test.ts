@@ -1,21 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
-// Deploy Pages publishes only what the copy list names; every runtime file must be on it.
-test("deploy.yml copies every runtime file", () => {
+// Deploy Pages publishes dist/ (Vite output + sw.js) plus data/; every runtime file must end up there.
+test("deploy.yml publishes dist/ and every runtime file is built into it", () => {
   const deploy = readFileSync(".github/workflows/deploy.yml", "utf8");
-  const copied = [...deploy.matchAll(/^\s*cp (?:-R )?(.+?) _site\/\S*$/gm)].flatMap((m) => (m[1] ?? "").split(/\s+/));
-  const covered = (p: string): boolean => copied.some((c) => p === c || p.startsWith(`${c}/`));
+  assert.match(deploy, /^\s*cp -R dist\/\. _site\/$/m, "deploy.yml must copy dist/ into _site/");
+  assert.match(deploy, /^\s*cp data\/movies\.json _site\/data\/$/m, "deploy.yml must publish data/movies.json");
 
-  const sw = readFileSync("src/sw.ts", "utf8");
-  const shellText = sw.slice(sw.indexOf("const SHELL = ["), sw.indexOf("];", sw.indexOf("const SHELL = [")));
-  const shell = [...shellText.matchAll(/"([^"]+)"/g)].map((m) => m[1] ?? "").filter((p) => p !== "./" && !p.startsWith("js/"));
+  // Static files reach dist/ through Vite's publicDir; sw.js is compiled into dist/ by tsc; /src/* is bundled.
+  const builtByTsc = new Set(["sw.js"]);
   const html = [...readFileSync("index.html", "utf8").matchAll(/(?:href|src)="([^"]+)"/g)]
-    .map((m) => m[1] ?? "").filter((p) => !p.startsWith("http") && !p.startsWith("#"));
-  const manifest = JSON.parse(readFileSync("manifest.json", "utf8")) as { icons?: { src: string }[] };
-  const required = [...shell, ...html, ...(manifest.icons ?? []).map((icon) => icon.src)];
+    .map((m) => m[1] ?? "").filter((p) => !p.startsWith("http") && !p.startsWith("#") && !p.startsWith("/src/"));
+  const manifest = JSON.parse(readFileSync("public/manifest.json", "utf8")) as { icons?: { src: string }[] };
+  const required = [...html, ...(manifest.icons ?? []).map((icon) => icon.src)];
 
-  assert.ok(copied.length > 0, "no cp lines found in deploy.yml");
-  assert.deepEqual(required.filter((p) => !covered(p)), []);
+  assert.deepEqual(required.filter((p) => !builtByTsc.has(p) && !existsSync(`public/${p}`)), []);
 });

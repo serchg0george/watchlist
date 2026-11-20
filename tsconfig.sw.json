@@ -3,7 +3,7 @@
     "target": "ES2022",
     "lib": ["ES2022", "WebWorker"],
     "rootDir": "src",
-    "outDir": ".",
+    "outDir": ".sw-build",
     "strict": true,
     "noImplicitAny": true,
     "noUnusedLocals": true,

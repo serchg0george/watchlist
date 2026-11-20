@@ -2,8 +2,10 @@
 /.claude/settings.local.json
 .DS_Store
 
-# Build output (compiled from src/**/*.ts)
+# Build output (dist/ from Vite, .sw-build/ and .test-build/ from tsc; js/ and sw.js from the old tsc build)
 /js/
 /sw.js
+/dist/
+/.sw-build/
 /.test-build/
 node_modules/

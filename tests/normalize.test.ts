@@ -27,9 +27,16 @@ describe("normalize", () => {
   });
 
   test("invalid ratings are dropped", () => {
-    const data = normalize({ items: [{ id: "a", title: "T", ratings: { S: 0, L: 5.5 } }, { id: "b", title: "U", ratings: { S: 11, L: 10 } }] });
-    assert.deepEqual(data.items[0]?.ratings, { S: null, L: null });
+    const data = normalize({ items: [
+      { id: "a", title: "T", ratings: { S: 0, L: 5.5 } },
+      { id: "b", title: "U", ratings: { S: 11, L: 10 } },
+      { id: "c", title: "V", ratings: { S: 0.3, L: 10.5 } },
+      { id: "d", title: "W", ratings: { S: 0.5, L: 7.5 } }
+    ] });
+    assert.deepEqual(data.items[0]?.ratings, { S: null, L: 5.5 });
     assert.deepEqual(data.items[1]?.ratings, { S: null, L: 10 });
+    assert.deepEqual(data.items[2]?.ratings, { S: null, L: null });
+    assert.deepEqual(data.items[3]?.ratings, { S: 0.5, L: 7.5 });
   });
 
   test("defaults for a bare item and missing types", () => {

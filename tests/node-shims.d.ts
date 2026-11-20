@@ -11,6 +11,7 @@ declare module "node:assert/strict" {
     equal(actual: unknown, expected: unknown, message?: string): void;
     deepEqual(actual: unknown, expected: unknown, message?: string): void;
     ok(value: unknown, message?: string): void;
+    match(value: string, pattern: RegExp, message?: string): void;
     throws(fn: () => unknown, expected?: RegExp | ((error: unknown) => boolean), message?: string): void;
     rejects(promiseOrFn: Promise<unknown> | (() => Promise<unknown>), expected?: RegExp | ((error: unknown) => boolean), message?: string): Promise<void>;
   }
@@ -21,6 +22,7 @@ declare module "node:assert/strict" {
 declare module "node:fs" {
   export function readFileSync(path: string, encoding: "utf8"): string;
   export function readdirSync(path: string, options: { recursive: true }): string[];
+  export function existsSync(path: string): boolean;
 }
 
 declare const process: {
