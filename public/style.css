@@ -583,6 +583,7 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 #stats .page-head p { margin: var(--sp-1) 0 0; font-size: var(--fs-s); color: var(--muted); }
 
 #stats .stack { display: grid; gap: var(--sp-3); }
+#stats .stats-views { margin: 0 var(--sp-1) var(--sp-3); }
 
 #stats .card {
   background: var(--card);
@@ -853,6 +854,11 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
   #stats .stats-wrap { padding-top: var(--sp-5); }
   #stats .page-head h1 { font-size: var(--fs-xl); }
   #stats .stack { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); align-items: stretch; }
+  #stats .stack-genres .sec-genres { grid-column: 1 / -1; }
+  #stats .stack-genres .genre-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Without genres next to it, the scatter takes a full row, capped so the square chart stays readable. */
+  #stats .sec-scatter { grid-column: 1 / -1; }
+  #stats .sec-scatter .scatter-box { max-width: 520px; }
   #stats .hero, #stats .sec-cats, #stats .sec-top { grid-column: 1 / -1; }
   #stats .hero { grid-template-columns: 1.25fr 1.25fr 1fr 1fr; gap: var(--sp-4); }
   #stats .card { padding: var(--sp-5); }
