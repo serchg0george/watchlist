@@ -5,7 +5,7 @@ You are Codex, running on a separate PC. You implement tasks from `tasks/codex/N
 ## What overrides AGENTS.md
 
 - Do the work yourself. Ignore the local Qwen and delegation sections (`scripts/qwen.sh`, `scripts/delegate.sh`) — they do not exist for you.
-- Never commit to or push `master`. You work only on your task branch.
+- Never commit to or push `master`. You work only on the plan's patch branch named in the task header (`patch_X.Y.Z`, see `AGENTS.md` section 1): one plan = one branch = one PR, so you never create a branch per task.
 - Communicate with the user in Russian; code comments, commit messages and the report are in English.
 
 ## Setup (once per clone)
@@ -20,15 +20,15 @@ Never use `git config --global`.
 
 ## Workflow for a task
 
-1. `git checkout master && git pull --ff-only`. If pull fails, stop and tell the user.
-2. Create the branch named in the task header: `git checkout -b codex/NN-<slug>`.
+1. `git fetch --all --prune`. If the patch branch from the task header exists on `origin`, run `git checkout patch_X.Y.Z && git pull --ff-only`. If it does not exist yet, run `git checkout master && git pull --ff-only && git checkout -b patch_X.Y.Z`. If pull fails, stop and tell the user.
+2. Never rename the branch: renaming a branch on GitHub closes its PR.
 3. Read the whole task file, `README.md` (data schema) and the code it touches before editing.
 4. Implement exactly the task scope. Nothing outside it: no refactors, renames, new files or dependencies the task does not ask for.
 5. Self-check: `npm run check` and `npm test`; run `python3 -m http.server` and open the site; follow the task's acceptance checklist. Put throwaway test scripts/fixtures outside the repo (or delete them before committing).
 6. Register yourself as co-author with the alias matching the model you run on: `scripts/coauthor.sh add codex-astra | codex-sol | codex-terra`. The commit hook adds the `Co-authored-by` trailer.
 7. Commit in small logical commits, English messages, imperative mood.
 8. Write `tasks/codex/NN-report.md` on the branch: what changed (files, functions), how you verified it, deviations from the task, open questions. Commit it.
-9. `git push -u origin codex/NN-<slug>`. Never `--force`, never push other branches.
+9. `git push -u origin patch_X.Y.Z`. Never `--force`, never push other branches. Do not open a PR per task; the plan's PR collects every task. After pushing, update that PR's description (`gh pr edit`): add one bullet per change you made, each a single past-tense sentence in Russian (e.g. «Произведён рефакторинг фронтенда с чистого TS на React»), and keep the «Проверено / Не проверено» line current (see `AGENTS.md` section 1).
 10. Tell the user in one line that the branch is pushed.
 
 ## Code rules
