@@ -415,6 +415,7 @@ function Top({ data }: { data: StatsData }) {
 }
 
 export function Stats({ hidden }: { hidden: boolean }) {
+  const [view, setView] = useState<"overview" | "genres">("overview");
   const [tipState, setTipState] = useState<{ anchor: Element | null; content: ReactNode }>({ anchor: null, content: null });
   const tip: TipApi = {
     show: (anchor, content) => setTipState({ anchor, content }),
@@ -425,8 +426,7 @@ export function Stats({ hidden }: { hidden: boolean }) {
   else if (state.error) body = <div className="state-msg error">{state.error}</div>;
   else if (!hidden) {
     const items = state.data?.items || [], data = computeStats(items, getTypes());
-    // Order: hero, histogram, months, scatter, genres, categories, top, favorite, diffs.
-    // Scatter and genres share a row on wide screens; so do favorite and diffs.
+    // Overview: hero, histogram, months, scatter, categories, top, favorite, diffs. Genres: its own sub-tab.
     body = (
       <>
         <div className="stats-wrap">
@@ -434,16 +434,43 @@ export function Stats({ hidden }: { hidden: boolean }) {
             <h1>Статистика</h1>
             <p>{`S и L · данные на ${new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}`}</p>
           </header>
-          <div className="stack">
-            <Hero items={items} data={data} />
-            <Histogram data={data} tip={tip} />
-            <Months data={data} tip={tip} />
-            <Scatter data={data} tip={tip} />
-            <Genres data={data} />
-            <Categories items={items} data={data} />
-            <Top data={data} />
-            <Favorite data={data} />
-            <Diffs data={data} />
+          <div className="chips stats-views" role="tablist" aria-label="Разделы статистики">
+            <button
+              type="button"
+              role="tab"
+              className={`chip${view === "overview" ? " active" : ""}`}
+              aria-selected={view === "overview"}
+              aria-controls="stats-panel"
+              onClick={() => { setView("overview"); tip.hide(); }}
+            >
+              Обзор
+            </button>
+            <button
+              type="button"
+              role="tab"
+              className={`chip${view === "genres" ? " active" : ""}`}
+              aria-selected={view === "genres"}
+              aria-controls="stats-panel"
+              onClick={() => { setView("genres"); tip.hide(); }}
+            >
+              Совпадение по жанрам
+            </button>
+          </div>
+          <div id="stats-panel" role="tabpanel" className={`stack${view === "genres" ? " stack-genres" : ""}`}>
+            {view === "overview" ? (
+              <>
+                <Hero items={items} data={data} />
+                <Histogram data={data} tip={tip} />
+                <Months data={data} tip={tip} />
+                <Scatter data={data} tip={tip} />
+                <Categories items={items} data={data} />
+                <Top data={data} />
+                <Favorite data={data} />
+                <Diffs data={data} />
+              </>
+            ) : (
+              <Genres data={data} />
+            )}
           </div>
         </div>
         <Tooltip anchor={tipState.anchor} content={tipState.content} />
