@@ -752,7 +752,7 @@
       "id": "menshova-greciya",
       "title": "Сама Меньшова про древнюю Грецию",
       "type": "youtube",
-      "status": "watched",
+      "status": "planned",
       "ratings": {
         "S": null,
         "L": null
@@ -763,7 +763,7 @@
       },
       "note": "офлайн",
       "addedAt": "2026-11-15",
-      "watchedAt": "2026-11-21",
+      "watchedAt": null,
       "updatedBy": "serchg0george",
       "replies": [],
       "reactions": {},
