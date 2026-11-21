@@ -699,31 +699,6 @@
       "droppedAt": null
     },
     {
-      "id": "legkoe-povedenie",
-      "title": "Лёгкое поведение",
-      "type": "movie",
-      "status": "planned",
-      "ratings": {
-        "S": null,
-        "L": null
-      },
-      "comments": {
-        "S": "",
-        "L": ""
-      },
-      "note": "",
-      "addedAt": "2026-11-15",
-      "watchedAt": null,
-      "updatedBy": "",
-      "replies": [],
-      "reactions": {},
-      "genres": [
-        "комедия",
-        "мелодрама"
-      ],
-      "droppedAt": null
-    },
-    {
       "id": "menshova-greciya",
       "title": "Сама Меньшова про древнюю Грецию",
       "type": "youtube",
