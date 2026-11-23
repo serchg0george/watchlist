@@ -574,7 +574,7 @@
       "status": "watched",
       "ratings": {
         "S": 9,
-        "L": null
+        "L": 9
       },
       "comments": {
         "S": "",
@@ -583,7 +583,7 @@
       "note": "",
       "addedAt": "2026-11-16",
       "watchedAt": "2026-11-23",
-      "updatedBy": "serchg0george",
+      "updatedBy": "panilubov-bit",
       "replies": [],
       "reactions": {},
       "genres": [
