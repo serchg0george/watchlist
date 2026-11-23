@@ -30,6 +30,8 @@ function AddForm({ hidden }: { hidden: boolean }) {
 
 function Filters({ counts }: { counts: Record<string, number> | null }) {
   const isList = state.tab === "list";
+  const finished = state.tab === "watched" || state.tab === "dropped";
+  const sortKey = finished ? state.finishedSort : state.sort;
   const types = getTypes();
   const typeValue = state.typeFilter === "all" || types.some((t) => t.key === state.typeFilter) ? state.typeFilter : "all";
   return (
@@ -52,8 +54,12 @@ function Filters({ counts }: { counts: Record<string, number> | null }) {
           <option value="__manage__">⚙ Настроить категории…</option>
         </select>
         <input id="search" type="search" placeholder="Поиск…" autoComplete="off" value={state.search} onChange={(e) => { state.search = e.target.value; render(); }} />
-        <select id="sort" aria-label="Сортировка" value={state.sort} onChange={(e) => { state.sort = SORTS.find((s) => s.key === e.target.value)?.key ?? state.sort; render(); }}>
-          {SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+        <select id="sort" aria-label="Сортировка" value={sortKey} onChange={(e) => {
+          const next = SORTS.find((s) => s.key === e.target.value)?.key ?? sortKey;
+          if (finished) state.finishedSort = next; else state.sort = next;
+          render();
+        }}>
+          {SORTS.map((s) => <option key={s.key} value={s.key}>{state.tab === "dropped" && s.key === "watched-desc" ? "Недавно брошенные" : s.label}</option>)}
         </select>
       </div>
       <button id="random-btn" type="button" className="btn random-btn" hidden={!isList} onClick={pickRandom}>🎲 Что посмотреть сегодня?</button>

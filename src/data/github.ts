@@ -1,5 +1,6 @@
 import { API_CONTENTS_URL, REPO } from "../config.js";
 import { asRecord } from "../domain/guards.js";
+import { todayStr } from "../domain/dates.js";
 import { normalize } from "../domain/normalize.js";
 import type { WatchlistData } from "../domain/types.js";
 import { delay } from "../util/delay.js";
@@ -64,22 +65,40 @@ export function friendlyError(e: unknown): string {
   return `Не удалось загрузить данные: ${e instanceof Error && e.message ? e.message : "неизвестная ошибка"}`;
 }
 
+/** A cached data/<monday>_<sunday> branch is reused only through its Sunday: the rollover keeps the old branch, so writes must not stick to it. */
+export function branchStillCurrent(branch: string, today = todayStr()): boolean {
+  const end = /^data\/\d{4}-\d{2}-\d{2}_(\d{4}-\d{2}-\d{2})$/.exec(branch)?.[1];
+  return !!end && today <= end;
+}
+
 export class GitHubRepository implements WatchlistRepository {
+  /** Data branch resolved by the last load()/save(); data/YYYY-MM-DD_YYYY-MM-DD rotates weekly, so it is dropped on 404/409/422. */
+  private cachedBranch: string | null = null;
+
   async load(token: string): Promise<LoadedData> {
-    const branch = token ? await resolveDataBranch(token) : null;
-    const result = token && branch ? await fetchFileViaApi(token, branch) : await fetchFileLocal();
-    return { data: normalize(result.data), branch };
+    // Always re-resolve: load is a refresh. Without a token the public API is used (the Pages copy may be stale).
+    try {
+      const branch = await resolveDataBranch(token);
+      const result = await fetchFileViaApi(token, branch);
+      this.cachedBranch = branch;
+      return { data: normalize(result.data), branch };
+    } catch (error) {
+      if (token) throw error;
+      const result = await fetchFileLocal();
+      return { data: normalize(result.data), branch: null };
+    }
   }
 
   async save(token: string, apply: (data: WatchlistData) => void, message: string): Promise<LoadedData> {
     if (!token) throw new Error("Нет токена");
     let lastErr: unknown = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
-      const branch = await resolveDataBranch(token);
+      const branch = this.cachedBranch && branchStillCurrent(this.cachedBranch) ? this.cachedBranch : await resolveDataBranch(token);
       let fresh: FetchedFile;
       try { fresh = await fetchFileViaApi(token, branch); }
       catch (error) {
         if (asRecord(error)?.status !== 404) throw error;
+        this.cachedBranch = null;
         lastErr = error;
         if (attempt < 3) await delay(250 * attempt + Math.random() * 250);
         continue;
@@ -98,9 +117,10 @@ export class GitHubRepository implements WatchlistRepository {
         cache: "no-store",
         body: JSON.stringify(body)
       }, (response) => response);
-      if (res.ok) return { data: normalize(freshData), branch };
+      if (res.ok) { this.cachedBranch = branch; return { data: normalize(freshData), branch }; }
       lastErr = httpError(`GitHub API: HTTP ${res.status}`, res.status);
       if (res.status === 404 || res.status === 409 || res.status === 422) {
+        this.cachedBranch = null;
         if (attempt < 3) await delay(250 * attempt + Math.random() * 250);
         continue;
       }

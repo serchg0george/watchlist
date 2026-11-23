@@ -16,11 +16,12 @@ export interface ListView {
   counts: Record<string, number> | null;
 }
 
-function sortItems(items: Item[], key: SortKey): Item[] {
+function sortItems(items: Item[], key: SortKey, finishField: "watchedAt" | "droppedAt"): Item[] {
   const arr = items.slice();
   switch (key) {
     case "watched-desc":
-      arr.sort((a, b) => (b.watchedAt || "").localeCompare(a.watchedAt || "") || b.addedAt.localeCompare(a.addedAt));
+      // Finish date, then the exact status-change time (date-only items tie on the former), then addedAt.
+      arr.sort((a, b) => (b[finishField] || "").localeCompare(a[finishField] || "") || (b.statusAt || "").localeCompare(a.statusAt || "") || b.addedAt.localeCompare(a.addedAt));
       break;
     case "rating-desc":
       arr.sort((a, b) => (avgRating(b) ?? -1) - (avgRating(a) ?? -1) || a.title.localeCompare(b.title, "ru"));
@@ -55,5 +56,7 @@ export function computeListView(): ListView {
     return true;
   });
   const status: Status = state.tab === "watched" || state.tab === "dropped" ? state.tab : state.statusFilter === "watching" ? "watching" : "planned";
-  return { content: { kind: "items", items: sortItems(base, state.sort).filter((it) => it.status === status) }, counts: countByStatus(base) };
+  const finished = state.tab === "watched" || state.tab === "dropped";
+  const sortKey = finished ? state.finishedSort : state.sort;
+  return { content: { kind: "items", items: sortItems(base, sortKey, state.tab === "dropped" ? "droppedAt" : "watchedAt").filter((it) => it.status === status) }, counts: countByStatus(base) };
 }

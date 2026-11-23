@@ -61,3 +61,13 @@ describe("normalize", () => {
     assert.equal(twice, once);
   });
 });
+
+describe("normalize statusAt", () => {
+  test("keeps a non-empty string, omits anything else, stays idempotent", () => {
+    const at = "2026-11-22T20:15:00.000Z";
+    const data = normalize({ items: [{ id: "a", title: "A", statusAt: at }, { id: "b", title: "B", statusAt: "" }, { id: "c", title: "C", statusAt: 5 }, { id: "d", title: "D" }] });
+    assert.equal(data.items[0]?.statusAt, at);
+    for (const i of [1, 2, 3]) assert.ok(!("statusAt" in (data.items[i] as object)));
+    assert.deepEqual(normalize(clone(data)), data);
+  });
+});

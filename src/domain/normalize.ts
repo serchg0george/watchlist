@@ -87,8 +87,10 @@ export function normalize(raw: unknown): WatchlistData {
   // Spread first: fields added by newer app versions (e.g. replies, reactions) must survive a save from this version.
   const items = rawItems.map((raw0): Item => {
     const it = asRecord(raw0) ?? {};
+    const { statusAt, ...rest } = it;
     return {
-      ...it,
+      ...rest,
+      ...(typeof statusAt === "string" && statusAt ? { statusAt } : {}),
       id: String(it.id ?? ""),
       title: String(it.title ?? ""),
       type: typeof it.type === "string" && it.type.trim() ? it.type.trim() : fallbackKey,

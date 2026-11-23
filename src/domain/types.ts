@@ -54,6 +54,8 @@ export interface Item {
   addedAt: string;
   watchedAt: string | null;
   droppedAt: string | null;
+  /** Full ISO timestamp of the last status change; breaks ties between items that share a date. */
+  statusAt?: string;
   updatedBy: string;
   tmdb?: TmdbMetadata;
 }

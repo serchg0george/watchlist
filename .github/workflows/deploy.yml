@@ -1,8 +1,12 @@
 name: Deploy Pages
 
+# Code deploys run after a green CI on master; the weekly rollover calls this workflow for the data snapshot.
+# Data edits from the site are not deployed: the site reads data/movies.json through the GitHub API.
 on:
-  push:
-    branches: [master, 'data/**']
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
   workflow_dispatch:
   workflow_call:
 
@@ -17,6 +21,7 @@ concurrency:
 
 jobs:
   build:
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') }}
     runs-on: ubuntu-latest
     outputs:
       data_ok: ${{ steps.validate.outcome == 'success' }}
@@ -29,11 +34,12 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # Tests already passed in CI for this master commit.
       - name: Build site
         run: |
           npm ci
-          npm test
           npm run build
+          npx tsc -p tsconfig.test.json
       - name: Overlay current data and prepare site
         shell: bash
         run: |

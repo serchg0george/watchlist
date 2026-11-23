@@ -21,6 +21,7 @@ function restoreView(): void {
   state.typeFilter = typeof view.typeFilter === "string" ? view.typeFilter : "all";
   state.search = typeof view.search === "string" ? view.search : "";
   state.sort = SORTS.find((s) => s.key === view.sort)?.key ?? "added-desc";
+  state.finishedSort = SORTS.find((s) => s.key === view.finishedSort)?.key ?? "watched-desc";
 }
 
 function initCatalog(): void {

@@ -119,3 +119,14 @@ describe("validateData", () => {
     assert.deepEqual(result, { errors: [], warnings: [] });
   });
 });
+
+describe("validateData statusAt", () => {
+  test("valid ISO timestamp passes; invalid values only warn", () => {
+    assert.deepEqual(validateData(doc(item({ statusAt: "2026-11-22T20:15:00.000Z" }))), { errors: [], warnings: [] });
+    for (const bad of ["yesterday", "2026-11-22", 5]) {
+      const res = validateData(doc(item({ statusAt: bad })));
+      assert.deepEqual(res.errors, []);
+      assert.equal(res.warnings.length, 1);
+    }
+  });
+});

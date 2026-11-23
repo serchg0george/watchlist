@@ -440,3 +440,34 @@ describe("isOp", () => {
     }
   });
 });
+
+describe("statusAt", () => {
+  const at = "2026-11-22T20:15:00.000Z";
+
+  test("markWatched records at; old ops without at still apply", () => {
+    const data = makeData();
+    applyOp(data, { kind: "markWatched", itemId: "dune", date: "2026-11-22" }, "a");
+    assert.equal(item(data, "dune").statusAt, undefined);
+    applyOp(data, { kind: "markWatched", itemId: "dune", date: "2026-11-22", at }, "a");
+    assert.equal(item(data, "dune").statusAt, at);
+  });
+
+  test("setStatus sets statusAt only when the status changes", () => {
+    const data = makeData();
+    applyOp(data, { kind: "setStatus", itemId: "dune", status: "watched", date: "2026-11-22", at }, "a");
+    assert.equal(item(data, "dune").statusAt, at);
+    applyOp(data, { kind: "setStatus", itemId: "dune", status: "watched", date: "2026-11-22", at: "2026-11-23T00:00:00.000Z" }, "a");
+    assert.equal(item(data, "dune").statusAt, at);
+    applyOp(data, { kind: "setStatus", itemId: "dune", status: "dropped", date: "2026-11-23" }, "a");
+    assert.equal(item(data, "dune").statusAt, at);
+  });
+
+  test("editItem sets statusAt only on a status change", () => {
+    const data = makeData();
+    const fields: ItemFields = { title: "Dune", type: "movie", status: "planned", note: "", genres: [] };
+    applyOp(data, { kind: "editItem", itemId: "dune", fields, date: null, at }, "a");
+    assert.equal(item(data, "dune").statusAt, undefined);
+    applyOp(data, { kind: "editItem", itemId: "dune", fields: { ...fields, status: "watched" }, date: null, at }, "a");
+    assert.equal(item(data, "dune").statusAt, at);
+  });
+});

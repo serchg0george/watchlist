@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import type { WatchlistData } from "../src/domain/types.js";
-import { SaveQueue, type SaveEntry } from "../src/data/save-queue.js";
+import { SaveQueue, combineMessages, type SaveEntry } from "../src/data/save-queue.js";
 
 type T = { add: number };
 type Entry = SaveEntry<T>;
 
-interface Deferred { entry: Entry; resolve(data: WatchlistData): void; reject(error: unknown): void }
+interface Deferred { entries: readonly Entry[]; resolve(data: WatchlistData): void; reject(error: unknown): void }
 
 const data = (version: number): WatchlistData => ({ version, types: [], items: [] });
 const entry = (add: number, login = "me", token = "tok"): Entry => ({ op: { add }, message: `m${add}`, token, login });
@@ -24,7 +24,7 @@ function setup(initialLogin = "me") {
   };
   const state = { login: initialLogin };
   const queue = new SaveQueue<T>({
-    save: (e) => new Promise<WatchlistData>((resolve, reject) => { calls.saves.push({ entry: e, resolve, reject }); }),
+    save: (e) => new Promise<WatchlistData>((resolve, reject) => { calls.saves.push({ entries: [...e], resolve, reject }); }),
     apply(d, e) { calls.applied.push(e.op.add); d.version += e.op.add; },
     persist: (entries) => { calls.persisted.push([...entries]); },
     currentLogin: () => state.login,
@@ -37,37 +37,58 @@ function setup(initialLogin = "me") {
 }
 
 describe("SaveQueue", () => {
-  test("saves entries one at a time in order and reports progress", async () => {
+  test("entries queued during an in-flight save go out together in the next save", async () => {
     const { queue, calls } = setup();
     const [a, b, c] = [entry(1), entry(2), entry(3)];
     queue.enqueue(a);
     queue.enqueue(b);
     queue.enqueue(c);
     await flushMicrotasks();
+    // The first save started synchronously with only `a`; b and c waited.
     assert.equal(queue.size, 3);
     assert.equal(queue.running, true);
     assert.equal(calls.saves.length, 1);
-    assert.equal(calls.saves[0]?.entry, a);
+    assert.deepEqual(calls.saves[0]?.entries, [a]);
 
     calls.saves[0]?.resolve(data(1));
     await flushMicrotasks();
     assert.equal(queue.size, 2);
     assert.equal(calls.saves.length, 2);
-    assert.equal(calls.saves[1]?.entry, b);
+    assert.deepEqual(calls.saves[1]?.entries, [b, c]);
 
-    calls.saves[1]?.resolve(data(3));
+    calls.saves[1]?.resolve(data(6));
     await flushMicrotasks();
-    assert.equal(calls.saves.length, 3);
-    assert.equal(calls.saves[2]?.entry, c);
-
-    calls.saves[2]?.resolve(data(6));
-    await flushMicrotasks();
+    assert.equal(calls.saves.length, 2);
     assert.equal(queue.size, 0);
     assert.equal(queue.running, false);
     assert.equal(queue.hasUnsaved(), false);
     assert.equal(queue.error, null);
     assert.equal(calls.flushed, 1);
-    assert.ok(calls.changes >= 4);
+  });
+
+  test("a run of entries from another login is a separate save", async () => {
+    const { queue, calls } = setup();
+    const [a, b, c, d] = [entry(1), entry(2), entry(3, "other"), entry(4, "other")];
+    queue.restore([a, b, c, d]);
+    await flushMicrotasks();
+    assert.deepEqual(calls.saves[0]?.entries, [a, b]);
+  });
+
+  test("login boundary: next save stops with an error at the first foreign entry", async () => {
+    const { queue, calls, state } = setup();
+    const [a, b, c] = [entry(1), entry(2, "other"), entry(3, "other")];
+    queue.restore([a, b, c]);
+    await flushMicrotasks();
+    assert.deepEqual(calls.saves[0]?.entries, [a]);
+    calls.saves[0]?.resolve(data(1));
+    await flushMicrotasks();
+    assert.equal(calls.saves.length, 1);
+    assert.ok(queue.error instanceof Error);
+    assert.equal(queue.size, 2);
+    state.login = "other";
+    queue.retry();
+    await flushMicrotasks();
+    assert.deepEqual(calls.saves[1]?.entries, [b, c]);
   });
 
   test("onSaved receives saved data with remaining pending ops re-applied", async () => {
@@ -79,36 +100,49 @@ describe("SaveQueue", () => {
 
     calls.saves[0]?.resolve(data(1));
     await flushMicrotasks();
+    // Entries 10 and 100 were both sent in the second save: nothing left to re-apply after the first one except them.
     assert.deepEqual(calls.applied, [10, 100]);
     assert.equal(calls.saved[0]?.version, 111);
 
-    calls.saves[1]?.resolve(data(11));
+    calls.saves[1]?.resolve(data(111));
     await flushMicrotasks();
-    assert.deepEqual(calls.applied, [10, 100, 100]);
+    assert.equal(calls.applied.length, 2);
     assert.equal(calls.saved[1]?.version, 111);
-
-    calls.saves[2]?.resolve(data(111));
-    await flushMicrotasks();
-    assert.equal(calls.saved[2]?.version, 111);
-    assert.equal(calls.applied.length, 3);
   });
 
-  test("persist is called on enqueue, after each shift, and with [] when drained", async () => {
+  test("entries enqueued while a combined save is in flight are kept and re-applied", async () => {
     const { queue, calls } = setup();
-    const [a, b] = [entry(1), entry(2)];
+    queue.enqueue(entry(1));
+    await flushMicrotasks();
+    queue.enqueue(entry(2));
+    queue.enqueue(entry(3));
+    calls.saves[0]?.resolve(data(1));
+    await flushMicrotasks();
+    assert.equal(calls.saves[1]?.entries.length, 2);
+    queue.enqueue(entry(4));
+    calls.saves[1]?.resolve(data(6));
+    await flushMicrotasks();
+    assert.deepEqual(calls.saves[2]?.entries.map((e) => e.op.add), [4]);
+    assert.equal(calls.applied.at(-1), 4);
+  });
+
+  test("persist is called on enqueue, after each save, and with [] when drained", async () => {
+    const { queue, calls } = setup();
+    const [a, b, c] = [entry(1), entry(2), entry(3)];
     queue.enqueue(a);
     queue.enqueue(b);
-    assert.deepEqual(calls.persisted.map((p) => p.length), [1, 2]);
+    queue.enqueue(c);
+    assert.deepEqual(calls.persisted.map((p) => p.length), [1, 2, 3]);
     await flushMicrotasks();
 
     calls.saves[0]?.resolve(data(1));
     await flushMicrotasks();
-    assert.deepEqual(calls.persisted[2], [b]);
+    assert.deepEqual(calls.persisted[3], [b, c]);
 
-    calls.saves[1]?.resolve(data(3));
+    calls.saves[1]?.resolve(data(6));
     await flushMicrotasks();
-    assert.deepEqual(calls.persisted[3], []);
-    assert.equal(calls.persisted.length, 4);
+    assert.deepEqual(calls.persisted[4], []);
+    assert.equal(calls.persisted.length, 5);
   });
 
   test("restore appends, persists and flushes; empty restore is a no-op", async () => {
@@ -122,7 +156,7 @@ describe("SaveQueue", () => {
     assert.equal(queue.size, 2);
     assert.deepEqual(calls.persisted[0], [a, b]);
     await flushMicrotasks();
-    assert.equal(calls.saves[0]?.entry, a);
+    assert.deepEqual(calls.saves[0]?.entries, [a, b]);
     assert.equal(queue.running, true);
   });
 
@@ -160,6 +194,32 @@ describe("SaveQueue", () => {
     await assert.rejects(queue.wait(), (e) => e === failure);
   });
 
+  test("failure of a combined save keeps every entry of it queued", async () => {
+    const { queue, calls } = setup();
+    const [a, b, c] = [entry(1), entry(2), entry(3)];
+    queue.enqueue(a);
+    await flushMicrotasks();
+    queue.enqueue(b);
+    queue.enqueue(c);
+    calls.saves[0]?.resolve(data(1));
+    await flushMicrotasks();
+    assert.deepEqual(calls.saves[1]?.entries, [b, c]);
+    const failure = new Error("boom");
+    calls.saves[1]?.reject(failure);
+    await flushMicrotasks();
+    assert.equal(queue.size, 2);
+    assert.equal(queue.error, failure);
+    assert.deepEqual(calls.persisted.at(-1), [b, c]);
+    queue.retry();
+    await flushMicrotasks();
+    assert.deepEqual(calls.saves[2]?.entries, [b, c]);
+  });
+
+  test("combineMessages: single keeps message, several get a summary line", () => {
+    assert.equal(combineMessages(["x"]), "x");
+    assert.equal(combineMessages(["x", "y", "z"]), "3 changes\nx\ny\nz");
+  });
+
   test("after an error enqueue does not flush until retry, then drains", async () => {
     const { queue, calls } = setup();
     const failure = new Error("boom");
@@ -177,13 +237,10 @@ describe("SaveQueue", () => {
     assert.equal(queue.error, null);
     await flushMicrotasks();
     assert.equal(calls.saves.length, 2);
-    assert.equal(calls.saves[1]?.entry.op.add, 1);
+    assert.deepEqual(calls.saves[1]?.entries.map((e) => e.op.add), [1, 2]);
 
     const w = queue.wait();
-    calls.saves[1]?.resolve(data(1));
-    await flushMicrotasks();
-    assert.equal(calls.saves[2]?.entry.op.add, 2);
-    calls.saves[2]?.resolve(data(3));
+    calls.saves[1]?.resolve(data(3));
     await w;
     assert.equal(queue.size, 0);
     assert.equal(calls.flushed, 1);
@@ -216,7 +273,7 @@ describe("SaveQueue", () => {
     state.login = "me";
     queue.retry();
     await flushMicrotasks();
-    assert.equal(calls.saves[0]?.entry, e);
+    assert.deepEqual(calls.saves[0]?.entries, [e]);
   });
 
   test("login change mid-queue stops before the next entry", async () => {
