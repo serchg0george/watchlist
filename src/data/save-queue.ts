@@ -5,8 +5,8 @@ import type { WatchlistData } from "../domain/types.js";
 export interface SaveEntry<T> { op: T; message: string; token: string; login: string }
 
 export interface SaveQueueDeps<T> {
-  /** Persist one entry, return the saved normalized data. */
-  save(entry: SaveEntry<T>): Promise<WatchlistData>;
+  /** Persist a run of entries (same login, FIFO) as one save, return the saved normalized data. */
+  save(entries: readonly SaveEntry<T>[]): Promise<WatchlistData>;
   /** Replay a pending entry on fresh data (with the entry's own login). */
   apply(data: WatchlistData, entry: SaveEntry<T>): void;
   /** Queue contents changed (enqueue, restore, entry saved): store them for reload recovery. */
@@ -20,6 +20,12 @@ export interface SaveQueueDeps<T> {
   onFlushed(): void;
   /** Flush stopped on error (toast). */
   onError(error: unknown): void;
+}
+
+/** One commit message for several entries: one entry keeps its message; otherwise "N changes" plus one line each. */
+export function combineMessages(messages: readonly string[]): string {
+  if (messages.length <= 1) return messages[0] ?? "";
+  return [`${messages.length} changes`, ...messages].join("\n");
 }
 
 export class SaveQueue<T> {
@@ -90,19 +96,24 @@ export class SaveQueue<T> {
     if (this.isRunning || this.lastError || !this.queue.length) return;
     this.isRunning = true;
     try {
-      for (let entry = this.queue[0]; entry; entry = this.queue[0]) {
-        if (this.deps.currentLogin() !== entry.login) throw new Error("Войдите под автором несохранённых изменений");
-        const saved = await this.deps.save(entry);
-        this.queue.shift();
+      while (this.queue.length) {
+        const login = this.queue[0]!.login;
+        if (this.deps.currentLogin() !== login) throw new Error("Войдите под автором несохранённых изменений");
+        // Everything queued so far under the same login goes out as ONE save; later edits wait for the next one.
+        let count = 1;
+        while (count < this.queue.length && this.queue[count]!.login === login) count++;
+        const batch = this.queue.slice(0, count);
+        const saved = await this.deps.save(batch);
+        this.queue.splice(0, count);
         this.deps.persist(this.queue);
-        // Keep subsequent optimistic edits visible while each operation is committed.
+        // Keep subsequent optimistic edits visible while each save is committed.
         for (const pending of this.queue) this.deps.apply(saved, pending);
         this.deps.onSaved(saved);
         this.deps.onChange();
       }
       this.settle();
     } catch (error) {
-      // The failed head remains queued. Never reload over unsaved local edits.
+      // The failed entries remain queued. Never reload over unsaved local edits.
       this.lastError = error;
       this.settle(error);
       this.deps.onError(error);

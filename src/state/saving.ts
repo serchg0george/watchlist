@@ -1,7 +1,7 @@
 import { LS_DATA_CACHE } from "../config.js";
 import { chooseFallback, makeCache, parseCache } from "../data/data-cache.js";
 import { GitHubRepository, friendlyError } from "../data/github.js";
-import { SaveQueue } from "../data/save-queue.js";
+import { SaveQueue, combineMessages } from "../data/save-queue.js";
 import type { SaveEntry } from "../data/save-queue.js";
 import { asRecord } from "../domain/guards.js";
 import { applyOp, describeOp, isOp } from "../domain/ops.js";
@@ -95,9 +95,27 @@ export async function loadAll(options: { silent?: boolean } = {}): Promise<void>
 
 // ===== Saving: retained optimistic queue with conflict retry =====
 
+// A rate op fully replaces the previous rating of the same person, so earlier ones in the same save are redundant.
+function dropSupersededRatings(entries: readonly SaveEntry<Op>[]): SaveEntry<Op>[] {
+  const seen = new Set<string>();
+  const kept: SaveEntry<Op>[] = [];
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const entry = entries[i]!;
+    if (entry.op.kind === "rate") {
+      const key = `${entry.op.itemId}\u0000${entry.op.person}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    kept.push(entry);
+  }
+  return kept.reverse();
+}
+
 export const saves = new SaveQueue<Op>({
-  async save(entry) {
-    const saved = await repo.save(entry.token, (data) => applyOp(data, entry.op, entry.login), entry.message);
+  async save(batch) {
+    const entries = dropSupersededRatings(batch);
+    const last = batch[batch.length - 1]!;
+    const saved = await repo.save(last.token, (data) => { for (const entry of entries) applyOp(data, entry.op, entry.login); }, combineMessages(entries.map((entry) => entry.message)));
     state.dataBranch = saved.branch;
     return saved.data;
   },

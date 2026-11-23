@@ -23,7 +23,7 @@ export interface ItemFields {
 export type Op =
   | { kind: "addItem"; item: Item }
   | { kind: "restoreItem"; item: Item; index: number }
-  | { kind: "markWatched"; itemId: string; date: string }
+  | { kind: "markWatched"; itemId: string; date: string; at?: string }
   | { kind: "unmarkWatched"; itemId: string }
   | { kind: "rate"; itemId: string; person: Person; rating: number | null }
   | { kind: "setComment"; itemId: string; person: Person; text: string }
@@ -31,8 +31,8 @@ export type Op =
   | { kind: "editReply"; itemId: string; replyId: string; by: Person; text: string; editedAt: string }
   | { kind: "deleteReply"; itemId: string; replyId: string; by: Person }
   | { kind: "react"; itemId: string; target: string; by: Person; reaction: ReactionKind; add: boolean }
-  | { kind: "editItem"; itemId: string; fields: ItemFields; date: { field: DateField; value: string } | null }
-  | { kind: "setStatus"; itemId: string; status: Status; date: string | null }
+  | { kind: "editItem"; itemId: string; fields: ItemFields; date: { field: DateField; value: string } | null; at?: string }
+  | { kind: "setStatus"; itemId: string; status: Status; date: string | null; at?: string }
   | { kind: "batch"; ops: Exclude<Op, { kind: "batch" }>[] }
   | { kind: "deleteItem"; itemId: string }
   | { kind: "addCategory"; category: CategoryType }
@@ -81,6 +81,7 @@ export function applyOp(data: WatchlistData, op: Op, login: string): void {
       if (!it) return;
       it.status = "watched";
       it.watchedAt = op.date;
+      if (op.at) it.statusAt = op.at;
       it.updatedBy = login;
       return;
     }
@@ -157,9 +158,11 @@ export function applyOp(data: WatchlistData, op: Op, login: string): void {
     case "editItem": {
       const it = findItem(data, op.itemId);
       if (!it) return;
+      const changed = it.status !== op.fields.status;
       it.title = op.fields.title;
       it.type = op.fields.type;
       it.status = op.fields.status;
+      if (changed && op.at) it.statusAt = op.at;
       it.note = op.fields.note;
       it.genres = normalizeGenres(op.fields.genres);
       if (op.date) it[op.date.field] = op.date.value;
@@ -169,6 +172,7 @@ export function applyOp(data: WatchlistData, op: Op, login: string): void {
     case "setStatus": {
       const it = findItem(data, op.itemId);
       if (!it) return;
+      if (it.status !== op.status && op.at) it.statusAt = op.at;
       it.status = op.status;
       switch (op.status) {
         case "watched":

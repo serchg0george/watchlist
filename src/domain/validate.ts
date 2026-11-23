@@ -8,6 +8,7 @@ export interface ValidationResult {
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
 const DATE_FIELDS = ["addedAt", "watchedAt", "droppedAt"] as const;
 
 function isDate(value: unknown): boolean {
@@ -77,10 +78,14 @@ export function validateData(raw: unknown): ValidationResult {
       }
     }
 
+    if (item.statusAt !== undefined && item.statusAt !== null && (typeof item.statusAt !== "string" || !ISO_RE.test(item.statusAt) || Number.isNaN(Date.parse(item.statusAt)))) {
+      warnings.push(`${at}: statusAt ${JSON.stringify(item.statusAt)} is not an ISO timestamp.`);
+    }
+
     const normalized = once.items[index];
     if (normalized) {
       for (const key of Object.keys(item)) {
-        if (!(key in normalized)) errors.push(`${at}: normalize drops key "${key}".`);
+        if (key !== "statusAt" && !(key in normalized)) errors.push(`${at}: normalize drops key "${key}".`);
       }
     }
     if (typeof item.type === "string" && !typeKeys.has(item.type.trim())) {

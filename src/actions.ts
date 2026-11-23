@@ -79,7 +79,7 @@ export function toggleWatched(id: string): void {
   if (!item) return;
   const snap = snapshotOf(item);
   const toWatched = !(item.status === "watched" || item.status === "dropped");
-  const op: Op = toWatched ? { kind: "markWatched", itemId: id, date: todayStr() } : { kind: "unmarkWatched", itemId: id };
+  const op: Op = toWatched ? { kind: "markWatched", itemId: id, date: todayStr(), at: new Date().toISOString() } : { kind: "unmarkWatched", itemId: id };
   if (applyAndSave(op)) {
     offerUndo(toWatched ? `«${item.title}» — просмотрено` : `«${item.title}» снова в списке`, snap);
   }
@@ -93,7 +93,7 @@ export function setStatus(id: string, status: Status): void {
   if (target === item.status) return;
   const snap = snapshotOf(item);
   const date = target === "watched" || target === "dropped" ? todayStr() : null;
-  if (applyAndSave({ kind: "setStatus", itemId: id, status: target, date })) {
+  if (applyAndSave({ kind: "setStatus", itemId: id, status: target, date, at: new Date().toISOString() })) {
     offerUndo(`«${item.title}» — ${STATUS_LABELS[target]}`, snap);
   }
 }
@@ -185,7 +185,8 @@ export function commitEdit(id: string, fields: EditFields): void {
     kind: "editItem",
     itemId: id,
     fields: { title: fields.title, type: fields.type, status: fields.status, note: fields.note, genres: fields.genres },
-    date: dateKey && (transitioned || fields.dateEdited) ? { field: dateKey, value: date } : null
+    date: dateKey && (transitioned || fields.dateEdited) ? { field: dateKey, value: date } : null,
+    ...(transitioned ? { at: new Date().toISOString() } : {})
   });
 }
 
@@ -218,7 +219,8 @@ export function bulkSetStatus(ids: string[], status: Status): void {
   if (targets.length === 0) return;
   const snaps = targets.map(snapshotOf);
   const date = status === "watched" || status === "dropped" ? todayStr() : null;
-  const ops = targets.map((it) => ({ kind: "setStatus" as const, itemId: it.id, status, date }));
+  const at = new Date().toISOString();
+  const ops = targets.map((it) => ({ kind: "setStatus" as const, itemId: it.id, status, date, at }));
   if (applyAndSave({ kind: "batch", ops })) {
     selectedIds.clear(); // stay in selection mode
     showToast(`Статус «${STATUS_LABELS[status]}»: ${targets.length}`, { label: "Отменить", run: () => restoreItems(snaps) });

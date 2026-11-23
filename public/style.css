@@ -584,6 +584,17 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 
 #stats .stack { display: grid; gap: var(--sp-3); }
 #stats .stats-views { margin: 0 var(--sp-1) var(--sp-3); }
+@media (max-width: 599px) {
+  #stats .stats-views {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  #stats .stats-views::-webkit-scrollbar { display: none; }
+  #stats .stats-views .chip { flex: none; scroll-snap-align: start; white-space: nowrap; }
+}
 
 #stats .card {
   background: var(--card);
@@ -853,21 +864,17 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 @media (min-width: 760px) {
   #stats .stats-wrap { padding-top: var(--sp-5); }
   #stats .page-head h1 { font-size: var(--fs-xl); }
-  #stats .stack { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); align-items: stretch; }
-  #stats .stack-genres .sec-genres { grid-column: 1 / -1; }
+  /* Only the multi-section tabs use two columns; single-section tabs stay full width. */
+  #stats .stack-overview, #stats .stack-ratings { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); align-items: stretch; }
   #stats .stack-genres .genre-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  /* Without genres next to it, the scatter takes a full row, capped so the square chart stays readable. */
-  #stats .sec-scatter { grid-column: 1 / -1; }
-  #stats .sec-scatter .scatter-box { max-width: 520px; }
-  #stats .hero, #stats .sec-cats, #stats .sec-top { grid-column: 1 / -1; }
+  #stats .stack-overview .hero { grid-column: 1 / -1; }
+  #stats .sec-scatter .scatter-box { max-width: 520px; margin-inline: auto; }
   #stats .hero { grid-template-columns: 1.25fr 1.25fr 1fr 1fr; gap: var(--sp-4); }
   #stats .card { padding: var(--sp-5); }
   #stats .hero .card { padding: var(--sp-4); }
   #stats .vs { gap: var(--sp-2); }
   #stats .vs .kpi { font-size: 25px; }
   #stats .vs-side { gap: var(--sp-1); }
-  #stats .sec-diff { display: flex; flex-direction: column; }
-  #stats #diffs { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
   #stats .cat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   #stats .cat-item { flex-direction: column; align-items: flex-start; gap: 2px; }
   #stats #top {

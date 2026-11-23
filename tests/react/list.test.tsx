@@ -36,4 +36,27 @@ describe("ListTab", () => {
     const { container } = renderLive(() => <ListTab view={computeListView()} hidden={false} />);
     expect([...container.querySelectorAll(".item-title")].map((n) => n.textContent)).toEqual(["Done"]);
   });
+
+  test("watched tab: same watchedAt is ordered by statusAt, not addedAt", () => {
+    seed([
+      { id: "late", title: "Added later", status: "watched", addedAt: "2026-11-20", watchedAt: "2026-11-22", statusAt: "2026-11-22T09:00:00.000Z" },
+      { id: "early", title: "Added earlier", status: "watched", addedAt: "2026-11-01", watchedAt: "2026-11-22", statusAt: "2026-11-22T21:00:00.000Z" },
+      { id: "old", title: "Older", status: "watched", addedAt: "2026-11-21", watchedAt: "2026-11-10" }
+    ], { tab: "watched" });
+    const { container } = renderLive(() => <ListTab view={computeListView()} hidden={false} />);
+    expect([...container.querySelectorAll(".item-title")].map((n) => n.textContent)).toEqual(["Added earlier", "Added later", "Older"]);
+  });
+
+  test("dropped tab sorts by droppedAt and has its own sort state", () => {
+    seed([
+      { id: "a", title: "A", status: "dropped", addedAt: "2026-11-01", droppedAt: "2026-11-05" },
+      { id: "b", title: "B", status: "dropped", addedAt: "2026-11-02", droppedAt: "2026-11-09" }
+    ], { tab: "dropped" });
+    const { container } = renderLive(() => <ListTab view={computeListView()} hidden={false} />);
+    expect([...container.querySelectorAll(".item-title")].map((n) => n.textContent)).toEqual(["B", "A"]);
+    fireEvent.change(screen.getByLabelText("Сортировка"), { target: { value: "title-asc" } });
+    expect(state.finishedSort).toBe("title-asc");
+    expect(state.sort).toBe("added-desc");
+    expect([...container.querySelectorAll(".item-title")].map((n) => n.textContent)).toEqual(["A", "B"]);
+  });
 });

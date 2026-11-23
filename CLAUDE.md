@@ -6,7 +6,7 @@
 
 ## 1. Git & GitHub
 
-GitHub user **serchg0george**, repo **serchg0george/watchlist**, branch **master**. GitHub Pages собирается workflow `deploy.yml`: код из `master`, `data/movies.json` из текущей ветки `data/*`.
+GitHub user **serchg0george**, repo **serchg0george/watchlist**, branch **master**. GitHub Pages собирается workflow `deploy.yml` после зелёного CI в `master` и при rollover: код из `master`, `data/movies.json` из текущей ветки `data/*`; правки данных с сайта деплой не запускают.
 
 - Перед работой: `gh auth switch --user serchg0george` (не `gh auth status` — зависает), затем `git fetch --all --prune && git pull --ff-only`. Pull не прошёл (diverged, конфликты, auth/network) → стоп, сообщить, спросить. Никаких `rebase`, `merge`, `reset --hard`, force без явного запроса.
 - **Identity — MANDATORY.** Перед любым коммитом: `git config --local user.name` = `serchg0george`, `user.email` = `serchg0george@users.noreply.github.com`; если не так — выставить с `--local`. Никогда `git config --global` — глобальный конфиг принадлежит рабочему аккаунту Expedia.
@@ -47,4 +47,5 @@ GitHub user **serchg0george**, repo **serchg0george/watchlist**, branch **master
 - Неверный патч → одна повторная попытка с исправленной задачей, затем агент правит сам.
 - Две большие локальные модели одновременно в память не помещаются: перед сменой модели `scripts/qwen.sh down`. Параллельно — только локальная + `--acli`, если файлы задач не пересекаются; `--acli` в headless-режиме не запускает команды, поэтому в его задачах нет шагов «запусти тесты» — их прогоняет агент.
 - Правка короче текста задачи (опечатка, одна строка) делается напрямую.
+- Локальной модели отдаются крупные однотипные правки; точечные UI-фиксы и правки в несколько строк агент делает сам — цикл «задача → патч → ревью» не должен быть дольше самой правки.
 - Исключение — только по явной просьбе пользователя о скорости или переносимости (сессия с телефона и т.п.); тогда агент правит напрямую.

@@ -59,6 +59,8 @@ interface AppState {
   typeFilter: string;
   search: string;
   sort: SortKey;
+  // Sort for the watched/dropped tabs; defaults to finish date, independent of the list tab sort.
+  finishedSort: SortKey;
   editingId: string | null;
   commentingId: string | null;
   replyDraft: ReplyDraft | null;
@@ -82,6 +84,7 @@ export const state: AppState = {
   typeFilter: "all",
   search: "",
   sort: "added-desc",
+  finishedSort: "watched-desc",
   editingId: null,
   commentingId: null,
   replyDraft: null,
@@ -111,7 +114,7 @@ let lastViewJson = "";
 
 function persistView(): void {
   if (state.loading) return;
-  const view = { tab: state.tab, statusFilter: state.statusFilter, typeFilter: state.typeFilter, search: state.search, sort: state.sort };
+  const view = { tab: state.tab, statusFilter: state.statusFilter, typeFilter: state.typeFilter, search: state.search, sort: state.sort, finishedSort: state.finishedSort };
   const json = JSON.stringify(view);
   if (json === lastViewJson) return;
   lastViewJson = json;

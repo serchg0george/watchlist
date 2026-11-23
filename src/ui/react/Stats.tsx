@@ -5,7 +5,7 @@ import { PEOPLE } from "../../config.js";
 import { MONTH_FULL, computeStats } from "../../domain/stats.js";
 import type { Stats as StatsData } from "../../domain/stats.js";
 import type { Item, Person, Status } from "../../domain/types.js";
-import { getTypes, openComments, render, state } from "../../state/store.js";
+import { getTypes, openComments, readLocal, render, state, writeLocal } from "../../state/store.js";
 
 // ===== Stats tab =====
 
@@ -414,19 +414,55 @@ function Top({ data }: { data: StatsData }) {
   );
 }
 
+type StatsView = "overview" | "ratings" | "top" | "diffs" | "months" | "genres";
+interface StatsTab { key: StatsView; label: string; render: (ctx: { items: Item[]; data: StatsData; tip: TipApi }) => ReactNode }
+
+const STATS_VIEW_KEY = "watchlist.statsView";
+const STATS_TABS: StatsTab[] = [
+  { key: "overview", label: "Обзор", render: ({ items, data }) => <><Hero items={items} data={data} /><Favorite data={data} /><Categories items={items} data={data} /></> },
+  { key: "ratings", label: "Оценки", render: ({ data, tip }) => <><Histogram data={data} tip={tip} /><Scatter data={data} tip={tip} /></> },
+  { key: "top", label: "Топ", render: ({ data }) => <Top data={data} /> },
+  { key: "diffs", label: "Споры", render: ({ data }) => <Diffs data={data} /> },
+  { key: "months", label: "По месяцам", render: ({ data, tip }) => <Months data={data} tip={tip} /> },
+  { key: "genres", label: "Жанры", render: ({ data }) => <Genres data={data} /> }
+];
+
+function loadView(): StatsView {
+  const stored = readLocal(STATS_VIEW_KEY);
+  return STATS_TABS.find((tab) => tab.key === stored)?.key ?? "overview";
+}
+
 export function Stats({ hidden }: { hidden: boolean }) {
-  const [view, setView] = useState<"overview" | "genres">("overview");
+  const [view, setView] = useState<StatsView>(loadView);
   const [tipState, setTipState] = useState<{ anchor: Element | null; content: ReactNode }>({ anchor: null, content: null });
+  const tabs = useRef(new Map<StatsView, HTMLButtonElement>());
   const tip: TipApi = {
     show: (anchor, content) => setTipState({ anchor, content }),
     hide: () => setTipState((current) => current.anchor ? { anchor: null, content: null } : current)
   };
+  const select = (key: StatsView, focus = false): void => {
+    setView(key);
+    writeLocal(STATS_VIEW_KEY, key);
+    tip.hide();
+    if (focus) tabs.current.get(key)?.focus();
+  };
+  const onTabKey = (e: KeyboardEvent, index: number): void => {
+    const last = STATS_TABS.length - 1;
+    const next = e.key === "ArrowRight" ? (index + 1) % STATS_TABS.length : e.key === "ArrowLeft" ? (index + last) % STATS_TABS.length : e.key === "Home" ? 0 : e.key === "End" ? last : -1;
+    if (next < 0) return;
+    e.preventDefault();
+    select(STATS_TABS[next]!.key, true);
+  };
+  useLayoutEffect(() => {
+    const node = tabs.current.get(view);
+    if (node && typeof node.scrollIntoView === "function") node.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [view, hidden]);
   let body: ReactNode;
   if (state.loading) body = <div className="state-msg">Загрузка…</div>;
   else if (state.error) body = <div className="state-msg error">{state.error}</div>;
   else if (!hidden) {
     const items = state.data?.items || [], data = computeStats(items, getTypes());
-    // Overview: hero, histogram, months, scatter, categories, top, favorite, diffs. Genres: its own sub-tab.
+    const active = STATS_TABS.find((tab) => tab.key === view) ?? STATS_TABS[0]!;
     body = (
       <>
         <div className="stats-wrap">
@@ -435,42 +471,26 @@ export function Stats({ hidden }: { hidden: boolean }) {
             <p>{`S и L · данные на ${new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}`}</p>
           </header>
           <div className="chips stats-views" role="tablist" aria-label="Разделы статистики">
-            <button
-              type="button"
-              role="tab"
-              className={`chip${view === "overview" ? " active" : ""}`}
-              aria-selected={view === "overview"}
-              aria-controls="stats-panel"
-              onClick={() => { setView("overview"); tip.hide(); }}
-            >
-              Обзор
-            </button>
-            <button
-              type="button"
-              role="tab"
-              className={`chip${view === "genres" ? " active" : ""}`}
-              aria-selected={view === "genres"}
-              aria-controls="stats-panel"
-              onClick={() => { setView("genres"); tip.hide(); }}
-            >
-              Совпадение по жанрам
-            </button>
+            {STATS_TABS.map((tab, index) => (
+              <button
+                key={tab.key}
+                ref={(node) => { if (node) tabs.current.set(tab.key, node); else tabs.current.delete(tab.key); }}
+                type="button"
+                role="tab"
+                id={`stats-tab-${tab.key}`}
+                className={`chip${tab.key === active.key ? " active" : ""}`}
+                aria-selected={tab.key === active.key}
+                aria-controls="stats-panel"
+                tabIndex={tab.key === active.key ? 0 : -1}
+                onClick={() => select(tab.key)}
+                onKeyDown={(e) => onTabKey(e, index)}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
-          <div id="stats-panel" role="tabpanel" className={`stack${view === "genres" ? " stack-genres" : ""}`}>
-            {view === "overview" ? (
-              <>
-                <Hero items={items} data={data} />
-                <Histogram data={data} tip={tip} />
-                <Months data={data} tip={tip} />
-                <Scatter data={data} tip={tip} />
-                <Categories items={items} data={data} />
-                <Top data={data} />
-                <Favorite data={data} />
-                <Diffs data={data} />
-              </>
-            ) : (
-              <Genres data={data} />
-            )}
+          <div id="stats-panel" role="tabpanel" aria-labelledby={`stats-tab-${active.key}`} className={`stack stack-${active.key}`}>
+            {active.render({ items, data, tip })}
           </div>
         </div>
         <Tooltip anchor={tipState.anchor} content={tipState.content} />
