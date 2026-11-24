@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { defineConfig } from "vite";
 import type { Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import { injectCsp } from "./tools/csp.ts";
 import { injectCache, injectShell, shellFrom } from "./tools/sw-shell.ts";
 
 function resolveBuildId(): string {
@@ -44,7 +45,15 @@ export default defineConfig({
     __BUILD_ID__: JSON.stringify(buildId),
     __BUILD_TIME__: JSON.stringify(new Date().toISOString())
   },
-  plugins: [react(), serviceWorker()],
+  plugins: [
+    react(),
+    serviceWorker(),
+    {
+      name: "watchlist-content-security-policy",
+      apply: "build",
+      transformIndexHtml: { order: "post", handler: injectCsp }
+    }
+  ],
   build: {
     outDir: "dist",
     manifest: true
