@@ -119,3 +119,9 @@ test("no workflow uses node-version: (only node-version-file: .nvmrc)", () => {
     }
   }
 });
+
+test("manual dry runs exercise the dispatched revision without stored write credentials", () => {
+  const rollover = readFileSync(`${WORKFLOWS_DIR}/weekly-rollover.yml`, "utf8");
+  assert.ok(rollover.includes("github.event_name == 'workflow_dispatch' && inputs.dry_run && github.sha || 'master'"));
+  assert.ok(rollover.includes("persist-credentials: ${{ !inputs.dry_run }}"));
+});

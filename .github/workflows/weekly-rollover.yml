@@ -33,7 +33,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: master
+          # Exercise this revision's tools during manual previews.
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && github.sha || 'master' }}
+          persist-credentials: ${{ !inputs.dry_run }}
           fetch-depth: 0
       - uses: actions/setup-node@v7
         with:

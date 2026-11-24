@@ -79,40 +79,37 @@ jobs:
         uses: actions/deploy-pages@v5
       - name: Post-deploy smoke test
         shell: bash
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
         run: |
           set -euo pipefail
-          base_url="${{ steps.deployment.outputs.page_url }}"
-          base_url="${base_url%/}"
-          echo "Starting smoke test for $base_url"
+          base=${PAGE_URL%/}
+          page="$RUNNER_TEMP/smoke-index.html"
+          data="$RUNNER_TEMP/smoke-data.json"
 
-          check_ok=false
-          for attempt in $(seq 1 6); do
-            echo "Smoke test attempt $attempt/6..."
-            if page=$(curl -fsSL "$base_url/"); then
-              if [[ "$page" == *'<div id="root">'* ]]; then
-                js_asset=$(echo "$page" | grep -o 'assets/[^"'\''<> ]*\.js' | head -n 1 || true)
-                if [[ -n "$js_asset" ]]; then
-                  if curl -fsSL -o /dev/null "$base_url/$js_asset" && \
-                     curl -fsSL -o /dev/null "$base_url/sw.js" && \
-                     data_json=$(curl -fsSL "$base_url/data/movies.json") && \
-                     echo "$data_json" | jq empty; then
-                    echo "Smoke test passed on attempt $attempt."
-                    check_ok=true
-                    break
-                  fi
-                fi
+          get_200() {
+            local status
+            status=$(curl --silent --show-error --location --max-time 15 \
+              --output "$2" --write-out '%{http_code}' "$1") && [[ "$status" == 200 ]]
+          }
+
+          for attempt in {1..6}; do
+            if get_200 "$base/" "$page" && grep -Fq '<div id="root">' "$page" && \
+               js=$(grep -m1 -oE 'src="([^"]*/)?assets/[^"]+\.js"' "$page"); then
+              js=${js%%$'\n'*}
+              js=${js#*assets/}
+              if get_200 "$base/assets/${js%\"}" /dev/null && \
+                 get_200 "$base/sw.js" /dev/null && \
+                 get_200 "$base/data/movies.json" "$data" && \
+                 jq -es 'length == 1' "$data" >/dev/null; then
+                echo "Page, JS, worker and data passed on attempt $attempt."
+                exit 0
               fi
             fi
-            if [[ $attempt -lt 6 ]]; then
-              echo "Smoke test attempt $attempt failed or CDN lagging; sleeping 10s..."
-              sleep 10
-            fi
+            if (( attempt < 6 )); then sleep 10; fi
           done
-
-          if [[ "$check_ok" != "true" ]]; then
-            echo "::error::Smoke test failed after 6 attempts."
-            exit 1
-          fi
+          echo "::error::Pages smoke test failed after six attempts."
+          exit 1
   data-check:
     needs: [build, deploy]
     if: ${{ always() && needs.build.outputs.data_ok == 'false' }}
