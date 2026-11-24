@@ -24,7 +24,7 @@ git clone -q --local --no-hardlinks "$repo" "$work/repo" 2>/dev/null || { mkdir 
 # Include uncommitted work so the executor edits the current state.
 (cd "$repo" && git rev-parse -q --verify HEAD >/dev/null && git diff HEAD --binary) | (cd "$work/repo" && git apply --allow-empty 2>/dev/null || true)
 (cd "$repo" && git ls-files --others --exclude-standard -z | tar --null -T - -cf - 2>/dev/null) | (cd "$work/repo" && tar -xf - 2>/dev/null || true)
-cd "$work/repo"
+cd "$work/repo" || exit 1
 git remote remove origin 2>/dev/null
 git add -A >/dev/null && git -c user.name=x -c user.email=x@x -c core.hooksPath=/dev/null commit -qm base --allow-empty
 

@@ -16,10 +16,7 @@ on:
         default: false
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
-  actions: write
+  contents: read
 
 concurrency:
   group: rollover
@@ -28,16 +25,19 @@ concurrency:
 jobs:
   rollover:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
     outputs:
       pushed: ${{ steps.rollover.outputs.pushed }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: master
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
       - name: Build data validator
         run: |
@@ -54,5 +54,8 @@ jobs:
     # Even a late-change conflict can occur after the new branch was published.
     if: ${{ always() && needs.rollover.outputs.pushed == 'true' }}
     needs: rollover
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     uses: ./.github/workflows/deploy.yml
-    secrets: inherit
