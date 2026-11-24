@@ -38,5 +38,5 @@ Never use `git config --global`.
 - Every data change is an `Op` (serializable value, `src/domain/`) passed to `applyAndSave(op)`. The queue is persisted and ops are replayed on fresh server data on conflict, so `applyOp` must find targets by id inside `data`, never capture objects from `state.data`, and be idempotent: safe to apply where the target is already gone.
 - Data compatibility is mandatory: never remove or rename existing fields in `data/movies.json`; new fields are optional and `normalize()` must keep unknown fields (it spreads the original item first).
 - Do not edit `data/movies.json` — it is live data written by the site. Use a local fixture outside the repo for testing.
-- The service worker `SHELL` is generated at build time from `dist/`; never list files by hand. Bump `CACHE` in `src/sw.ts` when caching logic changes.
+- The service worker `SHELL` is generated at build time from `dist/`; never list files by hand. The cache name `watchlist-<commit>` is set at build time.
 - Desktop (Mac/Windows browser) is the primary screen; mobile must still work (single column, no horizontal scroll).
