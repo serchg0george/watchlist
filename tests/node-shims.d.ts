@@ -2,7 +2,7 @@
 declare module "node:test" {
   type TestFn = () => void | Promise<void>;
   export function test(name: string, fn: TestFn): void;
-  export function test(name: string, options: { skip: boolean | string }, fn: TestFn): void;
+  export function describe(name: string, options: { concurrency: number; skip: boolean | string }, fn: () => void): void;
   export function describe(name: string, fn: () => void): void;
   export function it(name: string, fn: TestFn): void;
 }
