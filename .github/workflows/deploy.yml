@@ -23,16 +23,18 @@ jobs:
   build:
     if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       data_ok: ${{ steps.validate.outcome == 'success' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
-          ref: master
+          # Deploy exactly the commit CI approved; rollover/dispatch use master.
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'master' }}
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
       # Tests already passed in CI for this master commit.
       - name: Build site
@@ -44,7 +46,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          branch=$(git ls-remote --heads origin 'data/*' | awk '{sub(/^refs\/heads\//, "", $2); print $2}' | LC_ALL=C sort | tail -n 1)
+          branch=$(bash scripts/latest-data-branch.sh)
           if [[ -n "$branch" ]]; then
             git fetch --no-tags origin "refs/heads/$branch:refs/remotes/origin/$branch"
             git show "refs/remotes/origin/$branch:data/movies.json" > data/movies.json
@@ -61,23 +63,58 @@ jobs:
         id: validate
         continue-on-error: true
         run: node .test-build/tools/validate-data.js data/movies.json
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
+      - name: Post-deploy smoke test
+        shell: bash
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          base=${PAGE_URL%/}
+          page="$RUNNER_TEMP/smoke-index.html"
+          data="$RUNNER_TEMP/smoke-data.json"
+
+          get_200() {
+            local status
+            status=$(curl --silent --show-error --location --max-time 15 \
+              --output "$2" --write-out '%{http_code}' "$1") && [[ "$status" == 200 ]]
+          }
+
+          for attempt in {1..6}; do
+            if get_200 "$base/" "$page" && grep -Fq '<div id="root">' "$page" && \
+               js=$(grep -m1 -oE 'src="([^"]*/)?assets/[^"]+\.js"' "$page"); then
+              js=${js%%$'\n'*}
+              js=${js#*assets/}
+              if get_200 "$base/assets/${js%\"}" /dev/null && \
+                 get_200 "$base/sw.js" /dev/null && \
+                 get_200 "$base/data/movies.json" "$data" && \
+                 jq -es 'length == 1' "$data" >/dev/null; then
+                echo "Page, JS, worker and data passed on attempt $attempt."
+                exit 0
+              fi
+            fi
+            if (( attempt < 6 )); then sleep 10; fi
+          done
+          echo "::error::Pages smoke test failed after six attempts."
+          exit 1
   data-check:
     needs: [build, deploy]
     if: ${{ always() && needs.build.outputs.data_ok == 'false' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Report invalid data
         run: |

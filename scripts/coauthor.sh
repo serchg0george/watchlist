@@ -5,7 +5,7 @@
 # Models without a GitHub account get an @models.invalid address (RFC 2606) so they never map to a real user.
 # Exit: 0 ok, 1 usage / unknown alias.
 set -u
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 file="$(git rev-parse --git-common-dir)/session-coauthors"
 
 resolve() {

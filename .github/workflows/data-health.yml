@@ -1,0 +1,50 @@
+name: Data Health
+
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: master
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx tsc -p tsconfig.test.json
+      - name: Validate live weekly data and check file size
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch=$(bash scripts/latest-data-branch.sh)
+          if [[ -z "$branch" ]]; then
+            echo "No data branch found on origin; checking master data/movies.json"
+            cp data/movies.json "$RUNNER_TEMP/live.json"
+          else
+            echo "Validating latest data branch: $branch"
+            git fetch --no-tags origin "refs/heads/$branch:refs/remotes/origin/$branch"
+            git show "refs/remotes/origin/$branch:data/movies.json" > "$RUNNER_TEMP/live.json"
+          fi
+
+          node .test-build/tools/validate-data.js "$RUNNER_TEMP/live.json"
+
+          size=$(wc -c < "$RUNNER_TEMP/live.json" | tr -d ' ')
+          echo "live.json size: $size bytes"
+
+          if (( size > 900000 )); then
+            echo "::error::data/movies.json size ($size bytes) exceeds 900000 bytes limit (approaching 1MB GitHub Contents API cutoff)."
+            exit 1
+          elif (( size > 512000 )); then
+            echo "::warning::data/movies.json size ($size bytes) exceeds 512000 bytes."
+          fi

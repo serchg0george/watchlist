@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { BUILD_ID, BUILD_TIME } from "../../build-info.js";
 import { LS_LOGIN, LS_PERSON, LS_TOKEN, personFor } from "../../config.js";
 import { apiHeaders, friendlyError, httpError } from "../../data/github.js";
 import { asRecord } from "../../domain/guards.js";
@@ -65,6 +66,7 @@ export function SettingsDialog() {
       onClose={() => setError("")}>
       <h2>Настройки</h2>
       <p id="data-branch-status" className="settings-text" style={{ color: "var(--muted)" }}>{`Данные: ${state.dataBranch || "опубликованная версия GitHub Pages"}`}</p>
+      <p className="settings-text" style={{ color: "var(--muted)" }}>Версия: {BUILD_ID} · {new Date(BUILD_TIME).toLocaleString("ru-RU")}</p>
       <p className="settings-text">Чтобы редактировать список, создайте токен GitHub: Settings → Developer settings → Personal access tokens.</p>
       <ul className="settings-steps">
         <li>Владелец репозитория: Fine-grained tokens, Repository access — только <code>serchg0george/watchlist</code>, Permissions — Contents: Read and write.</li>

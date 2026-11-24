@@ -5,7 +5,7 @@
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
-const CACHE = "watchlist-v22";
+const CACHE = "__CACHE__";
 // Filled in at build time from the Vite output (tools/sw-shell.ts via vite.config.ts); hashed names change every release.
 const SHELL: string[] = ["__SHELL__"];
 
