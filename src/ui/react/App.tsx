@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { afterRender, isListTab, render, selectedIds, visibleIds } from "../../state/store.js";
 import type { Tab } from "../../state/store.js";
 import { BulkBar } from "./BulkBar.js";
@@ -13,6 +13,28 @@ import { useWatchlist } from "./useWatchlist.js";
 
 // Scroll position per tab, so switching tabs returns to where the user was.
 const tabScroll: Record<Tab, number> = { list: 0, watched: 0, dropped: 0, stats: 0 };
+
+function ScrollToTop() {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const update = () => setVisible(window.scrollY > window.innerHeight / 2);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
+  if (!visible) return null;
+  return (
+    <button type="button" className="btn scroll-top" onClick={() => {
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({ top: 0, behavior: reduceMotion ? "instant" : "smooth" });
+    }}>↑ Вверх страницы</button>
+  );
+}
 
 export function App() {
   const state = useWatchlist();
@@ -41,6 +63,7 @@ export function App() {
         <Stats hidden={state.tab !== "stats"} />
       </main>
       <button id="mobile-add-btn" type="button" className="btn btn-primary mobile-add-btn" hidden={!state.token || state.tab !== "list"}>＋ Добавить</button>
+      <ScrollToTop />
       <SettingsDialog />
       <CategoriesDialog />
       <BulkBar />
