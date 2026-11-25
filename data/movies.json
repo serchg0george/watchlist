@@ -37,7 +37,7 @@
       "id": "b59b798e-89a8-49e0-a7c4-14f09aca9df0",
       "title": "Тед Лассо",
       "type": "series",
-      "status": "planned",
+      "status": "watching",
       "ratings": {
         "S": null,
         "L": null
@@ -66,7 +66,8 @@
         "posterPath": "/htV1GTyatTXJB589hjiqUQPegjd.jpg",
         "runtime": null,
         "imdbId": "tt10986410"
-      }
+      },
+      "statusAt": "2026-11-25T21:25:25.986Z"
     },
     {
       "id": "23ff03e5-635d-4b63-ad31-ab1904ad85b5",
