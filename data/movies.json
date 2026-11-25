@@ -472,7 +472,7 @@
       "id": "91dd0318-06b9-4cb3-b793-5a3067421dee",
       "title": "Чего хотят женщины",
       "type": "movie",
-      "status": "watching",
+      "status": "planned",
       "ratings": {
         "S": null,
         "L": null
@@ -502,7 +502,7 @@
         "runtime": 127,
         "imdbId": "tt0207201"
       },
-      "statusAt": "2026-11-25T20:41:23.899Z"
+      "statusAt": "2026-11-25T20:41:59.804Z"
     },
     {
       "id": "ca5a3c90-a9d5-49c2-98dc-93a8cce71f60",
