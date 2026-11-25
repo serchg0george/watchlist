@@ -1283,3 +1283,12 @@ dialog { max-height: 90vh; max-height: 90dvh; overflow-y: auto; overscroll-behav
   .item-row.highlight { animation: none; }
   .toast, .save-indicator { transition: none; }
 }
+
+.scroll-top {
+  position: fixed;
+  left: max(16px, env(safe-area-inset-left, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 10;
+  min-height: 44px;
+}
+body.selecting .scroll-top { display: none; }
