@@ -34,6 +34,28 @@
   ],
   "items": [
     {
+      "id": "5776c968-15e3-4a54-b18f-c815a0cd9436",
+      "title": "Дом",
+      "type": "movie",
+      "status": "planned",
+      "ratings": {
+        "S": null,
+        "L": null
+      },
+      "comments": {
+        "S": "",
+        "L": ""
+      },
+      "replies": [],
+      "reactions": {},
+      "genres": [],
+      "note": "",
+      "addedAt": "2026-11-26",
+      "watchedAt": null,
+      "droppedAt": null,
+      "updatedBy": "panilubov-bit"
+    },
+    {
       "id": "b59b798e-89a8-49e0-a7c4-14f09aca9df0",
       "title": "Тед Лассо",
       "type": "series",
