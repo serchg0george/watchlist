@@ -34,6 +34,44 @@
   ],
   "items": [
     {
+      "id": "f8ddc520-59bb-488f-9bd6-72c8cae3ff49",
+      "title": "Прыгуны",
+      "type": "movie",
+      "status": "planned",
+      "ratings": {
+        "S": null,
+        "L": null
+      },
+      "comments": {
+        "S": "",
+        "L": ""
+      },
+      "replies": [],
+      "reactions": {},
+      "genres": [
+        "мультфильм",
+        "приключения",
+        "комедия",
+        "семейный",
+        "фантастика"
+      ],
+      "note": "",
+      "addedAt": "2026-11-26",
+      "watchedAt": null,
+      "droppedAt": null,
+      "updatedBy": "serchg0george",
+      "tmdb": {
+        "id": 1327819,
+        "mediaType": "movie",
+        "originalTitle": "Hoppers",
+        "year": 2026,
+        "overview": "Любительница животных Мейбл использует умную новуютехнологию, предназначенную для «перескакивания» человеческого сознанияв реалистичных роботизированных животных, чтобы общаться с бобрами, раскрывая тайны животного мира, которые она даже не могла себе представить.",
+        "posterPath": "/4eqr5LZH122BiU9hboXHZxX8bBl.jpg",
+        "runtime": 104,
+        "imdbId": "tt26443616"
+      }
+    },
+    {
       "id": "8d35464c-ee65-48a6-8529-c5ec0e7b478d",
       "title": "Дом",
       "type": "movie",
