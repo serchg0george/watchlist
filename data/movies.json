@@ -34,6 +34,28 @@
   ],
   "items": [
     {
+      "id": "58b6586b-6f14-42eb-8917-e4e4fb722984",
+      "title": "Прыгуны",
+      "type": "movie",
+      "status": "planned",
+      "ratings": {
+        "S": null,
+        "L": null
+      },
+      "comments": {
+        "S": "",
+        "L": ""
+      },
+      "replies": [],
+      "reactions": {},
+      "genres": [],
+      "note": "",
+      "addedAt": "2026-11-26",
+      "watchedAt": null,
+      "droppedAt": null,
+      "updatedBy": "panilubov-bit"
+    },
+    {
       "id": "5776c968-15e3-4a54-b18f-c815a0cd9436",
       "title": "Дом",
       "type": "multfilm",
