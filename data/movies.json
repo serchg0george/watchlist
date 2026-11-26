@@ -34,6 +34,44 @@
   ],
   "items": [
     {
+      "id": "8d35464c-ee65-48a6-8529-c5ec0e7b478d",
+      "title": "Дом",
+      "type": "movie",
+      "status": "planned",
+      "ratings": {
+        "S": null,
+        "L": null
+      },
+      "comments": {
+        "S": "",
+        "L": ""
+      },
+      "replies": [],
+      "reactions": {},
+      "genres": [
+        "фэнтези",
+        "комедия",
+        "мультфильм",
+        "фантастика",
+        "семейный"
+      ],
+      "note": "",
+      "addedAt": "2026-11-26",
+      "watchedAt": null,
+      "droppedAt": null,
+      "updatedBy": "serchg0george",
+      "tmdb": {
+        "id": 228161,
+        "mediaType": "movie",
+        "originalTitle": "Home",
+        "year": 2015,
+        "overview": "Группа пришельцев, скрываясь от своих врагов, пытается найти прибежище на Земле.",
+        "posterPath": "/wQKIypqTQotFbduy3I809FPTo53.jpg",
+        "runtime": 94,
+        "imdbId": "tt2224026"
+      }
+    },
+    {
       "id": "58b6586b-6f14-42eb-8917-e4e4fb722984",
       "title": "Прыгуны",
       "type": "multfilm",
