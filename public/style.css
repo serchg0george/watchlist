@@ -1286,9 +1286,13 @@ dialog { max-height: 90vh; max-height: 90dvh; overflow-y: auto; overscroll-behav
 
 .scroll-top {
   position: fixed;
-  left: max(16px, env(safe-area-inset-left, 0px));
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  right: calc(3cm + env(safe-area-inset-right, 0px));
+  bottom: calc(3cm + env(safe-area-inset-bottom, 0px));
   z-index: 10;
   min-height: 44px;
 }
 body.selecting .scroll-top { display: none; }
+@media (max-width: 639px) {
+  /* Narrow screens: keep it in reach, above the floating add button. */
+  .scroll-top { right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+}
