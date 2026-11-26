@@ -36,7 +36,7 @@
     {
       "id": "5776c968-15e3-4a54-b18f-c815a0cd9436",
       "title": "Дом",
-      "type": "movie",
+      "type": "multfilm",
       "status": "planned",
       "ratings": {
         "S": null,
