@@ -37,7 +37,7 @@
       "id": "f8ddc520-59bb-488f-9bd6-72c8cae3ff49",
       "title": "Прыгуны",
       "type": "movie",
-      "status": "planned",
+      "status": "watching",
       "ratings": {
         "S": null,
         "L": null
@@ -69,7 +69,8 @@
         "posterPath": "/4eqr5LZH122BiU9hboXHZxX8bBl.jpg",
         "runtime": 104,
         "imdbId": "tt26443616"
-      }
+      },
+      "statusAt": "2026-11-26T18:26:23.345Z"
     },
     {
       "id": "8d35464c-ee65-48a6-8529-c5ec0e7b478d",
