@@ -37,7 +37,7 @@
       "id": "f8ddc520-59bb-488f-9bd6-72c8cae3ff49",
       "title": "Прыгуны",
       "type": "movie",
-      "status": "watching",
+      "status": "watched",
       "ratings": {
         "S": null,
         "L": null
@@ -57,7 +57,7 @@
       ],
       "note": "",
       "addedAt": "2026-11-26",
-      "watchedAt": null,
+      "watchedAt": "2026-11-28",
       "droppedAt": null,
       "updatedBy": "serchg0george",
       "tmdb": {
@@ -70,7 +70,7 @@
         "runtime": 104,
         "imdbId": "tt26443616"
       },
-      "statusAt": "2026-11-28T12:35:33.239Z"
+      "statusAt": "2026-11-28T12:35:38.244Z"
     },
     {
       "id": "8d35464c-ee65-48a6-8529-c5ec0e7b478d",
